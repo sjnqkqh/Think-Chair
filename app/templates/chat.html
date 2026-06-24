@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>부트캠프 운영 규정 헬퍼</title>
+  <!-- Pretendard Variable 웹폰트 로드 -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+  
+  <style>
+    /* SOCAR Frame 2.0 Design System Token & CSS */
+    :root {
+      /* Brand colors (OKLCH mapping to hex for css variables) */
+      --colors-primary-regular: #0082F0;       /* oklch(0.620 0.219 257) */
+      --colors-primary-strong: #006ED4;        /* pressed / oklch(0.586 0.236 261) */
+      --colors-primary-heavy: #0059B2;         /* oklch(0.526 0.224 263) */
+      
+      /* Neutral grays */
+      --colors-gray-50: #F8FAFC;
+      --colors-gray-100: #F1F5F9;              /* background-regular wash */
+      --colors-gray-200: #E2E8F0;              /* border-regular */
+      --colors-gray-300: #CBD5E1;
+      --colors-gray-400: #94A3B8;              /* disabled text */
+      --colors-gray-500: #64748B;              /* tertiary text */
+      --colors-gray-600: #475569;              /* secondary text */
+      --colors-gray-850: #0F172A;              /* default body text / text-primary */
+      --colors-gray-1000: #020617;             /* text-strong */
+      
+      /* Semantic assignments */
+      --colors-text-strong: var(--colors-gray-1000);
+      --colors-text-primary: var(--colors-gray-850);
+      --colors-text-secondary: var(--colors-gray-600);
+      --colors-text-tertiary: var(--colors-gray-500);
+      --colors-text-disabled: var(--colors-gray-400);
+      
+      --colors-background-regular: var(--colors-gray-100);
+      --colors-border-regular: var(--colors-gray-200);
+      --colors-white: #FFFFFF;
+      --colors-black: #000000;
+      --colors-pressed-regular: rgba(15, 23, 42, 0.06);
+      --colors-pressed-dark-regular: rgba(0, 0, 0, 0.08);
+
+      /* Typography weight */
+      --weight-regular: 400;
+      --weight-medium: 500;
+      --weight-semibold: 600;
+      --weight-bold: 700;
+      
+      /* Spacing base unit = 4px */
+      --spacing-100: 4px;
+      --spacing-200: 8px;
+      --spacing-300: 12px;
+      --spacing-350: 14px;
+      --spacing-400: 16px;
+      --spacing-500: 20px;
+      --spacing-600: 24px;
+      --spacing-800: 32px;
+      
+      /* Rounded radius */
+      --radius-100: 4px;
+      --radius-150: 6px;
+      --radius-200: 8px;
+      --radius-250: 10px;
+      --radius-300: 12px;
+      --radius-350: 14px;
+      --radius-400: 16px;
+      --radius-600: 24px;
+      --radius-circle: 9999px;
+      
+      /* Elevation */
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-tip: 0 2px 4px rgba(0, 0, 0, 0.12);
+      --shadow-sheet: 0 0 20px rgba(0, 0, 0, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--colors-background-regular);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      color: var(--colors-text-primary);
+    }
+
+    /* 375px 모바일 웹뷰 가이드라인 컨텍스트 구현 */
+    .app-viewport {
+      width: 100%;
+      max-width: 480px;
+      height: 100vh;
+      background-color: var(--colors-white);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.05);
+      border-left: 1px solid var(--colors-border-regular);
+      border-right: 1px solid var(--colors-border-regular);
+    }
+
+    /* TopAppBar - 52px 높이 고정 */
+    .top-app-bar {
+      height: 52px;
+      border-bottom: 1px solid var(--colors-border-regular);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--spacing-400);
+      background-color: var(--colors-white);
+      z-index: 10;
+      user-select: none;
+    }
+
+    .top-app-bar .back-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-circle);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      outline: none;
+      transition: transform 0.1s ease;
+    }
+
+    .top-app-bar .back-btn:active {
+      transform: scale(0.92);
+      background-color: var(--colors-pressed-regular);
+    }
+
+    .top-app-bar .title {
+      font-size: 16px;
+      font-weight: var(--weight-bold);
+      color: var(--colors-text-strong);
+      text-align: center;
+      flex-grow: 1;
+    }
+
+    .top-app-bar .menu-slot {
+      width: 32px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* Message List Area */
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--spacing-400);
+      background-color: var(--colors-gray-50);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-400);
+    }
+
+    /* Scrollbar Styling */
+    .chat-container::-webkit-scrollbar {
+      width: 4px;
+    }
+    .chat-container::-webkit-scrollbar-thumb {
+      background-color: var(--colors-gray-200);
+      border-radius: 2px;
+    }
+
+    /* Message Bubble Styles */
+    .message-row {
+      display: flex;
+      width: 100%;
+      margin-bottom: var(--spacing-200);
+    }
+
+    .message-row.user {
+      justify-content: flex-end;
+    }
+
+    .message-row.bot {
+      justify-content: flex-start;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .bubble {
+      max-width: 85%;
+      padding: var(--spacing-300) var(--spacing-400);
+      line-height: 1.5;
+      font-size: 15px;
+      word-break: break-word;
+    }
+
+    /* User Bubble: SOCAR Blue Fill */
+    .message-row.user .bubble {
+      background-color: var(--colors-primary-regular);
+      color: var(--colors-white);
+      border-radius: var(--radius-400) var(--radius-100) var(--radius-400) var(--radius-400);
+      font-weight: var(--weight-medium);
+    }
+
+    /* Bot Bubble: White Surface with weak border */
+    .message-row.bot .bubble {
+      background-color: var(--colors-white);
+      color: var(--colors-text-primary);
+      border: 1px solid var(--colors-border-regular);
+      border-radius: var(--radius-100) var(--radius-400) var(--radius-400) var(--radius-400);
+      white-space: pre-wrap;
+    }
+
+    /* Reference Docs (Accordion) */
+    .reference-section {
+      width: 100%;
+      margin-top: var(--spacing-200);
+      max-width: 90%;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-200);
+    }
+
+    .accordion-item {
+      background-color: var(--colors-white);
+      border: 1px solid var(--colors-border-regular);
+      border-radius: var(--radius-150);
+      overflow: hidden;
+      transition: border-color 0.2s ease;
+    }
+
+    .accordion-trigger {
+      padding: var(--spacing-200) var(--spacing-300);
+      font-size: 13px;
+      font-weight: var(--weight-semibold);
+      color: var(--colors-text-secondary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .accordion-trigger:active {
+      background-color: var(--colors-pressed-regular);
+    }
+
+    .accordion-icon {
+      width: 16px;
+      height: 16px;
+      transition: transform 0.2s ease;
+      fill: var(--colors-text-tertiary);
+    }
+
+    .accordion-item.open .accordion-icon {
+      transform: rotate(180deg);
+    }
+
+    .accordion-panel {
+      display: none;
+      padding: var(--spacing-300);
+      border-top: 1px solid var(--colors-gray-100);
+      background-color: var(--colors-gray-50);
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--colors-text-secondary);
+      white-space: pre-wrap;
+    }
+
+    .accordion-item.open .accordion-panel {
+      display: block;
+    }
+
+    /* Bottom Input Bar - input-filled style */
+    .input-bar-container {
+      padding: var(--spacing-300) var(--spacing-400);
+      border-top: 1px solid var(--colors-border-regular);
+      background-color: var(--colors-white);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-200);
+    }
+
+    .input-wrapper {
+      flex: 1;
+      background-color: var(--colors-gray-100);
+      border-radius: var(--radius-350);
+      border: 1px solid transparent;
+      padding: 2px var(--spacing-300);
+      display: flex;
+      align-items: center;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .input-wrapper:focus-within {
+      background-color: var(--colors-white);
+      border-color: #93C5FD; /* Focus border (blue-200) */
+    }
+
+    .chat-input {
+      width: 100%;
+      height: 38px;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 15px;
+      color: var(--colors-text-primary);
+    }
+
+    .chat-input::placeholder {
+      color: var(--colors-text-disabled);
+    }
+
+    /* CTA Send Button */
+    .send-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius-circle);
+      background-color: var(--colors-primary-regular);
+      border: none;
+      outline: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--colors-white);
+      transition: transform 0.1s ease, background-color 0.1s ease;
+    }
+
+    .send-btn:active {
+      transform: scale(0.92);
+      background-color: var(--colors-primary-strong);
+    }
+
+    .send-btn:disabled {
+      background-color: var(--colors-gray-200);
+      color: var(--colors-text-disabled);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .send-icon {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+    /* Guide Chips (Predefined Questions) */
+    .guide-chips-wrapper {
+      display: flex;
+      gap: var(--spacing-200);
+      overflow-x: auto;
+      padding-bottom: var(--spacing-200);
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .guide-chips-wrapper::-webkit-scrollbar {
+      display: none;
+    }
+
+    .guide-chip {
+      background-color: var(--colors-white);
+      border: 1px solid var(--colors-border-regular);
+      color: var(--colors-text-secondary);
+      border-radius: var(--radius-circle); /* Full pill */
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: var(--weight-medium);
+      white-space: nowrap;
+      cursor: pointer;
+      transition: transform 0.1s ease, background-color 0.1s ease;
+    }
+
+    .guide-chip:active {
+      transform: scale(0.95);
+      background-color: var(--colors-pressed-regular);
+    }
+
+    /* Typing indicators */
+    .typing-indicator {
+      display: flex;
+      gap: 4px;
+      padding: 4px 8px;
+      align-items: center;
+    }
+
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--colors-gray-400);
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1.0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-viewport">
+    
+    <!-- TopAppBar -->
+    <header class="top-app-bar">
+      <button class="back-btn" aria-label="뒤로가기">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+      </button>
+      <h1 class="title">규정 안내 헬퍼</h1>
+      <div class="menu-slot"></div>
+    </header>
+
+    <!-- Chat Message List Container -->
+    <main class="chat-container" id="chatContainer">
+      
+      <!-- Welcome Message from Bot -->
+      <div class="message-row bot">
+        <div class="bubble">안녕하세요, 크루님! 카카오테크 부트캠프 4기 규칙 RAG 챗봇입니다. 수료 조건, 출결, 휴가 등 운영 규정에 대해 물어보시면 상세히 가이드해 드릴게요! 😊</div>
+      </div>
+
+      <!-- Predefined Questions Chips (Do's: Chip 컴포넌트 활용) -->
+      <div class="guide-chips-wrapper" id="guideChips">
+        <button class="guide-chip" onclick="sendChipQuestion('지각 3번 하면 어떻게 되나요?')">지각 3회 조항</button>
+        <button class="guide-chip" onclick="sendChipQuestion('수료를 하기 위한 출석률 조건은?')">수료 조건</button>
+        <button class="guide-chip" onclick="sendChipQuestion('공가 신청은 며칠 전까지 해야 해?')">공가 신청 시한</button>
+        <button class="guide-chip" onclick="sendChipQuestion('중도 포기나 수강 철회 방법은?')">수강 철회</button>
+      </div>
+
+    </main>
+
+    <!-- Bottom Input Area -->
+    <footer class="input-bar-container">
+      <div class="input-wrapper">
+        <input type="text" class="chat-input" id="chatInput" placeholder="규정에 대해 질문해 주세요" autocomplete="off">
+      </div>
+      <button class="send-btn" id="sendBtn" aria-label="전송" disabled>
+        <svg class="send-icon" viewBox="0 0 24 24">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+        </svg>
+      </button>
+    </footer>
+
+  </div>
+
+  <script>
+    let sessionId = sessionStorage.getItem('rag_session_id');
+    if (!sessionId) {
+      try {
+        sessionId = crypto.randomUUID();
+      } catch (e) {
+        sessionId = 'session-' + Math.random().toString(36).substring(2, 15);
+      }
+      sessionStorage.setItem('rag_session_id', sessionId);
+    }
+
+    const chatContainer = document.getElementById('chatContainer');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const guideChips = document.getElementById('guideChips');
+
+    // Enable/disable send button based on input content
+    chatInput.addEventListener('input', () => {
+      sendBtn.disabled = chatInput.value.trim() === '';
+    });
+
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !sendBtn.disabled) {
+        sendMessage();
+      }
+    });
+
+    sendBtn.addEventListener('click', () => {
+      if (!sendBtn.disabled) {
+        sendMessage();
+      }
+    });
+
+    function sendChipQuestion(questionText) {
+      chatInput.value = questionText;
+      sendBtn.disabled = false;
+      sendMessage();
+    }
+
+    // Scroll chat view to bottom
+    function scrollToBottom() {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // Toggle Accordion Panels
+    function toggleAccordion(triggerElement) {
+      const item = triggerElement.closest('.accordion-item');
+      item.classList.toggle('open');
+      scrollToBottom();
+    }
+
+    // Main send message coordinator
+    async function sendMessage() {
+      const question = chatInput.value.trim();
+      if (!question) return;
+
+      // Clear input
+      chatInput.value = '';
+      sendBtn.disabled = true;
+
+      // Hide guide chips after first interaction
+      if (guideChips) {
+        guideChips.style.display = 'none';
+      }
+
+      // 1. Render User Message
+      const userRow = document.createElement('div');
+      userRow.className = 'message-row user';
+      userRow.innerHTML = `<div class="bubble">${escapeHtml(question)}</div>`;
+      chatContainer.appendChild(userRow);
+      scrollToBottom();
+
+      // 2. Render Loading/Typing Indicator for Bot
+      const botRow = document.createElement('div');
+      botRow.className = 'message-row bot';
+      
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      const typingIndicator = document.createElement('div');
+      typingIndicator.className = 'typing-indicator';
+      typingIndicator.innerHTML = `
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      `;
+      bubble.appendChild(typingIndicator);
+      botRow.appendChild(bubble);
+      chatContainer.appendChild(botRow);
+      scrollToBottom();
+
+      // Start Stream Request
+      try {
+        const response = await fetch('/query/stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            question: question,
+            top_k: 5,
+            session_id: sessionId
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('서버 응답 오류가 발생했습니다.');
+        }
+
+        // Clean indicator & setup streaming text container
+        bubble.innerHTML = '';
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let currentEvent = null;
+        let answerText = '';
+        let referenceDocs = [];
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // Keep partial line in buffer
+
+          for (const line of lines) {
+            const cleanLine = line.trim();
+            if (!cleanLine) continue;
+
+            if (cleanLine.startsWith('event:')) {
+              currentEvent = cleanLine.slice(6).trim();
+            } else if (cleanLine.startsWith('data:')) {
+              const dataStr = cleanLine.slice(5).trim();
+
+              if (currentEvent === 'metadata') {
+                // Parse contexts metadata
+                try {
+                  const meta = JSON.parse(dataStr);
+                  referenceDocs = meta.contexts || [];
+                } catch (e) {
+                  console.error('Failed to parse metadata JSON:', e);
+                }
+                currentEvent = null;
+              } else {
+                // Stream text chunk
+                answerText += dataStr;
+                bubble.innerText = answerText;
+                scrollToBottom();
+              }
+            }
+          }
+        }
+
+        // Render reference documents as SOCAR Frame Accordions
+        if (referenceDocs && referenceDocs.length > 0) {
+          const referenceSec = document.createElement('div');
+          referenceSec.className = 'reference-section';
+          
+          referenceDocs.forEach((doc, index) => {
+            const titleMatch = doc.match(/Header:\s*(.*?)\n/);
+            const title = titleMatch ? titleMatch[1].replace(/\[.*?\]\s*/g, '').trim() : `참조 문서 ${index + 1}`;
+            const cleanContent = doc.replace(/Header:\s*.*?\n\n/, '').trim();
+
+            const accordionItem = document.createElement('div');
+            accordionItem.className = 'accordion-item';
+            accordionItem.innerHTML = `
+              <div class="accordion-trigger" onclick="toggleAccordion(this)">
+                <span>📖 ${escapeHtml(title)}</span>
+                <svg class="accordion-icon" viewBox="0 0 24 24">
+                  <path d="M7 10l5 5 5-5z"/>
+                </svg>
+              </div>
+              <div class="accordion-panel">${escapeHtml(cleanContent)}</div>
+            `;
+            referenceSec.appendChild(accordionItem);
+          });
+          botRow.appendChild(referenceSec);
+          scrollToBottom();
+        }
+
+      } catch (err) {
+        console.error(err);
+        bubble.innerHTML = `<span style="color: #EF4444;">오류가 발생했습니다: ${escapeHtml(err.message)}</span>`;
+        scrollToBottom();
+      }
+    }
+
+    function escapeHtml(string) {
+      const htmlEscapes = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#x27;',
+        '/': '&#x2F;'
+      };
+      return String(string).replace(/[&<>"'\/]/g, (s) => htmlEscapes[s]);
+    }
+  </script>
+</body>
+</html>
