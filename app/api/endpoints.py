@@ -1,13 +1,17 @@
 import os
 import json
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, HTMLResponse
-from app.schemas.rag import QueryRequest, QueryResponse, IndexResponse
+from app.schemas.rag import QueryRequest, QueryResponse, IndexResponse, UploadResponse, EvalRequest, EvalResponse, StrategyEvalResult
 from app.services.rag import RagService
+from app.services.chunking import ChunkingService
+from app.services.evaluator import EvaluatorService
 from app.core.config import settings
+from app.core.vectorstore import VectorStoreManager
 
 router = APIRouter()
 _service = None
+_evaluator = None
 
 
 def get_rag_service() -> RagService:
@@ -20,6 +24,18 @@ def get_rag_service() -> RagService:
                 status_code=500, detail=f"Failed to initialize RAG Service: {str(e)}"
             )
     return _service
+
+
+def get_evaluator_service() -> EvaluatorService:
+    global _evaluator
+    if _evaluator is None:
+        try:
+            _evaluator = EvaluatorService()
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"Failed to initialize Evaluator Service: {str(e)}"
+            )
+    return _evaluator
 
 
 @router.get("/")
@@ -77,6 +93,86 @@ async def query_rag_stream(
     return StreamingResponse(sse_generator(), media_type="text/event-stream")
 
 
+@router.post("/upload", response_model=UploadResponse, summary="RAG 문서 업로드 및 다중 청킹 저장")
+async def upload_document(
+    file: UploadFile = File(...),
+    strategies: str = Form(..., description="JSON format chunking strategies list")
+):
+    try:
+        content = await file.read()
+        filename = file.filename
+        text = ChunkingService.extract_text_from_file(content, filename)
+        
+        try:
+            strategy_list = json.loads(strategies)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON format for 'strategies'")
+            
+        vector_manager = VectorStoreManager()
+        strategies_applied = []
+        chunks_count = {}
+        
+        for strategy in strategy_list:
+            docs = ChunkingService.split_document(text, strategy, filename)
+            coll_name = ChunkingService.get_collection_name_for_strategy(strategy)
+            
+            doc_ids = [f"{filename}_{coll_name}_{i}" for i in range(len(docs))]
+            vector_manager.delete_existing_documents(doc_ids, collection_name=coll_name)
+            vector_manager.add_documents_batch(docs, doc_ids, collection_name=coll_name)
+            
+            strategies_applied.append(coll_name)
+            chunks_count[coll_name] = len(docs)
+            
+        return UploadResponse(
+            status="success",
+            filename=filename,
+            strategies_applied=strategies_applied,
+            chunks_count=chunks_count
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.post("/eval/run", response_model=EvalResponse, summary="RAG 다중 청킹 성능 평가")
+async def run_evaluation(
+    req: EvalRequest,
+    evaluator: EvaluatorService = Depends(get_evaluator_service)
+):
+    try:
+        results = []
+        for strategy in req.strategies:
+            coll_name = ChunkingService.get_collection_name_for_strategy(strategy)
+            
+            eval_result = evaluator.run_eval_for_strategy(
+                question=req.question,
+                ground_truth=req.ground_truth,
+                collection_name=coll_name,
+                top_k=req.top_k
+            )
+            
+            strategy_str = f"{strategy.get('name')}"
+            if strategy.get('name') in ['recursive', 'character']:
+                strategy_str += f" (s={strategy.get('chunk_size')}, o={strategy.get('chunk_overlap')})"
+                
+            results.append(StrategyEvalResult(
+                strategy=strategy_str,
+                collection_name=coll_name,
+                answer=eval_result["answer"],
+                contexts=eval_result["contexts"],
+                scores=eval_result["scores"]
+            ))
+            
+        return EvalResponse(
+            question=req.question,
+            ground_truth=req.ground_truth,
+            results=results
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(e)}")
+
+
 @router.get("/chat", response_class=HTMLResponse, summary="RAG 웹 채팅 화면")
 async def chat_ui():
     template_path = os.path.join(settings.BASE_DIR, "app", "templates", "chat.html")
@@ -87,3 +183,4 @@ async def chat_ui():
         html_content = f.read()
 
     return HTMLResponse(content=html_content)
+
