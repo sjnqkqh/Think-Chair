@@ -1,5 +1,10 @@
 from fastapi import FastAPI
 from app.api.endpoints import router as api_router
+from app.core.database import engine, Base
+import app.models.history
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="RAG FastAPI Server",

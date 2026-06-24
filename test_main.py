@@ -2,24 +2,46 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock
-from main import app
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from main import app as fastapi_app
 from app.api.endpoints import get_rag_service, get_evaluator_service
 from app.services.rag import RagService
 from app.services.evaluator import EvaluatorService
+from app.core.database import get_db, Base
+import app.models.history  # Import to register models on Base metadata
+from sqlalchemy.pool import StaticPool
 
-client = TestClient(app)
+# Setup in-memory database with StaticPool for testing
+test_engine = create_engine(
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool
+)
+TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+Base.metadata.create_all(bind=test_engine)
+
+client = TestClient(fastapi_app)
 mock_service = MagicMock(spec=RagService)
 mock_evaluator = MagicMock(spec=EvaluatorService)
 
 
 @pytest.fixture(autouse=True)
 def setup_dependency_overrides():
-    app.dependency_overrides[get_rag_service] = lambda: mock_service
-    app.dependency_overrides[get_evaluator_service] = lambda: mock_evaluator
+    def override_get_db():
+        db = TestSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+            
+    fastapi_app.dependency_overrides[get_rag_service] = lambda: mock_service
+    fastapi_app.dependency_overrides[get_evaluator_service] = lambda: mock_evaluator
+    fastapi_app.dependency_overrides[get_db] = override_get_db
     yield
     mock_service.reset_mock()
     mock_evaluator.reset_mock()
-    app.dependency_overrides.clear()
+    fastapi_app.dependency_overrides.clear()
 
 
 def test_read_root():
@@ -172,4 +194,13 @@ def test_eval_run_endpoint_success():
     assert "recursive" in res["strategy"]
     assert res["scores"]["faithfulness"]["score"] == 5
     mock_evaluator.run_eval_for_strategy.assert_called_once()
+
+
+def test_history_endpoints():
+    # 1. Check initially empty or containing entries
+    resp_upload = client.get("/history/uploads")
+    assert resp_upload.status_code == 200
+    
+    resp_eval = client.get("/history/evals")
+    assert resp_eval.status_code == 200
 
