@@ -3,28 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>부트캠프 운영 규정 헬퍼</title>
+  <title>RAG 문서 다중 청킹 및 성능 평가 대시보드</title>
   <!-- Pretendard Variable 웹폰트 로드 -->
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
   
   <style>
-    /* SOCAR Frame 2.0 Design System Token & CSS */
     :root {
-      /* Brand colors (OKLCH mapping to hex for css variables) */
-      --colors-primary-regular: #0082F0;       /* oklch(0.620 0.219 257) */
-      --colors-primary-strong: #006ED4;        /* pressed / oklch(0.586 0.236 261) */
-      --colors-primary-heavy: #0059B2;         /* oklch(0.526 0.224 263) */
+      /* Brand & Primary colors */
+      --colors-primary-regular: #0082F0;       
+      --colors-primary-strong: #006ED4;        
+      --colors-primary-heavy: #0059B2;         
+      --colors-primary-light: #EBF5FF;         
       
       /* Neutral grays */
       --colors-gray-50: #F8FAFC;
-      --colors-gray-100: #F1F5F9;              /* background-regular wash */
-      --colors-gray-200: #E2E8F0;              /* border-regular */
+      --colors-gray-100: #F1F5F9;              
+      --colors-gray-200: #E2E8F0;              
       --colors-gray-300: #CBD5E1;
-      --colors-gray-400: #94A3B8;              /* disabled text */
-      --colors-gray-500: #64748B;              /* tertiary text */
-      --colors-gray-600: #475569;              /* secondary text */
-      --colors-gray-850: #0F172A;              /* default body text / text-primary */
-      --colors-gray-1000: #020617;             /* text-strong */
+      --colors-gray-400: #94A3B8;              
+      --colors-gray-500: #64748B;              
+      --colors-gray-600: #475569;              
+      --colors-gray-850: #0F172A;              
+      --colors-gray-1000: #020617;             
       
       /* Semantic assignments */
       --colors-text-strong: var(--colors-gray-1000);
@@ -37,26 +37,17 @@
       --colors-border-regular: var(--colors-gray-200);
       --colors-white: #FFFFFF;
       --colors-black: #000000;
-      --colors-pressed-regular: rgba(15, 23, 42, 0.06);
-      --colors-pressed-dark-regular: rgba(0, 0, 0, 0.08);
-
-      /* Typography weight */
+      
+      --colors-success: #10B981;
+      --colors-success-light: #D1FAE5;
+      --colors-warning: #F59E0B;
+      --colors-warning-light: #FEF3C7;
+      
       --weight-regular: 400;
       --weight-medium: 500;
       --weight-semibold: 600;
       --weight-bold: 700;
       
-      /* Spacing base unit = 4px */
-      --spacing-100: 4px;
-      --spacing-200: 8px;
-      --spacing-300: 12px;
-      --spacing-350: 14px;
-      --spacing-400: 16px;
-      --spacing-500: 20px;
-      --spacing-600: 24px;
-      --spacing-800: 32px;
-      
-      /* Rounded radius */
       --radius-100: 4px;
       --radius-150: 6px;
       --radius-200: 8px;
@@ -67,10 +58,9 @@
       --radius-600: 24px;
       --radius-circle: 9999px;
       
-      /* Elevation */
       --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-      --shadow-tip: 0 2px 4px rgba(0, 0, 0, 0.12);
-      --shadow-sheet: 0 0 20px rgba(0, 0, 0, 0.25);
+      --shadow-tip: 0 2px 8px rgba(0, 0, 0, 0.08);
+      --shadow-sheet: 0 4px 20px rgba(0, 0, 0, 0.06);
     }
 
     * {
@@ -91,50 +81,39 @@
       color: var(--colors-text-primary);
     }
 
-    /* 375px 모바일 웹뷰 가이드라인 컨텍스트 구현 */
+    /* 반응형 뷰포트 콘텍스트: 탭에 따라 가로 넓이 동적 변화 */
     .app-viewport {
       width: 100%;
-      max-width: 480px;
+      max-width: 480px; /* 기본 모바일 모드 */
       height: 100vh;
       background-color: var(--colors-white);
       display: flex;
       flex-direction: column;
       position: relative;
-      box-shadow: 0 0 30px rgba(0, 0, 0, 0.05);
+      box-shadow: var(--shadow-sheet);
+      transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       border-left: 1px solid var(--colors-border-regular);
       border-right: 1px solid var(--colors-border-regular);
     }
 
-    /* TopAppBar - 52px 높이 고정 */
+    /* 평가 탭 등 넓은 화면이 필요할 때 적용 */
+    .app-viewport.wide-mode {
+      max-width: 1280px;
+      border: none;
+    }
+
+    /* TopAppBar */
     .top-app-bar {
       height: 52px;
       border-bottom: 1px solid var(--colors-border-regular);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 var(--spacing-400);
+      padding: 0 16px;
       background-color: var(--colors-white);
       z-index: 10;
       user-select: none;
-    }
-
-    .top-app-bar .back-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      border-radius: var(--radius-circle);
-      cursor: pointer;
-      border: none;
-      background: transparent;
-      outline: none;
-      transition: transform 0.1s ease;
-    }
-
-    .top-app-bar .back-btn:active {
-      transform: scale(0.92);
-      background-color: var(--colors-pressed-regular);
+      flex-shrink: 0;
     }
 
     .top-app-bar .title {
@@ -145,37 +124,64 @@
       flex-grow: 1;
     }
 
-    .top-app-bar .menu-slot {
-      width: 32px;
+    /* Tab navigation */
+    .tab-bar {
       display: flex;
-      justify-content: flex-end;
+      border-bottom: 1px solid var(--colors-border-regular);
+      background-color: var(--colors-white);
+      user-select: none;
+      flex-shrink: 0;
     }
 
-    /* Message List Area */
+    .tab-item {
+      flex: 1;
+      text-align: center;
+      padding: 14px 0;
+      font-size: 14px;
+      font-weight: var(--weight-semibold);
+      color: var(--colors-text-secondary);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .tab-item.active {
+      color: var(--colors-primary-regular);
+      border-bottom-color: var(--colors-primary-regular);
+    }
+
+    /* Tab content view */
+    .tab-content {
+      flex: 1;
+      display: none;
+      overflow-y: auto;
+      background-color: var(--colors-gray-50);
+      position: relative;
+    }
+
+    .tab-content.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* CHAT TAB STYLE */
     .chat-container {
       flex: 1;
       overflow-y: auto;
-      padding: var(--spacing-400);
-      background-color: var(--colors-gray-50);
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-400);
+      gap: 16px;
     }
 
-    /* Scrollbar Styling */
-    .chat-container::-webkit-scrollbar {
-      width: 4px;
-    }
-    .chat-container::-webkit-scrollbar-thumb {
-      background-color: var(--colors-gray-200);
-      border-radius: 2px;
-    }
-
-    /* Message Bubble Styles */
     .message-row {
       display: flex;
       width: 100%;
-      margin-bottom: var(--spacing-200);
+      margin-bottom: 8px;
     }
 
     .message-row.user {
@@ -190,37 +196,35 @@
 
     .bubble {
       max-width: 85%;
-      padding: var(--spacing-300) var(--spacing-400);
+      padding: 12px 16px;
       line-height: 1.5;
       font-size: 15px;
       word-break: break-word;
     }
 
-    /* User Bubble: SOCAR Blue Fill */
     .message-row.user .bubble {
       background-color: var(--colors-primary-regular);
       color: var(--colors-white);
-      border-radius: var(--radius-400) var(--radius-100) var(--radius-400) var(--radius-400);
+      border-radius: var(--radius-300) var(--radius-100) var(--radius-300) var(--radius-300);
       font-weight: var(--weight-medium);
     }
 
-    /* Bot Bubble: White Surface with weak border */
     .message-row.bot .bubble {
       background-color: var(--colors-white);
       color: var(--colors-text-primary);
       border: 1px solid var(--colors-border-regular);
-      border-radius: var(--radius-100) var(--radius-400) var(--radius-400) var(--radius-400);
+      border-radius: var(--radius-100) var(--radius-300) var(--radius-300) var(--radius-300);
       white-space: pre-wrap;
+      box-shadow: var(--shadow-sm);
     }
 
-    /* Reference Docs (Accordion) */
     .reference-section {
       width: 100%;
-      margin-top: var(--spacing-200);
+      margin-top: 8px;
       max-width: 90%;
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-200);
+      gap: 8px;
     }
 
     .accordion-item {
@@ -228,11 +232,11 @@
       border: 1px solid var(--colors-border-regular);
       border-radius: var(--radius-150);
       overflow: hidden;
-      transition: border-color 0.2s ease;
+      box-shadow: var(--shadow-sm);
     }
 
     .accordion-trigger {
-      padding: var(--spacing-200) var(--spacing-300);
+      padding: 10px 14px;
       font-size: 13px;
       font-weight: var(--weight-semibold);
       color: var(--colors-text-secondary);
@@ -241,10 +245,6 @@
       align-items: center;
       cursor: pointer;
       user-select: none;
-    }
-
-    .accordion-trigger:active {
-      background-color: var(--colors-pressed-regular);
     }
 
     .accordion-icon {
@@ -260,7 +260,7 @@
 
     .accordion-panel {
       display: none;
-      padding: var(--spacing-300);
+      padding: 12px;
       border-top: 1px solid var(--colors-gray-100);
       background-color: var(--colors-gray-50);
       font-size: 13px;
@@ -273,30 +273,23 @@
       display: block;
     }
 
-    /* Bottom Input Bar - input-filled style */
     .input-bar-container {
-      padding: var(--spacing-300) var(--spacing-400);
+      padding: 12px 16px;
       border-top: 1px solid var(--colors-border-regular);
       background-color: var(--colors-white);
       display: flex;
       align-items: center;
-      gap: var(--spacing-200);
+      gap: 8px;
+      flex-shrink: 0;
     }
 
     .input-wrapper {
       flex: 1;
       background-color: var(--colors-gray-100);
       border-radius: var(--radius-350);
-      border: 1px solid transparent;
-      padding: 2px var(--spacing-300);
+      padding: 2px 12px;
       display: flex;
       align-items: center;
-      transition: border-color 0.15s ease, background-color 0.15s ease;
-    }
-
-    .input-wrapper:focus-within {
-      background-color: var(--colors-white);
-      border-color: #93C5FD; /* Focus border (blue-200) */
     }
 
     .chat-input {
@@ -309,11 +302,6 @@
       color: var(--colors-text-primary);
     }
 
-    .chat-input::placeholder {
-      color: var(--colors-text-disabled);
-    }
-
-    /* CTA Send Button */
     .send-btn {
       width: 42px;
       height: 42px;
@@ -326,19 +314,12 @@
       justify-content: center;
       cursor: pointer;
       color: var(--colors-white);
-      transition: transform 0.1s ease, background-color 0.1s ease;
-    }
-
-    .send-btn:active {
-      transform: scale(0.92);
-      background-color: var(--colors-primary-strong);
     }
 
     .send-btn:disabled {
       background-color: var(--colors-gray-200);
       color: var(--colors-text-disabled);
       cursor: not-allowed;
-      transform: none;
     }
 
     .send-icon {
@@ -347,13 +328,11 @@
       fill: currentColor;
     }
 
-    /* Guide Chips (Predefined Questions) */
     .guide-chips-wrapper {
       display: flex;
-      gap: var(--spacing-200);
+      gap: 8px;
       overflow-x: auto;
-      padding-bottom: var(--spacing-200);
-      user-select: none;
+      padding-bottom: 8px;
       flex-shrink: 0;
     }
 
@@ -365,184 +344,885 @@
       background-color: var(--colors-white);
       border: 1px solid var(--colors-border-regular);
       color: var(--colors-text-secondary);
-      border-radius: var(--radius-circle); /* Full pill */
+      border-radius: var(--radius-circle);
       padding: 8px 12px;
       font-size: 13px;
       font-weight: var(--weight-medium);
       white-space: nowrap;
       cursor: pointer;
-      transition: transform 0.1s ease, background-color 0.1s ease;
     }
 
-    .guide-chip:active {
-      transform: scale(0.95);
-      background-color: var(--colors-pressed-regular);
-    }
-
-    /* Typing indicators */
-    .typing-indicator {
+    /* UPLOAD TAB STYLE */
+    .form-container {
+      padding: 24px 16px;
       display: flex;
-      gap: 4px;
-      padding: 4px 8px;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card {
+      background-color: var(--colors-white);
+      border: 1px solid var(--colors-border-regular);
+      border-radius: var(--radius-300);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .form-title {
+      font-size: 16px;
+      font-weight: var(--weight-bold);
+      color: var(--colors-text-strong);
+      margin-bottom: 12px;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--colors-gray-300);
+      border-radius: var(--radius-250);
+      padding: 32px 16px;
+      text-align: center;
+      cursor: pointer;
+      background-color: var(--colors-gray-50);
+      transition: all 0.25s ease;
+      display: flex;
+      flex-direction: column;
       align-items: center;
+      gap: 8px;
     }
 
-    .typing-dot {
-      width: 6px;
-      height: 6px;
+    .dropzone.dragover {
+      border-color: var(--colors-primary-regular);
+      background-color: var(--colors-primary-light);
+    }
+
+    .dropzone-icon {
+      width: 40px;
+      height: 40px;
+      color: var(--colors-gray-400);
+    }
+
+    .dropzone.has-file .dropzone-icon {
+      color: var(--colors-success);
+    }
+
+    .dropzone-text {
+      font-size: 14px;
+      color: var(--colors-text-secondary);
+    }
+
+    .strategy-selection {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--colors-gray-100);
+    }
+
+    .checkbox-row:last-child {
+      border-bottom: none;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      cursor: pointer;
+    }
+
+    .checkbox-label {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      cursor: pointer;
+    }
+
+    .checkbox-title {
+      font-size: 14px;
+      font-weight: var(--weight-semibold);
+      color: var(--colors-text-strong);
+    }
+
+    .checkbox-desc {
+      font-size: 12px;
+      color: var(--colors-text-tertiary);
+    }
+
+    .primary-btn {
+      width: 100%;
+      padding: 14px 0;
+      border-radius: var(--radius-250);
+      background-color: var(--colors-primary-regular);
+      color: var(--colors-white);
+      border: none;
+      font-size: 15px;
+      font-weight: var(--weight-bold);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background-color 0.2s;
+    }
+
+    .primary-btn:hover {
+      background-color: var(--colors-primary-strong);
+    }
+
+    .primary-btn:disabled {
+      background-color: var(--colors-gray-300);
+      cursor: not-allowed;
+    }
+
+    /* EVALUATION TAB STYLE */
+    .eval-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 24px;
+      height: 100%;
+    }
+
+    /* Wide Mode에서의 가로 배치 레이아웃 */
+    .app-viewport.wide-mode .eval-layout {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+
+    .eval-input-side {
+      width: 100%;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .app-viewport.wide-mode .eval-input-side {
+      width: 380px;
+    }
+
+    .eval-result-side {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0; /* flex item truncation */
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .form-label {
+      font-size: 13px;
+      font-weight: var(--weight-bold);
+      color: var(--colors-text-secondary);
+    }
+
+    .form-input, .form-textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--colors-border-regular);
+      border-radius: var(--radius-200);
+      font-size: 14px;
+      outline: none;
+      background-color: var(--colors-white);
+    }
+
+    .form-textarea {
+      height: 90px;
+      resize: none;
+    }
+
+    .form-input:focus, .form-textarea:focus {
+      border-color: var(--colors-primary-regular);
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .app-viewport.wide-mode .results-grid {
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    }
+
+    /* EVAL RESULT CARD DESIGN */
+    .result-card {
+      background-color: var(--colors-white);
+      border: 1px solid var(--colors-border-regular);
+      border-radius: var(--radius-300);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .result-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--colors-gray-100);
+      padding-bottom: 12px;
+    }
+
+    .strategy-badge {
+      background-color: var(--colors-primary-light);
+      color: var(--colors-primary-strong);
+      padding: 4px 8px;
+      border-radius: var(--radius-100);
+      font-size: 12px;
+      font-weight: var(--weight-bold);
+    }
+
+    .collection-text {
+      font-size: 11px;
+      color: var(--colors-text-tertiary);
+      margin-top: 4px;
+    }
+
+    /* Scores badges grid */
+    .score-badges-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .score-badge-item {
+      background-color: var(--colors-gray-50);
+      border: 1px solid var(--colors-border-regular);
+      border-radius: var(--radius-150);
+      padding: 8px;
+      text-align: center;
+    }
+
+    .score-label {
+      font-size: 11px;
+      color: var(--colors-text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .score-value {
+      font-size: 18px;
+      font-weight: var(--weight-bold);
+      color: var(--colors-primary-regular);
+    }
+
+    .score-value.high {
+      color: var(--colors-success);
+    }
+
+    .score-value.mid {
+      color: var(--colors-warning);
+    }
+
+    .score-value.low {
+      color: #EF4444;
+    }
+
+    .card-section-title {
+      font-size: 13px;
+      font-weight: var(--weight-bold);
+      color: var(--colors-text-strong);
+      margin-bottom: 6px;
+    }
+
+    .card-text-block {
+      background-color: var(--colors-gray-50);
+      border: 1px solid var(--colors-gray-100);
+      border-radius: var(--radius-150);
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--colors-text-secondary);
+      white-space: pre-wrap;
+    }
+
+    .score-reason-toggle {
+      font-size: 12px;
+      color: var(--colors-primary-regular);
+      cursor: pointer;
+      font-weight: var(--weight-semibold);
+      user-select: none;
+      display: inline-block;
+      margin-top: 4px;
+    }
+
+    /* Global Loader */
+    .overlay-loader {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.85);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--colors-gray-200);
+      border-top-color: var(--colors-primary-regular);
       border-radius: 50%;
-      background-color: var(--colors-gray-400);
-      animation: bounce 1.4s infinite ease-in-out both;
+      animation: spin 1s infinite linear;
     }
 
-    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
 
-    @keyframes bounce {
-      0%, 80%, 100% { transform: scale(0); }
-      40% { transform: scale(1.0); }
+    .loader-text {
+      font-size: 14px;
+      font-weight: var(--weight-semibold);
+      color: var(--colors-text-secondary);
     }
   </style>
 </head>
 <body>
 
-  <div class="app-viewport">
+  <div class="app-viewport" id="viewport">
     
     <!-- TopAppBar -->
     <header class="top-app-bar">
-      <button class="back-btn" aria-label="뒤로가기">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="19" y1="12" x2="5" y2="12"></line>
-          <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-      </button>
-      <h1 class="title">규정 안내 헬퍼</h1>
-      <div class="menu-slot"></div>
+      <h1 class="title" id="pageTitle">규정 안내 헬퍼</h1>
     </header>
 
-    <!-- Chat Message List Container -->
-    <main class="chat-container" id="chatContainer">
-      
-      <!-- Welcome Message from Bot -->
-      <div class="message-row bot">
-        <div class="bubble">안녕하세요, 크루님! 카카오테크 부트캠프 4기 규칙 RAG 챗봇입니다. 수료 조건, 출결, 휴가 등 운영 규정에 대해 물어보시면 상세히 가이드해 드릴게요! 😊</div>
+    <!-- Tab Bar -->
+    <nav class="tab-bar">
+      <div class="tab-item active" onclick="switchTab('chat')">
+        💬 <span>대화</span>
       </div>
-
-      <!-- Predefined Questions Chips (Do's: Chip 컴포넌트 활용) -->
-      <div class="guide-chips-wrapper" id="guideChips">
-        <button class="guide-chip" onclick="sendChipQuestion('지각 3번 하면 어떻게 되나요?')">지각 3회 조항</button>
-        <button class="guide-chip" onclick="sendChipQuestion('수료를 하기 위한 출석률 조건은?')">수료 조건</button>
-        <button class="guide-chip" onclick="sendChipQuestion('공가 신청은 며칠 전까지 해야 해?')">공가 신청 시한</button>
-        <button class="guide-chip" onclick="sendChipQuestion('중도 포기나 수강 철회 방법은?')">수강 철회</button>
+      <div class="tab-item" onclick="switchTab('upload')">
+        📤 <span>문서 업로드</span>
       </div>
-
-    </main>
-
-    <!-- Bottom Input Area -->
-    <footer class="input-bar-container">
-      <div class="input-wrapper">
-        <input type="text" class="chat-input" id="chatInput" placeholder="규정에 대해 질문해 주세요" autocomplete="off">
+      <div class="tab-item" onclick="switchTab('eval')">
+        📊 <span>성능 평가</span>
       </div>
-      <button class="send-btn" id="sendBtn" aria-label="전송" disabled>
-        <svg class="send-icon" viewBox="0 0 24 24">
-          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
-        </svg>
-      </button>
-    </footer>
+    </nav>
+
+    <!-- 1. 대화 (Chat) 탭 -->
+    <div class="tab-content active" id="tabContent-chat">
+      <main class="chat-container" id="chatContainer">
+        <!-- Welcome Message -->
+        <div class="message-row bot">
+          <div class="bubble">안녕하세요! RAG 다중 청킹 및 성능 평가 대시보드입니다. 📤[문서 업로드] 탭에서 문서를 청킹하여 적재한 후, 질문을 남기시면 업로드된 문서를 바탕으로 성실하게 답변해 드릴게요! 🤖</div>
+        </div>
+
+        <div class="guide-chips-wrapper" id="guideChips">
+          <button class="guide-chip" onclick="sendChipQuestion('이 도구의 주요 목적과 활용 방법은 무엇인가요?')">도구 사용 가이드</button>
+          <button class="guide-chip" onclick="sendChipQuestion('청킹 전략(전략명, 청크 사이즈, 오버랩)이 RAG 검색 품질에 미치는 영향은 무엇인가요?')">청킹의 중요성</button>
+          <button class="guide-chip" onclick="sendChipQuestion('성능 평가에서 측정하는 세 가지 평가 지표(Faithfulness, Relevance, Precision)의 의미는?')">평가 지표 안내</button>
+        </div>
+      </main>
+
+
+      <footer class="input-bar-container">
+        <div class="input-wrapper">
+          <input type="text" class="chat-input" id="chatInput" placeholder="규정에 대해 질문해 주세요" autocomplete="off" oninput="toggleSendBtn()">
+        </div>
+        <button class="send-btn" id="sendBtn" aria-label="전송" disabled onclick="sendMessage()">
+          <svg class="send-icon" viewBox="0 0 24 24">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+          </svg>
+        </button>
+      </footer>
+    </div>
+
+    <!-- 2. 문서 업로드 (Upload) 탭 -->
+    <div class="tab-content" id="tabContent-upload">
+      <div class="form-container">
+        <div class="card">
+          <h2 class="form-title">RAG 파일 드롭존</h2>
+          <div class="dropzone" id="dropzone" onclick="triggerFileInput()">
+            <svg class="dropzone-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <div class="dropzone-text" id="dropzoneText">클릭하거나 여기에 파일을 드래그하여 드롭하세요. (.txt, .md, .pdf 지원)</div>
+            <input type="file" id="fileInput" style="display: none;" accept=".txt,.md,.pdf" onchange="handleFileSelect(this)">
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="form-title">청킹 전략 선택 (N개 다중 적용 가능)</h2>
+          <div class="strategy-selection">
+            <div class="checkbox-row">
+              <input type="checkbox" id="chk-rec-small" checked>
+              <label class="checkbox-label" for="chk-rec-small">
+                <span class="checkbox-title">Recursive (Size: 500, Overlap: 50)</span>
+                <span class="checkbox-desc">표준 단락 단위의 세밀한 청킹에 적합</span>
+              </label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="chk-rec-large" checked>
+              <label class="checkbox-label" for="chk-rec-large">
+                <span class="checkbox-title">Recursive (Size: 1000, Overlap: 100)</span>
+                <span class="checkbox-desc">긴 문맥 보존을 통한 통합 정보 검색에 적합</span>
+              </label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="chk-char">
+              <label class="checkbox-label" for="chk-char">
+                <span class="checkbox-title">Character Splitter (구분자: \n\n, Size: 500)</span>
+                <span class="checkbox-desc">이중 개행(문단) 기준으로 정확히 자름</span>
+              </label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="chk-md">
+              <label class="checkbox-label" for="chk-md">
+                <span class="checkbox-title">Markdown Header Splitter</span>
+                <span class="checkbox-desc">마크다운 헤더 구조(#, ##, ###)를 따라 계층적 분할</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <button class="primary-btn" id="uploadBtn" onclick="uploadAndChunk()" disabled>
+          <span>📤 문서 청킹 및 벡터 임베딩 저장</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. 성능 평가 (Evaluation) 탭 -->
+    <div class="tab-content" id="tabContent-eval">
+      <div class="eval-layout">
+        <!-- Input Panel -->
+        <div class="eval-input-side">
+          <div class="card">
+            <h2 class="form-title">테스트 파라미터 입력</h2>
+            <div class="form-group">
+              <label class="form-label" for="evalQuestion">테스트 질문</label>
+              <input type="text" class="form-input" id="evalQuestion" placeholder="예: 지각 3번이면 하루 결석 처리되나요?">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="evalGroundTruth">정답 가이드라인 (Ground Truth)</label>
+              <textarea class="form-textarea" id="evalGroundTruth" placeholder="예: 지각, 조퇴, 외출 누적 3회는 결석 1일로 처리됩니다."></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">평가 비교 대상 청킹 전략</label>
+              <div class="strategy-selection" style="margin-top: 8px;">
+                <div class="checkbox-row" style="padding: 4px 0;">
+                  <input type="checkbox" id="eval-chk-rec-small" checked>
+                  <label for="eval-chk-rec-small" style="font-size: 13px; font-weight: 500; cursor: pointer;">Recursive 500/50</label>
+                </div>
+                <div class="checkbox-row" style="padding: 4px 0;">
+                  <input type="checkbox" id="eval-chk-rec-large" checked>
+                  <label for="eval-chk-rec-large" style="font-size: 13px; font-weight: 500; cursor: pointer;">Recursive 1000/100</label>
+                </div>
+                <div class="checkbox-row" style="padding: 4px 0;">
+                  <input type="checkbox" id="eval-chk-char">
+                  <label for="eval-chk-char" style="font-size: 13px; font-weight: 500; cursor: pointer;">Character (\\n\\n)</label>
+                </div>
+                <div class="checkbox-row" style="padding: 4px 0;">
+                  <input type="checkbox" id="eval-chk-md">
+                  <label for="eval-chk-md" style="font-size: 13px; font-weight: 500; cursor: pointer;">Markdown Header</label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="evalTopK">Retrieval Top-K</label>
+              <input type="number" class="form-input" id="evalTopK" value="5" min="1" max="10">
+            </div>
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin: 8px 0;">
+              <input type="checkbox" id="evalUseRagas" style="width: 18px; height: 18px; cursor: pointer;">
+              <label class="form-label" for="evalUseRagas" style="margin-bottom: 0; cursor: pointer; font-size: 13px; font-weight: 500;">Ragas 라이브러리로 정밀 평가 실행</label>
+            </div>
+            <button class="primary-btn" onclick="runEvaluation()" style="margin-top: 8px;">
+              <span>📊 DeepSeek Judge 평가 시작</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Result Panel -->
+        <div class="eval-result-side">
+          <div class="card" style="flex: 1; min-height: 200px;">
+            <h2 class="form-title">청킹 전략별 RAG 답변 및 평가 비교 결과</h2>
+            <div id="no-result-message" style="color: var(--colors-text-tertiary); font-size: 14px; text-align: center; padding: 40px 0;">
+              테스트 파라미터를 입력하고 [평가 시작]을 눌러 비교 데이터를 확인하세요.
+            </div>
+            <div class="results-grid" id="evalResultsGrid">
+              <!-- Result cards will be dynamically injected here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Global Fullscreen/Tab Loader Overlay -->
+    <div class="overlay-loader" id="globalLoader">
+      <div class="spinner"></div>
+      <div class="loader-text" id="loaderText">문서 업로드 진행 중...</div>
+    </div>
 
   </div>
 
   <script>
-    let sessionId = sessionStorage.getItem('rag_session_id');
-    if (!sessionId) {
-      try {
-        sessionId = crypto.randomUUID();
-      } catch (e) {
-        sessionId = 'session-' + Math.random().toString(36).substring(2, 15);
+    let sessionId = sessionStorage.getItem('rag_session_id') || 'session-' + Math.random().toString(36).substring(2, 15);
+    sessionStorage.setItem('rag_session_id', sessionId);
+
+    let selectedFile = null;
+
+    // UI Tab Switch Coordinator
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-item').forEach(item => item.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      // Find the tab item
+      const selectedItem = Array.from(document.querySelectorAll('.tab-item')).find(item => item.innerText.includes(tabId === 'chat' ? '대화' : tabId === 'upload' ? '문서 업로드' : '성능 평가'));
+      if (selectedItem) selectedItem.classList.add('active');
+
+      const contentDiv = document.getElementById(`tabContent-${tabId}`);
+      if (contentDiv) contentDiv.classList.add('active');
+
+      // Adjust Layout Wide mode
+      const viewport = document.getElementById('viewport');
+      const pageTitle = document.getElementById('pageTitle');
+      if (tabId === 'eval') {
+        viewport.classList.add('wide-mode');
+        pageTitle.innerText = "RAG 청킹 성능 비교 & LLM 판별 대시보드";
+      } else {
+        viewport.classList.remove('wide-mode');
+        pageTitle.innerText = tabId === 'upload' ? "RAG 문서 다중 청킹 적재" : "규정 안내 헬퍼";
       }
-      sessionStorage.setItem('rag_session_id', sessionId);
+      
+      if (tabId === 'chat') {
+        scrollToBottom();
+      }
     }
 
+    /* ---------------- UPLOAD LOGIC ---------------- */
+    const dropzone = document.getElementById('dropzone');
+    const dropzoneText = document.getElementById('dropzoneText');
+    const uploadBtn = document.getElementById('uploadBtn');
+
+    // Drag events
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      }, false);
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files.length > 0) {
+        handleFileSelect({ files: files });
+      }
+    });
+
+    function triggerFileInput() {
+      document.getElementById('fileInput').click();
+    }
+
+    function handleFileSelect(input) {
+      if (input.files && input.files[0]) {
+        selectedFile = input.files[0];
+        dropzone.classList.add('has-file');
+        dropzoneText.innerText = `선택된 파일: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB)`;
+        uploadBtn.disabled = false;
+      }
+    }
+
+    async function uploadAndChunk() {
+      if (!selectedFile) return;
+
+      // Extract checkbox configurations
+      const strategies = [];
+      if (document.getElementById('chk-rec-small').checked) {
+        strategies.push({ name: 'recursive', chunk_size: 500, chunk_overlap: 50 });
+      }
+      if (document.getElementById('chk-rec-large').checked) {
+        strategies.push({ name: 'recursive', chunk_size: 1000, chunk_overlap: 100 });
+      }
+      if (document.getElementById('chk-char').checked) {
+        strategies.push({ name: 'character', separator: '\n\n', chunk_size: 500, chunk_overlap: 50 });
+      }
+      if (document.getElementById('chk-md').checked) {
+        strategies.push({ name: 'markdown_header' });
+      }
+
+      if (strategies.length === 0) {
+        alert('최소 한 개의 청킹 전략을 체크해야 합니다.');
+        return;
+      }
+
+      showLoader("RAG 문서를 분석하여 다중 청킹 및 임베딩을 진행 중입니다...");
+
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("strategies", JSON.stringify(strategies));
+
+      try {
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          const detail = await response.json();
+          throw new Error(detail.detail || '업로드 오류');
+        }
+
+        const data = await response.json();
+        hideLoader();
+        
+        let resultMsg = `문서 [${data.filename}] 적재 성공!\n\n적용된 컬렉션 및 청크 개수:\n`;
+        for (const [coll, count] of Object.entries(data.chunks_count)) {
+          resultMsg += `- ${coll}: ${count}개 청크\n`;
+        }
+        alert(resultMsg);
+        
+        // Reset file input
+        selectedFile = null;
+        dropzone.classList.remove('has-file');
+        dropzoneText.innerText = "클릭하거나 여기에 파일을 드래그하여 드롭하세요. (.txt, .md, .pdf 지원)";
+        uploadBtn.disabled = true;
+
+      } catch (err) {
+        hideLoader();
+        alert(`오류 발생: ${err.message}`);
+      }
+    }
+
+    /* ---------------- EVALUATION LOGIC ---------------- */
+    async function runEvaluation() {
+      const question = document.getElementById('evalQuestion').value.trim();
+      const groundTruth = document.getElementById('evalGroundTruth').value.trim();
+      const topK = parseInt(document.getElementById('evalTopK').value) || 5;
+      const useRagas = document.getElementById('evalUseRagas').checked;
+
+      if (!question || !groundTruth) {
+        alert('질문과 정답 가이드라인(Ground Truth)을 모두 입력하십시오.');
+        return;
+      }
+
+      // Check configured strategies
+      const strategies = [];
+      if (document.getElementById('eval-chk-rec-small').checked) {
+        strategies.push({ name: 'recursive', chunk_size: 500, chunk_overlap: 50 });
+      }
+      if (document.getElementById('eval-chk-rec-large').checked) {
+        strategies.push({ name: 'recursive', chunk_size: 1000, chunk_overlap: 100 });
+      }
+      if (document.getElementById('eval-chk-char').checked) {
+        strategies.push({ name: 'character', separator: '\n\n', chunk_size: 500, chunk_overlap: 50 });
+      }
+      if (document.getElementById('eval-chk-md').checked) {
+        strategies.push({ name: 'markdown_header' });
+      }
+
+      if (strategies.length === 0) {
+        alert('평가할 청킹 전략을 하나 이상 선택하십시오.');
+        return;
+      }
+
+      const loaderMsg = useRagas 
+        ? "각 청킹 전략별 RAG 답변을 조회하고 Ragas 라이브러리 정밀 평가(DeepSeek 기반)를 실행 중입니다. 이 작업은 30초 이상 소요될 수 있습니다..."
+        : "각 청킹 전략별 RAG 답변을 조회하고 DeepSeek Judge 평가를 받아오는 중입니다...";
+      showLoader(loaderMsg);
+
+      try {
+        const response = await fetch('/eval/run', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            question: question,
+            ground_truth: groundTruth,
+            strategies: strategies,
+            top_k: topK,
+            use_ragas: useRagas
+          })
+        });
+
+        if (!response.ok) {
+          const detail = await response.json();
+          throw new Error(detail.detail || '평가 실행 중 오류 발생');
+        }
+
+        const data = await response.json();
+        hideLoader();
+        renderEvaluationResults(data.results);
+
+      } catch (err) {
+        hideLoader();
+        alert(`평가 실패: ${err.message}`);
+      }
+    }
+
+    function renderEvaluationResults(results) {
+      document.getElementById('no-result-message').style.display = 'none';
+      const grid = document.getElementById('evalResultsGrid');
+      grid.innerHTML = '';
+
+      results.forEach((res, index) => {
+        const faithfulness = res.scores.faithfulness || { score: 0, reason: 'N/A' };
+        const relevance = res.scores.relevance || { score: 0, reason: 'N/A' };
+        const precision = res.scores.precision || { score: 0, reason: 'N/A' };
+
+        const card = document.createElement('div');
+        card.className = 'result-card';
+        card.innerHTML = `
+          <div class="result-card-header">
+            <div>
+              <span class="strategy-badge">${escapeHtml(res.strategy)}</span>
+              <div class="collection-text">${escapeHtml(res.collection_name)}</div>
+            </div>
+          </div>
+
+          <div class="score-badges-grid">
+            <div class="score-badge-item">
+              <div class="score-label">충실성 (Faithfulness)</div>
+              <div class="score-value ${getScoreClass(faithfulness.score)}">${faithfulness.score}/5</div>
+            </div>
+            <div class="score-badge-item">
+              <div class="score-label">연관성 (Relevance)</div>
+              <div class="score-value ${getScoreClass(relevance.score)}">${relevance.score}/5</div>
+            </div>
+            <div class="score-badge-item">
+              <div class="score-label">맥락 정확성 (Precision)</div>
+              <div class="score-value ${getScoreClass(precision.score)}">${precision.score}/5</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="card-section-title">생성된 RAG 답변</div>
+            <div class="card-text-block">${escapeHtml(res.answer)}</div>
+          </div>
+
+          <div>
+            <div class="card-section-title">DeepSeek Judge 채점 근거</div>
+            <div class="card-text-block" id="reason-${index}" style="display: none; background-color: var(--colors-primary-light); font-size: 12px; color: var(--colors-primary-heavy);">
+              <strong>충실성 사유:</strong> ${escapeHtml(faithfulness.reason)}<br><br>
+              <strong>연관성 사유:</strong> ${escapeHtml(relevance.reason)}<br><br>
+              <strong>맥락 정확성 사유:</strong> ${escapeHtml(precision.reason)}
+            </div>
+            <span class="score-reason-toggle" onclick="toggleReason(${index}, this)">더보기 ▼</span>
+          </div>
+
+          <div>
+            <div class="card-section-title">참조된 원본 맥락 (Top-K)</div>
+            <div class="reference-section" style="max-width: 100%;">
+              ${res.contexts.map((ctx, idx) => `
+                <div class="accordion-item">
+                  <div class="accordion-trigger" onclick="toggleAccordion(this)">
+                    <span>Chunk ${idx + 1} (${ctx.length}자)</span>
+                    <svg class="accordion-icon" viewBox="0 0 24 24">
+                      <path d="M7 10l5 5 5-5z"/>
+                    </svg>
+                  </div>
+                  <div class="accordion-panel">${escapeHtml(ctx)}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function toggleReason(index, trigger) {
+      const panel = document.getElementById(`reason-${index}`);
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        trigger.innerText = '접기 ▲';
+      } else {
+        panel.style.display = 'none';
+        trigger.innerText = '더보기 ▼';
+      }
+    }
+
+    function getScoreClass(score) {
+      if (score >= 4) return 'high';
+      if (score >= 3) return 'mid';
+      return 'low';
+    }
+
+    /* ---------------- CHAT LOGIC ---------------- */
     const chatContainer = document.getElementById('chatContainer');
     const chatInput = document.getElementById('chatInput');
     const sendBtn = document.getElementById('sendBtn');
     const guideChips = document.getElementById('guideChips');
 
-    // Enable/disable send button based on input content
-    chatInput.addEventListener('input', () => {
+    function toggleSendBtn() {
       sendBtn.disabled = chatInput.value.trim() === '';
-    });
-
-    chatInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && !sendBtn.disabled) {
-        sendMessage();
-      }
-    });
-
-    sendBtn.addEventListener('click', () => {
-      if (!sendBtn.disabled) {
-        sendMessage();
-      }
-    });
+    }
 
     function sendChipQuestion(questionText) {
       chatInput.value = questionText;
-      sendBtn.disabled = false;
+      toggleSendBtn();
       sendMessage();
     }
 
-    // Scroll chat view to bottom
     function scrollToBottom() {
       chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
-    // Toggle Accordion Panels
     function toggleAccordion(triggerElement) {
       const item = triggerElement.closest('.accordion-item');
       item.classList.toggle('open');
       scrollToBottom();
     }
 
-    // Main send message coordinator
     async function sendMessage() {
       const question = chatInput.value.trim();
       if (!question) return;
 
-      // Clear input
       chatInput.value = '';
       sendBtn.disabled = true;
 
-      // Hide guide chips after first interaction
-      if (guideChips) {
-        guideChips.style.display = 'none';
-      }
+      if (guideChips) guideChips.style.display = 'none';
 
-      // 1. Render User Message
+      // 1. User message bubble
       const userRow = document.createElement('div');
       userRow.className = 'message-row user';
       userRow.innerHTML = `<div class="bubble">${escapeHtml(question)}</div>`;
       chatContainer.appendChild(userRow);
       scrollToBottom();
 
-      // 2. Render Loading/Typing Indicator for Bot
+      // 2. Bot response loading indicator
       const botRow = document.createElement('div');
       botRow.className = 'message-row bot';
       
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
-      const typingIndicator = document.createElement('div');
-      typingIndicator.className = 'typing-indicator';
-      typingIndicator.innerHTML = `
-        <div class="typing-dot"></div>
-        <div class="typing-dot"></div>
-        <div class="typing-dot"></div>
+      bubble.innerHTML = `
+        <div class="typing-indicator">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
       `;
-      bubble.appendChild(typingIndicator);
       botRow.appendChild(bubble);
       chatContainer.appendChild(botRow);
       scrollToBottom();
 
-      // Start Stream Request
       try {
         const response = await fetch('/query/stream', {
           method: 'POST',
@@ -560,9 +1240,7 @@
           throw new Error('서버 응답 오류가 발생했습니다.');
         }
 
-        // Clean indicator & setup streaming text container
         bubble.innerHTML = '';
-        
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
         let buffer = '';
@@ -576,7 +1254,7 @@
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
-          buffer = lines.pop(); // Keep partial line in buffer
+          buffer = lines.pop();
 
           for (const line of lines) {
             const cleanLine = line.trim();
@@ -588,7 +1266,6 @@
               const dataStr = cleanLine.slice(5).trim();
 
               if (currentEvent === 'metadata') {
-                // Parse contexts metadata
                 try {
                   const meta = JSON.parse(dataStr);
                   referenceDocs = meta.contexts || [];
@@ -597,7 +1274,6 @@
                 }
                 currentEvent = null;
               } else {
-                // Stream text chunk
                 answerText += dataStr;
                 bubble.innerText = answerText;
                 scrollToBottom();
@@ -606,7 +1282,7 @@
           }
         }
 
-        // Render reference documents as SOCAR Frame Accordions
+        // Render reference documents as Accordions
         if (referenceDocs && referenceDocs.length > 0) {
           const referenceSec = document.createElement('div');
           referenceSec.className = 'reference-section';
@@ -640,6 +1316,7 @@
       }
     }
 
+    // Helper functions
     function escapeHtml(string) {
       const htmlEscapes = {
         '&': '&amp;',
@@ -651,6 +1328,22 @@
       };
       return String(string).replace(/[&<>"'\/]/g, (s) => htmlEscapes[s]);
     }
+
+    function showLoader(text) {
+      document.getElementById('loaderText').innerText = text;
+      document.getElementById('globalLoader').style.display = 'flex';
+    }
+
+    function hideLoader() {
+      document.getElementById('globalLoader').style.display = 'none';
+    }
+
+    // Enter key press in chat
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !sendBtn.disabled) {
+        sendMessage();
+      }
+    });
   </script>
 </body>
 </html>

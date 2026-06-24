@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     CHROMA_HOST: str = "localhost"
     CHROMA_PORT: int = 8000
 
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_API_BASE: str = "https://api.deepseek.com"
+    DEEPSEEK_MODEL: str = "deepseek-chat"
+
     @property
     def BASE_DIR(self) -> str:
         return os.path.dirname(
@@ -26,7 +30,9 @@ class Settings(BaseSettings):
             ".env",
         ),
         env_file_encoding="utf-8",
+        extra="ignore",
     )
+
 
 
 settings = Settings()
