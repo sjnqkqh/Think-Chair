@@ -149,8 +149,10 @@ async def run_evaluation(
                 question=req.question,
                 ground_truth=req.ground_truth,
                 collection_name=coll_name,
-                top_k=req.top_k
+                top_k=req.top_k,
+                use_ragas=req.use_ragas
             )
+
             
             strategy_str = f"{strategy.get('name')}"
             if strategy.get('name') in ['recursive', 'character']:

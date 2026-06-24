@@ -104,7 +104,70 @@ class EvaluatorService:
                 "precision": {"score": 0, "reason": f"Evaluation error: {str(e)}"}
             }
 
-    def run_eval_for_strategy(self, question: str, ground_truth: str, collection_name: str, top_k: int = 5) -> Dict[str, Any]:
+    def evaluate_with_ragas(self, question: str, ground_truth: str, context: List[str], answer: str) -> Dict[str, Any]:
+        # Avoid importing at module level to keep startup fast
+        from datasets import Dataset
+        from ragas import evaluate
+        from ragas.metrics import faithfulness, answer_relevance, context_precision
+        import nest_asyncio
+        
+        # Create dataset for Ragas evaluation
+        data = {
+            "question": [question],
+            "answer": [answer],
+            "contexts": [context],
+            "ground_truth": [ground_truth]
+        }
+        dataset = Dataset.from_dict(data)
+        
+        try:
+            from langchain_google_genai import GoogleGenerativeAIEmbeddings
+            embeddings = GoogleGenerativeAIEmbeddings(
+                model="models/gemini-embedding-2", 
+                google_api_key=settings.GEMINI_API_KEY
+            )
+            
+            # Apply nest_asyncio to prevent asyncio event loop conflicts
+            nest_asyncio.apply()
+            
+            metrics = [faithfulness, answer_relevance, context_precision]
+            ragas_result = evaluate(
+                dataset=dataset,
+                metrics=metrics,
+                llm=self.judge_llm,
+                embeddings=embeddings
+            )
+            
+            # Scale Ragas scores from [0, 1] to [1, 5] for dashboard compatibility
+            f_score = int(round(ragas_result.get("faithfulness", 0.0) * 5))
+            r_score = int(round(ragas_result.get("answer_relevance", 0.0) * 5))
+            p_score = int(round(ragas_result.get("context_precision", 0.0) * 5))
+            
+            # Clamp to [1, 5]
+            f_score = max(1, min(5, f_score))
+            r_score = max(1, min(5, r_score))
+            p_score = max(1, min(5, p_score))
+            
+            return {
+                "faithfulness": {
+                    "score": f_score,
+                    "reason": f"Ragas Score: {ragas_result.get('faithfulness', 0.0):.2f}/1.00 (DeepSeek Judge 판별)"
+                },
+                "relevance": {
+                    "score": r_score,
+                    "reason": f"Ragas Score: {ragas_result.get('answer_relevance', 0.0):.2f}/1.00 (DeepSeek Judge 판별)"
+                },
+                "precision": {
+                    "score": p_score,
+                    "reason": f"Ragas Score: {ragas_result.get('context_precision', 0.0):.2f}/1.00 (DeepSeek Judge 판별)"
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error during Ragas evaluation: {e}")
+            logger.warning("Ragas evaluation failed. Falling back to direct LLM Judge evaluation.")
+            return self.evaluate_answer(question, ground_truth, context, answer)
+
+    def run_eval_for_strategy(self, question: str, ground_truth: str, collection_name: str, top_k: int = 5, use_ragas: bool = False) -> Dict[str, Any]:
         # 1. 특정 컬렉션에서 Context 검색
         store = self.vector_store_manager.get_vector_store(collection_name)
         retriever = store.as_retriever(search_kwargs={"k": top_k})
@@ -120,10 +183,14 @@ class EvaluatorService:
         })
         
         # 3. 평가 수행
-        scores = self.evaluate_answer(question, ground_truth, contexts, answer)
+        if use_ragas:
+            scores = self.evaluate_with_ragas(question, ground_truth, contexts, answer)
+        else:
+            scores = self.evaluate_answer(question, ground_truth, contexts, answer)
         
         return {
             "answer": answer,
             "contexts": contexts,
             "scores": scores
         }
+

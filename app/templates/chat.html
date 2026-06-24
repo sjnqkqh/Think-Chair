@@ -840,6 +840,10 @@
               <label class="form-label" for="evalTopK">Retrieval Top-K</label>
               <input type="number" class="form-input" id="evalTopK" value="5" min="1" max="10">
             </div>
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin: 8px 0;">
+              <input type="checkbox" id="evalUseRagas" style="width: 18px; height: 18px; cursor: pointer;">
+              <label class="form-label" for="evalUseRagas" style="margin-bottom: 0; cursor: pointer; font-size: 13px; font-weight: 500;">Ragas 라이브러리로 정밀 평가 실행</label>
+            </div>
             <button class="primary-btn" onclick="runEvaluation()" style="margin-top: 8px;">
               <span>📊 DeepSeek Judge 평가 시작</span>
             </button>
@@ -1010,6 +1014,7 @@
       const question = document.getElementById('evalQuestion').value.trim();
       const groundTruth = document.getElementById('evalGroundTruth').value.trim();
       const topK = parseInt(document.getElementById('evalTopK').value) || 5;
+      const useRagas = document.getElementById('evalUseRagas').checked;
 
       if (!question || !groundTruth) {
         alert('질문과 정답 가이드라인(Ground Truth)을 모두 입력하십시오.');
@@ -1036,7 +1041,10 @@
         return;
       }
 
-      showLoader("각 청킹 전략별 RAG 답변을 조회하고 DeepSeek Judge 평가를 받아오는 중입니다...");
+      const loaderMsg = useRagas 
+        ? "각 청킹 전략별 RAG 답변을 조회하고 Ragas 라이브러리 정밀 평가(DeepSeek 기반)를 실행 중입니다. 이 작업은 30초 이상 소요될 수 있습니다..."
+        : "각 청킹 전략별 RAG 답변을 조회하고 DeepSeek Judge 평가를 받아오는 중입니다...";
+      showLoader(loaderMsg);
 
       try {
         const response = await fetch('/eval/run', {
@@ -1048,7 +1056,8 @@
             question: question,
             ground_truth: groundTruth,
             strategies: strategies,
-            top_k: topK
+            top_k: topK,
+            use_ragas: useRagas
           })
         });
 

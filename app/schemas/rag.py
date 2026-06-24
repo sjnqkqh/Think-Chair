@@ -26,6 +26,8 @@ class EvalRequest(BaseModel):
     ground_truth: str = Field(..., description="정답 가이드라인 (Ground Truth)")
     strategies: List[Dict[str, Any]] = Field(..., description="비교 평가할 청킹 전략 리스트")
     top_k: int = Field(5, description="각 전략 검색 시 조회할 청크 수")
+    use_ragas: bool = Field(False, description="Ragas 라이브러리를 사용한 정밀 평가 여부")
+
 
 class StrategyEvalResult(BaseModel):
     strategy: str = Field(..., description="청킹 전략명")

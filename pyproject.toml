@@ -17,6 +17,8 @@ dependencies = [
     "python-multipart>=0.0.9",
     "langchain-openai>=0.1.0",
     "kiwipiepy>=0.23.2",
+    "ragas>=0.2.0",
 ]
+
 
 
