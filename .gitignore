@@ -223,3 +223,13 @@ __marimo__/
 # Chroma DB directories
 **/chroma_db/
 **/chroma_data/
+
+# SQLite databases
+*.sqlite3
+*.sqlite
+*.db
+*.db-journal
+rag_history.db
+
+# PR documentation
+pr-docs/
