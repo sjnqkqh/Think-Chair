@@ -1,5 +1,7 @@
 import os
+import time
 import chromadb
+from app.core.retry import execute_with_retry
 from langchain_chroma import Chroma
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_core.documents import Document
@@ -62,4 +64,9 @@ class VectorStoreManager:
             print(
                 f"Adding batch {i//batch_size + 1}... ({i}/{total}) to collection '{collection_name}'"
             )
-            store.add_documents(batch_docs)
+            
+            # 모듈화된 재시도 헬퍼 사용
+            execute_with_retry(store.add_documents, batch_docs, max_retries=5, base_delay=0.5)
+            
+            # 성공 후 기본 0.5초 대기
+            time.sleep(0.5)

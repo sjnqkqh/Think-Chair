@@ -8,6 +8,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 from app.core.llm import LLMManager
 from app.core.vectorstore import VectorStoreManager
+from app.core.retry import execute_with_retry
 
 # Initialize Kiwi morpheme analyzer once at module level
 kiwi = Kiwi()
@@ -97,7 +98,7 @@ class RagService:
         logger.info(f"Session ID: {session_id}")
         logger.info(f"Question: {question}")
 
-        docs = retriever.invoke(question)
+        docs = execute_with_retry(retriever.invoke, question, max_retries=3, base_delay=0.5)
 
         logger.info(f"RAG DB Result (Found {len(docs)} documents):")
         for idx, doc in enumerate(docs):
@@ -117,8 +118,11 @@ class RagService:
         logger.info("=====================================")
 
         stuff_chain = self.llm_manager.create_stuff_chain()
-        answer = stuff_chain.invoke(
-            {"input": question, "chat_history": history, "context": docs}
+        answer = execute_with_retry(
+            stuff_chain.invoke,
+            {"input": question, "chat_history": history, "context": docs},
+            max_retries=3,
+            base_delay=0.5,
         )
 
         history.append(HumanMessage(content=question))
@@ -137,7 +141,7 @@ class RagService:
         logger.info(f"Session ID: {session_id}")
         logger.info(f"Question: {question}")
 
-        docs = retriever.invoke(question)
+        docs = execute_with_retry(retriever.invoke, question, max_retries=3, base_delay=0.5)
 
         logger.info(f"RAG DB Result (Found {len(docs)} documents):")
         for idx, doc in enumerate(docs):

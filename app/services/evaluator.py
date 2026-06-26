@@ -6,6 +6,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from app.core.config import settings
 from app.core.vectorstore import VectorStoreManager
 from app.core.llm import LLMManager
+from app.core.retry import execute_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -145,11 +146,14 @@ class EvaluatorService:
             nest_asyncio.apply()
 
             metrics = [faithfulness, answer_relevance, context_precision]
-            ragas_result = evaluate(
+            ragas_result = execute_with_retry(
+                evaluate,
                 dataset=dataset,
                 metrics=metrics,
                 llm=self.judge_llm,
                 embeddings=embeddings,
+                max_retries=5,
+                base_delay=1.0,
             )
 
             # Scale Ragas scores from [0, 1] to [1, 5] for dashboard compatibility
