@@ -19,7 +19,9 @@ class EvaluatorService:
         # Fall back to Gemini if API key is not set, to avoid startup failure
         api_key = settings.DEEPSEEK_API_KEY
         if not api_key or api_key == "your_deepseek_api_key_here":
-            logger.warning("DEEPSEEK_API_KEY is not set. DeepSeek Judge will fail upon calling. Using Gemini as fallback.")
+            logger.warning(
+                "DEEPSEEK_API_KEY is not set. DeepSeek Judge will fail upon calling. Using Gemini as fallback."
+            )
             self.judge_llm = self.llm_manager.llm
         else:
             self.judge_llm = ChatOpenAI(
@@ -27,11 +29,14 @@ class EvaluatorService:
                 openai_api_base=settings.DEEPSEEK_API_BASE,
                 model_name=settings.DEEPSEEK_MODEL,
                 temperature=0.0,
-                model_kwargs={"response_format": {"type": "json_object"}}
+                model_kwargs={"response_format": {"type": "json_object"}},
             )
 
-        self.judge_prompt = ChatPromptTemplate.from_messages([
-            ("system", """당신은 RAG(Retrieval-Augmented Generation) 시스템의 답변 및 검색 품질을 평가하는 전문 평가관입니다.
+        self.judge_prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    """당신은 RAG(Retrieval-Augmented Generation) 시스템의 답변 및 검색 품질을 평가하는 전문 평가관입니다.
 제공된 입력 정보를 바탕으로 생성된 답변과 검색된 맥락의 정밀성을 꼼꼼하게 분석하고 엄격한 루브릭(Rubric)에 따라 점수와 사유를 부여해 주십시오.
 평가는 자비 없이 엄격하게 진행되어야 하며, 기준에서 미세하게 벗어날 경우 반드시 감점해야 변별력이 생깁니다.
 
@@ -74,24 +79,30 @@ class EvaluatorService:
     "score": 5,
     "reason": "검색된 N개의 청크 중 노이즈 청크가 몇 개가 존재하고, 이로 인해 검색 품질이 왜곡되었는지 구체적인 비율을 따져 작성하십시오."
   }}
-}}"""),
-            ("human", """[입력 정보]
+}}""",
+                ),
+                (
+                    "human",
+                    """[입력 정보]
 - 질문 (Question): {question}
 - 제공된 맥락 (Context): {context}
 - 정답 가이드라인 (Ground Truth): {ground_truth}
-- 생성된 답변 (Generated Answer): {answer}""")
-        ])
+- 생성된 답변 (Generated Answer): {answer}""",
+                ),
+            ]
+        )
 
-
-    def evaluate_answer(self, question: str, ground_truth: str, context: List[str], answer: str) -> Dict[str, Any]:
+    def evaluate_answer(
+        self, question: str, ground_truth: str, context: List[str], answer: str
+    ) -> Dict[str, Any]:
         formatted_context = "\n---\n".join(context)
         formatted_prompt = self.judge_prompt.format_messages(
             question=question,
             context=formatted_context,
             ground_truth=ground_truth,
-            answer=answer
+            answer=answer,
         )
-        
+
         try:
             response = self.judge_llm.invoke(formatted_prompt)
             result = json.loads(response.content)
@@ -101,96 +112,101 @@ class EvaluatorService:
             return {
                 "faithfulness": {"score": 0, "reason": f"Evaluation error: {str(e)}"},
                 "relevance": {"score": 0, "reason": f"Evaluation error: {str(e)}"},
-                "precision": {"score": 0, "reason": f"Evaluation error: {str(e)}"}
+                "precision": {"score": 0, "reason": f"Evaluation error: {str(e)}"},
             }
 
-    def evaluate_with_ragas(self, question: str, ground_truth: str, context: List[str], answer: str) -> Dict[str, Any]:
+    def evaluate_with_ragas(
+        self, question: str, ground_truth: str, context: List[str], answer: str
+    ) -> Dict[str, Any]:
         # Avoid importing at module level to keep startup fast
         from datasets import Dataset
         from ragas import evaluate
         from ragas.metrics import faithfulness, answer_relevance, context_precision
         import nest_asyncio
-        
+
         # Create dataset for Ragas evaluation
         data = {
             "question": [question],
             "answer": [answer],
             "contexts": [context],
-            "ground_truth": [ground_truth]
+            "ground_truth": [ground_truth],
         }
         dataset = Dataset.from_dict(data)
-        
+
         try:
             from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
             embeddings = GoogleGenerativeAIEmbeddings(
-                model="models/gemini-embedding-2", 
-                google_api_key=settings.GEMINI_API_KEY
+                model="models/gemini-embedding-2",
+                google_api_key=settings.GEMINI_API_KEY,
             )
-            
+
             # Apply nest_asyncio to prevent asyncio event loop conflicts
             nest_asyncio.apply()
-            
+
             metrics = [faithfulness, answer_relevance, context_precision]
             ragas_result = evaluate(
                 dataset=dataset,
                 metrics=metrics,
                 llm=self.judge_llm,
-                embeddings=embeddings
+                embeddings=embeddings,
             )
-            
+
             # Scale Ragas scores from [0, 1] to [1, 5] for dashboard compatibility
             f_score = int(round(ragas_result.get("faithfulness", 0.0) * 5))
             r_score = int(round(ragas_result.get("answer_relevance", 0.0) * 5))
             p_score = int(round(ragas_result.get("context_precision", 0.0) * 5))
-            
+
             # Clamp to [1, 5]
             f_score = max(1, min(5, f_score))
             r_score = max(1, min(5, r_score))
             p_score = max(1, min(5, p_score))
-            
+
             return {
                 "faithfulness": {
                     "score": f_score,
-                    "reason": f"Ragas Score: {ragas_result.get('faithfulness', 0.0):.2f}/1.00 (DeepSeek Judge 판별)"
+                    "reason": f"Ragas Score: {ragas_result.get('faithfulness', 0.0):.2f}/1.00 (DeepSeek Judge 판별)",
                 },
                 "relevance": {
                     "score": r_score,
-                    "reason": f"Ragas Score: {ragas_result.get('answer_relevance', 0.0):.2f}/1.00 (DeepSeek Judge 판별)"
+                    "reason": f"Ragas Score: {ragas_result.get('answer_relevance', 0.0):.2f}/1.00 (DeepSeek Judge 판별)",
                 },
                 "precision": {
                     "score": p_score,
-                    "reason": f"Ragas Score: {ragas_result.get('context_precision', 0.0):.2f}/1.00 (DeepSeek Judge 판별)"
-                }
+                    "reason": f"Ragas Score: {ragas_result.get('context_precision', 0.0):.2f}/1.00 (DeepSeek Judge 판별)",
+                },
             }
         except Exception as e:
             logger.error(f"Error during Ragas evaluation: {e}")
-            logger.warning("Ragas evaluation failed. Falling back to direct LLM Judge evaluation.")
+            logger.warning(
+                "Ragas evaluation failed. Falling back to direct LLM Judge evaluation."
+            )
             return self.evaluate_answer(question, ground_truth, context, answer)
 
-    def run_eval_for_strategy(self, question: str, ground_truth: str, collection_name: str, top_k: int = 5, use_ragas: bool = False) -> Dict[str, Any]:
+    def run_eval_for_strategy(
+        self,
+        question: str,
+        ground_truth: str,
+        collection_name: str,
+        top_k: int = 5,
+        use_ragas: bool = False,
+    ) -> Dict[str, Any]:
         # 1. 특정 컬렉션에서 Context 검색
         store = self.vector_store_manager.get_vector_store(collection_name)
         retriever = store.as_retriever(search_kwargs={"k": top_k})
         docs = retriever.invoke(question)
         contexts = [doc.page_content for doc in docs]
-        
+
         # 2. 답변 생성
         stuff_chain = self.llm_manager.create_stuff_chain()
-        answer = stuff_chain.invoke({
-            "input": question,
-            "chat_history": [],
-            "context": docs
-        })
-        
+        answer = stuff_chain.invoke(
+            {"input": question, "chat_history": [], "context": docs}
+        )
+
         # 3. 평가 수행
         if use_ragas:
             scores = self.evaluate_with_ragas(question, ground_truth, contexts, answer)
         else:
             scores = self.evaluate_answer(question, ground_truth, contexts, answer)
-        
-        return {
-            "answer": answer,
-            "contexts": contexts,
-            "scores": scores
-        }
 
+        return {"answer": answer, "contexts": contexts, "scores": scores}

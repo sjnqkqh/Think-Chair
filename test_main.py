@@ -1,22 +1,21 @@
 import json
+from unittest.mock import MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from main import app as fastapi_app
-from app.api.endpoints import get_rag_service, get_evaluator_service
-from app.services.rag import RagService
-from app.services.evaluator import EvaluatorService
-from app.core.database import get_db, Base
-import app.models.history  # Import to register models on Base metadata
 from sqlalchemy.pool import StaticPool
+
+from app.api.endpoints import get_rag_service, get_evaluator_service
+from app.core.database import get_db, Base
+from app.services.evaluator import EvaluatorService
+from app.services.rag import RagService
+from main import app as fastapi_app
 
 # Setup in-memory database with StaticPool for testing
 test_engine = create_engine(
-    "sqlite://",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool
+    "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
 )
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 Base.metadata.create_all(bind=test_engine)
@@ -34,7 +33,7 @@ def setup_dependency_overrides():
             yield db
         finally:
             db.close()
-            
+
     fastapi_app.dependency_overrides[get_rag_service] = lambda: mock_service
     fastapi_app.dependency_overrides[get_evaluator_service] = lambda: mock_evaluator
     fastapi_app.dependency_overrides[get_db] = override_get_db
@@ -61,7 +60,7 @@ def test_query_endpoint():
     payload = {
         "question": "지각 3번 하면 어떻게 되나요?",
         "top_k": 3,
-        "session_id": "test-session-id"
+        "session_id": "test-session-id",
     }
     response = client.post("/query", json=payload)
 
@@ -72,7 +71,9 @@ def test_query_endpoint():
     assert data["contexts"][0] == "지각·조퇴·외출 3회 누적 시 1일 결석 처리"
     assert data["metadatas"][0]["id"] == 3
 
-    mock_service.query.assert_called_once_with("지각 3번 하면 어떻게 되나요?", "test-session-id", 3)
+    mock_service.query.assert_called_once_with(
+        "지각 3번 하면 어떻게 되나요?", "test-session-id", 3
+    )
 
 
 def test_query_stream_endpoint():
@@ -87,11 +88,7 @@ def test_query_stream_endpoint():
         [{"id": 3}],
     )
 
-    payload = {
-        "question": "지각 3회?",
-        "top_k": 2,
-        "session_id": "test-session-id"
-    }
+    payload = {"question": "지각 3회?", "top_k": 2, "session_id": "test-session-id"}
 
     with client.stream("POST", "/query/stream", json=payload) as response:
         assert response.status_code == 200
@@ -107,7 +104,9 @@ def test_query_stream_endpoint():
         assert "data: 지각" in lines[2]
         assert "data:  3회 누적" in lines[3]
 
-        mock_service.query_stream.assert_called_once_with("지각 3회?", "test-session-id", 2)
+        mock_service.query_stream.assert_called_once_with(
+            "지각 3회?", "test-session-id", 2
+        )
 
 
 def test_chat_ui_endpoint():
@@ -121,20 +120,39 @@ def test_upload_endpoint_success(monkeypatch):
     from app.services.chunking import ChunkingService
     from langchain_core.documents import Document
 
-    monkeypatch.setattr(ChunkingService, "extract_text_from_file", lambda c, f: "텍스트 추출 내용")
-    monkeypatch.setattr(ChunkingService, "split_document", lambda t, s, f: [Document(page_content="청크")])
-    monkeypatch.setattr(ChunkingService, "get_collection_name_for_strategy", lambda s: "mock_collection")
+    monkeypatch.setattr(
+        ChunkingService, "extract_text_from_file", lambda c, f: "텍스트 추출 내용"
+    )
+    monkeypatch.setattr(
+        ChunkingService,
+        "split_document",
+        lambda t, s, f: [Document(page_content="청크")],
+    )
+    monkeypatch.setattr(
+        ChunkingService, "get_collection_name_for_strategy", lambda s: "mock_collection"
+    )
 
     from app.core.vectorstore import VectorStoreManager
-    monkeypatch.setattr(VectorStoreManager, "delete_existing_documents", lambda self, ids, collection_name: None)
-    monkeypatch.setattr(VectorStoreManager, "add_documents_batch", lambda self, docs, ids, collection_name: None)
 
-    strategies_payload = json.dumps([{"name": "recursive", "chunk_size": 500, "chunk_overlap": 50}])
+    monkeypatch.setattr(
+        VectorStoreManager,
+        "delete_existing_documents",
+        lambda self, ids, collection_name: None,
+    )
+    monkeypatch.setattr(
+        VectorStoreManager,
+        "add_documents_batch",
+        lambda self, docs, ids, collection_name: None,
+    )
+
+    strategies_payload = json.dumps(
+        [{"name": "recursive", "chunk_size": 500, "chunk_overlap": 50}]
+    )
 
     response = client.post(
         "/upload",
         files={"file": ("rules.txt", b"dummy content", "text/plain")},
-        data={"strategies": strategies_payload}
+        data={"strategies": strategies_payload},
     )
 
     assert response.status_code == 200
@@ -152,15 +170,15 @@ def test_eval_run_endpoint_success():
         "scores": {
             "faithfulness": {"score": 5, "reason": "사실 기반"},
             "relevance": {"score": 5, "reason": "질문에 답변"},
-            "precision": {"score": 5, "reason": "정확한 맥락"}
-        }
+            "precision": {"score": 5, "reason": "정확한 맥락"},
+        },
     }
 
     payload = {
         "question": "지각 규정은?",
         "ground_truth": "지각 3회는 결석 1일",
         "strategies": [{"name": "recursive", "chunk_size": 500, "chunk_overlap": 50}],
-        "top_k": 3
+        "top_k": 3,
     }
 
     response = client.post("/eval/run", json=payload)
@@ -179,7 +197,6 @@ def test_history_endpoints():
     # 1. Check initially empty or containing entries
     resp_upload = client.get("/history/uploads")
     assert resp_upload.status_code == 200
-    
+
     resp_eval = client.get("/history/evals")
     assert resp_eval.status_code == 200
-

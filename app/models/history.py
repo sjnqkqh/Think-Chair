@@ -9,8 +9,10 @@ class UploadHistory(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, nullable=False)
-    strategies_applied = Column(Text, nullable=False)  # JSON-serialized list of strategies
-    chunks_count = Column(Text, nullable=False)        # JSON-serialized dict of chunks count
+    strategies_applied = Column(
+        Text, nullable=False
+    )  # JSON-serialized list of strategies
+    chunks_count = Column(Text, nullable=False)  # JSON-serialized dict of chunks count
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
@@ -22,7 +24,9 @@ class EvalHistory(Base):
     ground_truth = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-    results = relationship("EvalResult", back_populates="eval_history", cascade="all, delete-orphan")
+    results = relationship(
+        "EvalResult", back_populates="eval_history", cascade="all, delete-orphan"
+    )
 
 
 class EvalResult(Base):
@@ -33,8 +37,10 @@ class EvalResult(Base):
     strategy = Column(String, nullable=False)
     collection_name = Column(String, nullable=False)
     answer = Column(Text, nullable=False)
-    contexts = Column(Text, nullable=False)             # JSON-serialized list of retrieved contexts
-    
+    contexts = Column(
+        Text, nullable=False
+    )  # JSON-serialized list of retrieved contexts
+
     # RAG Quality Scores
     faithfulness_score = Column(Integer, nullable=False)
     faithfulness_reason = Column(Text, nullable=True)

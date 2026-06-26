@@ -23,9 +23,7 @@ class VectorStoreManager:
             print(
                 f"Initializing local SQLite-based persistent Chroma DB client at: {settings.CHROMA_DB_PATH}..."
             )
-            self.chroma_client = chromadb.PersistentClient(
-                path=settings.CHROMA_DB_PATH
-            )
+            self.chroma_client = chromadb.PersistentClient(path=settings.CHROMA_DB_PATH)
 
         self.vector_store = self.get_vector_store("camp_rules")
 
@@ -36,7 +34,9 @@ class VectorStoreManager:
             embedding_function=self.embeddings,
         )
 
-    def delete_existing_documents(self, ids: list[str], collection_name: str = "camp_rules") -> None:
+    def delete_existing_documents(
+        self, ids: list[str], collection_name: str = "camp_rules"
+    ) -> None:
         try:
             store = self.get_vector_store(collection_name)
             existing_count = store._collection.count()
@@ -49,12 +49,17 @@ class VectorStoreManager:
             print(f"Warning during clearing collection '{collection_name}': {e}")
 
     def add_documents_batch(
-        self, documents: list[Document], ids: list[str], batch_size: int = 20, collection_name: str = "camp_rules"
+        self,
+        documents: list[Document],
+        ids: list[str],
+        batch_size: int = 20,
+        collection_name: str = "camp_rules",
     ) -> None:
         store = self.get_vector_store(collection_name)
         total = len(ids)
         for i in range(0, total, batch_size):
             batch_docs = documents[i : i + batch_size]
-            print(f"Adding batch {i//batch_size + 1}... ({i}/{total}) to collection '{collection_name}'")
+            print(
+                f"Adding batch {i//batch_size + 1}... ({i}/{total}) to collection '{collection_name}'"
+            )
             store.add_documents(batch_docs)
-

@@ -19,6 +19,7 @@ dependencies = [
     "kiwipiepy>=0.23.2",
     "ragas>=0.2.0",
     "sqlalchemy>=2.0.51",
+    "black>=26.5.1",
 ]
 
 
