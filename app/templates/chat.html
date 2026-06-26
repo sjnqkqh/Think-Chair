@@ -738,6 +738,86 @@
     .toast.info {
       border-left: 4px solid var(--colors-primary-regular);
     }
+
+    /* 문서 관리 목록 스타일 */
+    .document-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      background-color: var(--colors-gray-50);
+      border: 1px solid var(--colors-border-regular);
+      border-radius: var(--radius-200);
+      gap: 12px;
+    }
+
+    .document-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .document-name {
+      font-size: 14px;
+      font-weight: var(--weight-bold);
+      color: var(--colors-text-strong);
+      word-break: break-all;
+    }
+
+    .document-meta {
+      font-size: 11px;
+      color: var(--colors-text-tertiary);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: var(--radius-100);
+      font-size: 11px;
+      font-weight: var(--weight-bold);
+    }
+
+    .status-badge.completed {
+      background-color: var(--colors-success-light);
+      color: var(--colors-success);
+    }
+
+    .status-badge.processing {
+      background-color: var(--colors-warning-light);
+      color: var(--colors-warning);
+    }
+
+    .status-badge.failed {
+      background-color: #FEE2E2;
+      color: #EF4444;
+    }
+
+    .delete-btn {
+      background-color: transparent;
+      border: 1px solid #EF4444;
+      color: #EF4444;
+      padding: 6px 12px;
+      border-radius: var(--radius-150);
+      font-size: 12px;
+      font-weight: var(--weight-semibold);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .delete-btn:hover {
+      background-color: #EF4444;
+      color: var(--colors-white);
+    }
+
+    .delete-btn:disabled {
+      border-color: var(--colors-gray-300);
+      color: var(--colors-text-disabled);
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -776,7 +856,6 @@
           <button class="guide-chip" onclick="sendChipQuestion('성능 평가에서 측정하는 세 가지 평가 지표(Faithfulness, Relevance, Precision)의 의미는?')">평가 지표 안내</button>
         </div>
       </main>
-
 
       <footer class="input-bar-container">
         <div class="input-wrapper">
@@ -843,6 +922,16 @@
         <button class="primary-btn" id="uploadBtn" onclick="uploadAndChunk()" disabled>
           <span>📤 문서 청킹 및 벡터 임베딩 저장</span>
         </button>
+
+        <!-- 저장된 문서 목록 관리 카드 -->
+        <div class="card" style="margin-top: 12px;">
+          <h2 class="form-title">저장된 RAG 문서 관리</h2>
+          <div id="uploaded-documents-list" style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="color: var(--colors-text-tertiary); font-size: 13px; text-align: center; padding: 20px 0;">
+              로드 중...
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -962,7 +1051,93 @@
       }
     }
 
-    // Polling background tasks
+    // Document Manager & Polling background tasks
+    async function loadUploadedDocuments() {
+      const listContainer = document.getElementById('uploaded-documents-list');
+      if (!listContainer) return;
+
+      try {
+        const response = await fetch('/history/uploads');
+        if (!response.ok) throw new Error("업로드 이력 조회 실패");
+
+        const data = await response.json();
+        if (data.length === 0) {
+          listContainer.innerHTML = `<div style="color: var(--colors-text-tertiary); font-size: 13px; text-align: center; padding: 20px 0;">저장된 문서가 없습니다.</div>`;
+          return;
+        }
+
+        listContainer.innerHTML = '';
+        data.forEach(item => {
+          const itemEl = document.createElement('div');
+          itemEl.className = 'document-item';
+          
+          let statusText = '대기 중';
+          if (item.status === 'completed') statusText = '완료';
+          else if (item.status === 'failed') statusText = '실패';
+          else if (item.status === 'processing') statusText = '처리 중';
+
+          const createdDate = new Date(item.created_at).toLocaleString('ko-KR');
+
+          // Build strategies information string
+          let strategiesInfo = '';
+          if (item.strategies_applied && item.strategies_applied.length > 0) {
+            strategiesInfo = item.strategies_applied.map(strat => {
+              const count = item.chunks_count[strat] || 0;
+              return `${strat.replace('rag_', '')} (${count}개)`;
+            }).join(', ');
+          } else {
+            strategiesInfo = '적용 전략 없음';
+          }
+
+          itemEl.innerHTML = `
+            <div class="document-info">
+              <span class="document-name">${escapeHtml(item.filename)}</span>
+              <div class="document-meta">
+                <span class="status-badge ${item.status}">${statusText}</span>
+                <span>등록: ${createdDate}</span>
+              </div>
+              <div class="document-meta" style="margin-top: 2px;">
+                <span>전략: ${escapeHtml(strategiesInfo)}</span>
+              </div>
+              ${item.error_message ? `<div style="color: #EF4444; font-size: 11px; margin-top: 2px; word-break: break-all;">에러: ${escapeHtml(item.error_message)}</div>` : ''}
+            </div>
+            <button class="delete-btn" onclick="deleteDocument(${item.id}, '${escapeHtml(item.filename)}')" ${item.status === 'processing' ? 'disabled' : ''}>삭제</button>
+          `;
+          listContainer.appendChild(itemEl);
+        });
+      } catch (err) {
+        console.error(err);
+        listContainer.innerHTML = `<div style="color: #EF4444; font-size: 13px; text-align: center; padding: 20px 0;">데이터 로드 오류: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    async function deleteDocument(historyId, filename) {
+      if (!confirm(`[${filename}] 문서를 데이터베이스 및 벡터 스토어에서 영구히 삭제하시겠습니까?`)) {
+        return;
+      }
+
+      showLoader(`[${filename}] 문서를 삭제하고 있습니다...`);
+
+      try {
+        const response = await fetch(`/history/uploads/${historyId}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) {
+          const detail = await response.json();
+          throw new Error(detail.detail || '삭제 실패');
+        }
+
+        showToast(`[${filename}] 문서가 성공적으로 삭제되었습니다.`, "success");
+        sendSystemNotification("RAG 문서 삭제 완료", `[${filename}] 문서 삭제가 완료되었습니다.`);
+        await loadUploadedDocuments();
+      } catch (err) {
+        showToast(`삭제 실패: ${err.message}`, "error");
+      } finally {
+        hideLoader();
+      }
+    }
+
     function startUploadPolling(historyId, filename) {
       const interval = setInterval(async () => {
         try {
@@ -975,11 +1150,13 @@
             hideLoader();
             showToast(`[${filename}] 청킹 및 임베딩 완료!`, "success");
             sendSystemNotification("RAG 임베딩 완료", `[${filename}] 파일의 임베딩 작업이 성공적으로 완료되었습니다.`);
+            loadUploadedDocuments();
           } else if (data.status === 'failed') {
             clearInterval(interval);
             hideLoader();
             showToast(`[${filename}] 임베딩 실패: ${data.error_message}`, "error");
             sendSystemNotification("RAG 임베딩 실패", `[${filename}] 작업 도중 에러가 발생했습니다.`);
+            loadUploadedDocuments();
           }
         } catch (err) {
           console.error("Status polling failed:", err);
@@ -1012,6 +1189,10 @@
       
       if (tabId === 'chat') {
         scrollToBottom();
+      }
+
+      if (tabId === 'upload') {
+        loadUploadedDocuments();
       }
     }
 
@@ -1154,7 +1335,7 @@
       showLoader(loaderMsg);
 
       try {
-        const response = await fetch('/eval/run', {
+        const response = await fetch('/evaluation/run', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -1451,6 +1632,9 @@
         sendMessage();
       }
     });
+
+    // Initial load
+    loadUploadedDocuments();
   </script>
 </body>
 </html>

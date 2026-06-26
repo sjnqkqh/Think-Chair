@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.endpoints.query import get_rag_service
 from app.api.endpoints.evaluation import get_evaluator_service
 from app.core.database import get_database_session, Base
+from app.models.history import UploadHistory
 from app.services.evaluator import EvaluatorService
 from app.services.rag import RagService
 from main import app as fastapi_app
@@ -217,3 +218,41 @@ def test_history_endpoints():
 
     resp_eval = client.get("/history/evaluations")
     assert resp_eval.status_code == 200
+
+
+def test_delete_upload_history_success(monkeypatch):
+    db = TestSessionLocal()
+    history = UploadHistory(
+        filename="test_rules.txt",
+        status="completed",
+        strategies_applied=json.dumps(["mock_collection"]),
+        chunks_count=json.dumps({"mock_collection": 1}),
+    )
+    db.add(history)
+    db.commit()
+    db.refresh(history)
+    history_id = history.id
+    db.close()
+
+    from app.core.vectorstore import VectorStoreManager
+    monkeypatch.setattr(
+        VectorStoreManager,
+        "delete_existing_documents",
+        lambda self, ids, collection_name: None,
+    )
+
+    response = client.delete(f"/history/uploads/{history_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert "test_rules.txt" in data["message"]
+
+    db = TestSessionLocal()
+    record = db.query(UploadHistory).filter(UploadHistory.id == history_id).first()
+    assert record is None
+    db.close()
+
+
+def test_delete_upload_history_not_found():
+    response = client.delete("/history/uploads/99999")
+    assert response.status_code == 404

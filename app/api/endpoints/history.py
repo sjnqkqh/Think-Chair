@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import json
 
 from app.core.database import get_database_session
 from app.models.history import UploadHistory, EvalHistory
+from app.core.vectorstore import VectorStoreManager
 
 router = APIRouter()
 
@@ -64,3 +65,39 @@ async def get_evaluation_history(database_session: Session = Depends(get_databas
             }
         )
     return results
+
+
+@router.delete("/history/uploads/{history_id}", summary="업로드 문서 및 임베딩 삭제")
+async def delete_upload_history(
+    history_id: int,
+    database_session: Session = Depends(get_database_session)
+):
+    upload_history_record = database_session.query(UploadHistory).filter(UploadHistory.id == history_id).first()
+    if not upload_history_record:
+        raise HTTPException(status_code=404, detail="Upload history not found")
+
+    filename = upload_history_record.filename
+
+    try:
+        # 1. Chroma DB에서 관련된 모든 임베딩 삭제
+        if upload_history_record.chunks_count:
+            chunks_count_dict = json.loads(upload_history_record.chunks_count)
+            vector_manager = VectorStoreManager()
+            for collection_name, count in chunks_count_dict.items():
+                document_ids = [f"{filename}_{collection_name}_{i}" for i in range(count)]
+                vector_manager.delete_existing_documents(document_ids, collection_name=collection_name)
+
+        # 2. SQLite DB에서 업로드 이력 삭제
+        database_session.delete(upload_history_record)
+        database_session.commit()
+
+        return {
+            "status": "success",
+            "message": f"Successfully deleted document '{filename}' from database and vector store."
+        }
+    except Exception as exception:
+        database_session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete document: {str(exception)}"
+        )
