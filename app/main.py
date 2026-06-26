@@ -8,7 +8,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="RAG FastAPI Server",
-    description="카카오테크 부트캠프 4기 규칙 RAG 서비스 API",
+    description="RAG 기능을 포함한 챗봇 서버",
     version="2.0.0",
 )
 

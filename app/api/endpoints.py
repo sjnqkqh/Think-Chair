@@ -3,7 +3,7 @@ import json
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, HTMLResponse
 from sqlalchemy.orm import Session
-from app.schemas.rag import QueryRequest, QueryResponse, IndexResponse, UploadResponse, EvalRequest, EvalResponse, StrategyEvalResult
+from app.schemas.rag import QueryRequest, QueryResponse, UploadResponse, EvalRequest, EvalResponse, StrategyEvalResult
 from app.services.rag import RagService
 from app.services.chunking import ChunkingService
 from app.services.evaluator import EvaluatorService
@@ -49,16 +49,6 @@ async def root():
         "documentation": "/docs",
     }
 
-
-@router.post("/index", response_model=IndexResponse, summary="규칙 문서 인덱싱 수행")
-async def run_indexing(service: RagService = Depends(get_rag_service)):
-    try:
-        count = service.index_documents()
-        return IndexResponse(status="success", indexed_count=count)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Indexing failed: {str(e)}")
 
 
 @router.post("/query", response_model=QueryResponse, summary="RAG 질의 요청")

@@ -11,10 +11,6 @@ class QueryResponse(BaseModel):
     contexts: list[str] = Field(..., description="참조한 원본 문맥 청크 리스트")
     metadatas: list[dict] = Field(..., description="참조한 문맥의 메타데이터")
 
-class IndexResponse(BaseModel):
-    status: str
-    indexed_count: int
-
 class UploadResponse(BaseModel):
     status: str
     filename: str

@@ -51,27 +51,6 @@ def test_read_root():
     assert "service" in response.json()
 
 
-def test_index_endpoint_success():
-    mock_service.index_documents.return_value = 34
-
-    response = client.post("/index")
-
-    assert response.status_code == 200
-    assert response.json() == {"status": "success", "indexed_count": 34}
-    mock_service.index_documents.assert_called_once()
-
-
-def test_index_endpoint_file_not_found():
-    mock_service.index_documents.side_effect = FileNotFoundError(
-        "chunks.json not found"
-    )
-
-    response = client.post("/index")
-
-    assert response.status_code == 404
-    assert "detail" in response.json()
-
-
 def test_query_endpoint():
     mock_service.query.return_value = {
         "answer": "지각 3회 누적 시 1일 결석 처리됩니다.",
