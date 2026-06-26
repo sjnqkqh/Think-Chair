@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.api.endpoints import router as api_router
+from app.pages.user_interface import router as pages_router
 from app.core.database import engine, Base
 import app.models.history
 
@@ -14,3 +15,4 @@ app = FastAPI(
 
 # Register API routes
 app.include_router(api_router)
+app.include_router(pages_router)

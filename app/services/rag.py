@@ -98,7 +98,7 @@ class RagService:
         logger.info(f"Session ID: {session_id}")
         logger.info(f"Question: {question}")
 
-        docs = execute_with_retry(retriever.invoke, question, max_retries=3, base_delay=0.5)
+        docs = execute_with_retry(retriever.invoke, question, max_retries=3, base_delay=2.0)
 
         logger.info(f"RAG DB Result (Found {len(docs)} documents):")
         for idx, doc in enumerate(docs):
@@ -122,7 +122,7 @@ class RagService:
             stuff_chain.invoke,
             {"input": question, "chat_history": history, "context": docs},
             max_retries=3,
-            base_delay=0.5,
+            base_delay=2.0,
         )
 
         history.append(HumanMessage(content=question))
@@ -141,7 +141,7 @@ class RagService:
         logger.info(f"Session ID: {session_id}")
         logger.info(f"Question: {question}")
 
-        docs = execute_with_retry(retriever.invoke, question, max_retries=3, base_delay=0.5)
+        docs = execute_with_retry(retriever.invoke, question, max_retries=3, base_delay=2.0)
 
         logger.info(f"RAG DB Result (Found {len(docs)} documents):")
         for idx, doc in enumerate(docs):

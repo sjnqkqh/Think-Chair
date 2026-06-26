@@ -65,8 +65,8 @@ class VectorStoreManager:
                 f"Adding batch {i//batch_size + 1}... ({i}/{total}) to collection '{collection_name}'"
             )
             
-            # 모듈화된 재시도 헬퍼 사용
-            execute_with_retry(store.add_documents, batch_docs, max_retries=5, base_delay=0.5)
+            # 모듈화된 재시도 헬퍼 사용 (base_delay를 2.0초로 상향)
+            execute_with_retry(store.add_documents, batch_docs, max_retries=5, base_delay=2.0)
             
-            # 성공 후 기본 0.5초 대기
-            time.sleep(0.5)
+            # 성공 후 기본 10초 대기 (API 호출 에러 방지용 분리 딜레이)
+            time.sleep(10.0)

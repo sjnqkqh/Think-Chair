@@ -153,41 +153,41 @@ class EvaluatorService:
                 llm=self.judge_llm,
                 embeddings=embeddings,
                 max_retries=5,
-                base_delay=1.0,
+                base_delay=2.0,
             )
 
             # Scale Ragas scores from [0, 1] to [1, 5] for dashboard compatibility
-            f_score = int(round(ragas_result.get("faithfulness", 0.0) * 5))
-            r_score = int(round(ragas_result.get("answer_relevance", 0.0) * 5))
-            p_score = int(round(ragas_result.get("context_precision", 0.0) * 5))
+            faithfulness_score = int(round(ragas_result.get("faithfulness", 0.0) * 5))
+            relevance_score = int(round(ragas_result.get("answer_relevance", 0.0) * 5))
+            precision_score = int(round(ragas_result.get("context_precision", 0.0) * 5))
 
             # Clamp to [1, 5]
-            f_score = max(1, min(5, f_score))
-            r_score = max(1, min(5, r_score))
-            p_score = max(1, min(5, p_score))
+            faithfulness_score = max(1, min(5, faithfulness_score))
+            relevance_score = max(1, min(5, relevance_score))
+            precision_score = max(1, min(5, precision_score))
 
             return {
                 "faithfulness": {
-                    "score": f_score,
+                    "score": faithfulness_score,
                     "reason": f"Ragas Score: {ragas_result.get('faithfulness', 0.0):.2f}/1.00 (DeepSeek Judge 판별)",
                 },
                 "relevance": {
-                    "score": r_score,
+                    "score": relevance_score,
                     "reason": f"Ragas Score: {ragas_result.get('answer_relevance', 0.0):.2f}/1.00 (DeepSeek Judge 판별)",
                 },
                 "precision": {
-                    "score": p_score,
+                    "score": precision_score,
                     "reason": f"Ragas Score: {ragas_result.get('context_precision', 0.0):.2f}/1.00 (DeepSeek Judge 판별)",
                 },
             }
-        except Exception as e:
-            logger.error(f"Error during Ragas evaluation: {e}")
+        except Exception as exception:
+            logger.error(f"Error during Ragas evaluation: {exception}")
             logger.warning(
                 "Ragas evaluation failed. Falling back to direct LLM Judge evaluation."
             )
             return self.evaluate_answer(question, ground_truth, context, answer)
 
-    def run_eval_for_strategy(
+    def run_evaluation_for_strategy(
         self,
         question: str,
         ground_truth: str,
@@ -198,13 +198,13 @@ class EvaluatorService:
         # 1. 특정 컬렉션에서 Context 검색
         store = self.vector_store_manager.get_vector_store(collection_name)
         retriever = store.as_retriever(search_kwargs={"k": top_k})
-        docs = retriever.invoke(question)
-        contexts = [doc.page_content for doc in docs]
+        documents = retriever.invoke(question)
+        contexts = [document.page_content for document in documents]
 
         # 2. 답변 생성
         stuff_chain = self.llm_manager.create_stuff_chain()
         answer = stuff_chain.invoke(
-            {"input": question, "chat_history": [], "context": docs}
+            {"input": question, "chat_history": [], "context": documents}
         )
 
         # 3. 평가 수행

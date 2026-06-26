@@ -692,6 +692,52 @@
       font-weight: var(--weight-semibold);
       color: var(--colors-text-secondary);
     }
+
+    /* Toast 알림 스타일 */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    .toast {
+      background-color: var(--colors-gray-850);
+      color: var(--colors-white);
+      padding: 12px 20px;
+      border-radius: var(--radius-200);
+      font-size: 14px;
+      font-weight: var(--weight-medium);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.success {
+      border-left: 4px solid var(--colors-success);
+    }
+
+    .toast.error {
+      border-left: 4px solid #EF4444;
+    }
+
+    .toast.info {
+      border-left: 4px solid var(--colors-primary-regular);
+    }
   </style>
 </head>
 <body>
@@ -871,6 +917,9 @@
       <div class="loader-text" id="loaderText">문서 업로드 진행 중...</div>
     </div>
 
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
   </div>
 
   <script>
@@ -878,6 +927,65 @@
     sessionStorage.setItem('rag_session_id', sessionId);
 
     let selectedFile = null;
+
+    // Toast UI Generator
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      
+      let icon = 'ℹ️';
+      if (type === 'success') icon = '✅';
+      else if (type === 'error') icon = '❌';
+      
+      toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+      container.appendChild(toast);
+      
+      // Trigger transition
+      setTimeout(() => toast.classList.add('show'), 50);
+      
+      // Auto remove
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+    
+    // System Browser Notification
+    if (window.Notification && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+    
+    function sendSystemNotification(title, body) {
+      if (window.Notification && Notification.permission === "granted") {
+        new Notification(title, { body: body });
+      }
+    }
+
+    // Polling background tasks
+    function startUploadPolling(historyId, filename) {
+      const interval = setInterval(async () => {
+        try {
+          const response = await fetch(`/upload/status/${historyId}`);
+          if (!response.ok) return;
+          
+          const data = await response.json();
+          if (data.status === 'completed') {
+            clearInterval(interval);
+            hideLoader();
+            showToast(`[${filename}] 청킹 및 임베딩 완료!`, "success");
+            sendSystemNotification("RAG 임베딩 완료", `[${filename}] 파일의 임베딩 작업이 성공적으로 완료되었습니다.`);
+          } else if (data.status === 'failed') {
+            clearInterval(interval);
+            hideLoader();
+            showToast(`[${filename}] 임베딩 실패: ${data.error_message}`, "error");
+            sendSystemNotification("RAG 임베딩 실패", `[${filename}] 작업 도중 에러가 발생했습니다.`);
+          }
+        } catch (err) {
+          console.error("Status polling failed:", err);
+        }
+      }, 3000);
+    }
 
     // UI Tab Switch Coordinator
     function switchTab(tabId) {
@@ -971,11 +1079,19 @@
         return;
       }
 
-      showLoader("RAG 문서를 분석하여 다중 청킹 및 임베딩을 진행 중입니다...");
+      showLoader(`[${selectedFile.name}] 파일을 업로드하고 있습니다...`);
 
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("strategies", JSON.stringify(strategies));
+
+      const currentFilename = selectedFile.name;
+
+      // Reset file input
+      selectedFile = null;
+      dropzone.classList.remove('has-file');
+      dropzoneText.innerText = "클릭하거나 여기에 파일을 드래그하여 드롭하세요. (.txt, .md, .pdf 지원)";
+      uploadBtn.disabled = true;
 
       try {
         const response = await fetch('/upload', {
@@ -989,23 +1105,14 @@
         }
 
         const data = await response.json();
-        hideLoader();
+        showLoader(`[${currentFilename}] 문서의 청킹 및 벡터 임베딩을 분석하는 중입니다. 잠시만 기다려 주세요...`);
         
-        let resultMsg = `문서 [${data.filename}] 적재 성공!\n\n적용된 컬렉션 및 청크 개수:\n`;
-        for (const [coll, count] of Object.entries(data.chunks_count)) {
-          resultMsg += `- ${coll}: ${count}개 청크\n`;
-        }
-        alert(resultMsg);
-        
-        // Reset file input
-        selectedFile = null;
-        dropzone.classList.remove('has-file');
-        dropzoneText.innerText = "클릭하거나 여기에 파일을 드래그하여 드롭하세요. (.txt, .md, .pdf 지원)";
-        uploadBtn.disabled = true;
+        // Start polling background status
+        startUploadPolling(data.history_id, currentFilename);
 
       } catch (err) {
         hideLoader();
-        alert(`오류 발생: ${err.message}`);
+        showToast(`업로드 실패: ${err.message}`, "error");
       }
     }
 

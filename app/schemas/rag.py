@@ -17,11 +17,11 @@ class QueryResponse(BaseModel):
 class UploadResponse(BaseModel):
     status: str
     filename: str
-    strategies_applied: List[str]
-    chunks_count: Dict[str, int]
+    history_id: int
+    message: str
 
 
-class EvalRequest(BaseModel):
+class EvaluationRequest(BaseModel):
     question: str = Field(..., description="테스트 질문")
     ground_truth: str = Field(..., description="정답 가이드라인 (Ground Truth)")
     strategies: List[Dict[str, Any]] = Field(
@@ -33,7 +33,7 @@ class EvalRequest(BaseModel):
     )
 
 
-class StrategyEvalResult(BaseModel):
+class StrategyEvaluationResult(BaseModel):
     strategy: str = Field(..., description="청킹 전략명")
     collection_name: str = Field(..., description="Chroma 컬렉션명")
     answer: str = Field(..., description="생성된 답변")
@@ -44,7 +44,7 @@ class StrategyEvalResult(BaseModel):
     )
 
 
-class EvalResponse(BaseModel):
+class EvaluationResponse(BaseModel):
     question: str
     ground_truth: str
-    results: List[StrategyEvalResult]
+    results: List[StrategyEvaluationResult]

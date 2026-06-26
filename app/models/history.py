@@ -10,9 +10,11 @@ class UploadHistory(Base):
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, nullable=False)
     strategies_applied = Column(
-        Text, nullable=False
+        Text, nullable=True
     )  # JSON-serialized list of strategies
-    chunks_count = Column(Text, nullable=False)  # JSON-serialized dict of chunks count
+    chunks_count = Column(Text, nullable=True)  # JSON-serialized dict of chunks count
+    status = Column(String, default="processing", nullable=False)
+    error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 

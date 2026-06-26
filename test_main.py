@@ -7,8 +7,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.endpoints import get_rag_service, get_evaluator_service
-from app.core.database import get_db, Base
+from app.api.endpoints.query import get_rag_service
+from app.api.endpoints.evaluation import get_evaluator_service
+from app.core.database import get_database_session, Base
 from app.services.evaluator import EvaluatorService
 from app.services.rag import RagService
 from main import app as fastapi_app
@@ -26,7 +27,7 @@ mock_evaluator = MagicMock(spec=EvaluatorService)
 
 
 @pytest.fixture(autouse=True)
-def setup_dependency_overrides():
+def setup_dependency_overrides(monkeypatch):
     def override_get_db():
         db = TestSessionLocal()
         try:
@@ -36,7 +37,15 @@ def setup_dependency_overrides():
 
     fastapi_app.dependency_overrides[get_rag_service] = lambda: mock_service
     fastapi_app.dependency_overrides[get_evaluator_service] = lambda: mock_evaluator
-    fastapi_app.dependency_overrides[get_db] = override_get_db
+    fastapi_app.dependency_overrides[get_database_session] = override_get_db
+    
+    import app.api.endpoints.document
+    import app.api.endpoints.evaluation
+    import app.api.endpoints.history
+    monkeypatch.setattr(app.api.endpoints.document, "get_database_session", override_get_db)
+    monkeypatch.setattr(app.api.endpoints.evaluation, "get_database_session", override_get_db)
+    monkeypatch.setattr(app.api.endpoints.history, "get_database_session", override_get_db)
+    
     yield
     mock_service.reset_mock()
     mock_evaluator.reset_mock()
@@ -159,12 +168,20 @@ def test_upload_endpoint_success(monkeypatch):
     data = response.json()
     assert data["status"] == "success"
     assert data["filename"] == "rules.txt"
-    assert "mock_collection" in data["strategies_applied"]
-    assert data["chunks_count"]["mock_collection"] == 1
+    assert "history_id" in data
+    assert "background" in data["message"]
+
+    history_id = data["history_id"]
+    status_resp = client.get(f"/upload/status/{history_id}")
+    assert status_resp.status_code == 200
+    status_data = status_resp.json()
+    assert status_data["status"] == "completed"
+    assert "mock_collection" in status_data["strategies_applied"]
+    assert status_data["chunks_count"]["mock_collection"] == 1
 
 
 def test_eval_run_endpoint_success():
-    mock_evaluator.run_eval_for_strategy.return_value = {
+    mock_evaluator.run_evaluation_for_strategy.return_value = {
         "answer": "지각 3회 시 결석 처리됩니다.",
         "contexts": ["지각 3회 결석"],
         "scores": {
@@ -181,16 +198,16 @@ def test_eval_run_endpoint_success():
         "top_k": 3,
     }
 
-    response = client.post("/eval/run", json=payload)
+    response = client.post("/evaluation/run", json=payload)
 
     assert response.status_code == 200
     data = response.json()
     assert data["question"] == "지각 규정은?"
     assert len(data["results"]) == 1
-    res = data["results"][0]
-    assert "recursive" in res["strategy"]
-    assert res["scores"]["faithfulness"]["score"] == 5
-    mock_evaluator.run_eval_for_strategy.assert_called_once()
+    result_item = data["results"][0]
+    assert "recursive" in result_item["strategy"]
+    assert result_item["scores"]["faithfulness"]["score"] == 5
+    mock_evaluator.run_evaluation_for_strategy.assert_called_once()
 
 
 def test_history_endpoints():
@@ -198,5 +215,5 @@ def test_history_endpoints():
     resp_upload = client.get("/history/uploads")
     assert resp_upload.status_code == 200
 
-    resp_eval = client.get("/history/evals")
+    resp_eval = client.get("/history/evaluations")
     assert resp_eval.status_code == 200
