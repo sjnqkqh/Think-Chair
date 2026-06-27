@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
@@ -19,6 +20,16 @@ class UploadResponse(BaseModel):
     filename: str
     history_id: int
     message: str
+
+
+class UploadStatusResponse(BaseModel):
+    id: int
+    filename: str
+    status: str
+    error_message: Optional[str] = None
+    strategies_applied: List[str]
+    chunks_count: Dict[str, int]
+    created_at: datetime
 
 
 class EvaluationRequest(BaseModel):

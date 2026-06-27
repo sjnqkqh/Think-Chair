@@ -1,34 +1,40 @@
+import json
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-import json
 
 from app.core.database import get_database_session
-from app.models.history import UploadHistory, EvalHistory
-from app.core.vectorstore import VectorStoreManager
+from app.schemas.rag import UploadStatusResponse
+from app.services.document import DocumentService
+from app.services.evaluator import EvaluatorService
 
 router = APIRouter()
 
 
-@router.get("/history/uploads", summary="업로드 이력 조회")
+@router.get(
+    "/history/uploads",
+    response_model=List[UploadStatusResponse],
+    summary="업로드 이력 조회",
+)
 async def get_upload_history(database_session: Session = Depends(get_database_session)):
-    upload_histories = database_session.query(UploadHistory).order_by(UploadHistory.id.desc()).all()
+    upload_histories = DocumentService.get_all_upload_histories(database_session)
     return [
-        {
-            "id": history_item.id,
-            "filename": history_item.filename,
-            "status": history_item.status,
-            "error_message": history_item.error_message,
-            "strategies_applied": json.loads(history_item.strategies_applied) if history_item.strategies_applied else [],
-            "chunks_count": json.loads(history_item.chunks_count) if history_item.chunks_count else {},
-            "created_at": history_item.created_at.isoformat(),
-        }
+        UploadStatusResponse(
+            id=history_item.id,
+            filename=history_item.filename,
+            status=history_item.status,
+            error_message=history_item.error_message,
+            strategies_applied=json.loads(history_item.strategies_applied) if history_item.strategies_applied else [],
+            chunks_count=json.loads(history_item.chunks_count) if history_item.chunks_count else {},
+            created_at=history_item.created_at,
+        )
         for history_item in upload_histories
     ]
 
 
 @router.get("/history/evaluations", summary="RAG 성능 평가 이력 조회")
 async def get_evaluation_history(database_session: Session = Depends(get_database_session)):
-    evaluation_histories = database_session.query(EvalHistory).order_by(EvalHistory.id.desc()).all()
+    evaluation_histories = EvaluatorService.get_all_evaluation_histories(database_session)
     results = []
     for history_item in evaluation_histories:
         evaluation_results = []
@@ -86,40 +92,15 @@ async def delete_upload_history(
     history_id: int,
     database_session: Session = Depends(get_database_session)
 ):
-    upload_history_record = database_session.query(UploadHistory).filter(UploadHistory.id == history_id).first()
-    if not upload_history_record:
-        raise HTTPException(status_code=404, detail="Upload history not found")
-
-    filename = upload_history_record.filename
-
     try:
-        # 1. Chroma DB에서 관련된 모든 임베딩 삭제
-        if upload_history_record.chunks_count:
-            chunks_count_dict = json.loads(upload_history_record.chunks_count)
-            vector_manager = VectorStoreManager()
-            for collection_name, count in chunks_count_dict.items():
-                document_ids = [f"{filename}_{collection_name}_{i}" for i in range(count)]
-                vector_manager.delete_existing_documents(document_ids, collection_name=collection_name)
-
-        # 2. SQLite DB에서 업로드 이력 삭제
-        database_session.delete(upload_history_record)
-        database_session.commit()
-
-        # 3. BM25 리트리버 업데이트
-        from app.services.rag import RagService
-        try:
-            RagService().init_bm25_retriever()
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"Failed to reload BM25 retriever: {e}")
-
+        filename = DocumentService.delete_document_and_embeddings(database_session, history_id)
         return {
             "status": "success",
             "message": f"Successfully deleted document '{filename}' from database and vector store."
         }
+    except HTTPException as exception:
+        raise exception
     except Exception as exception:
-
-        database_session.rollback()
         raise HTTPException(
             status_code=500,
             detail=f"Failed to delete document: {str(exception)}"

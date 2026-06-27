@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends
 import asyncio
-import json
+
+from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
+from app.core.database import get_database_session
 from app.schemas.rag import (
     EvaluationRequest,
     EvaluationResponse,
@@ -12,10 +13,8 @@ from app.schemas.rag import (
     StrategySummary,
     QAPairEvaluationResult,
 )
-from app.services.evaluator import EvaluatorService
 from app.services.chunking import ChunkingService
-from app.core.database import get_database_session
-from app.models.history import EvalHistory, EvalResult
+from app.services.evaluator import EvaluatorService
 
 router = APIRouter()
 _evaluator_service_instance = None
@@ -43,10 +42,9 @@ async def run_evaluation(
     database_session: Session = Depends(get_database_session),
 ):
     try:
-        evaluation_history_record = EvalHistory(question=request.question, ground_truth=request.ground_truth)
-        database_session.add(evaluation_history_record)
-        database_session.commit()
-        database_session.refresh(evaluation_history_record)
+        evaluation_history_record = EvaluatorService.create_evaluation_history(
+            database_session, request.question, request.ground_truth
+        )
 
         results = []
         for strategy in request.strategies:
@@ -66,29 +64,15 @@ async def run_evaluation(
 
             scores = evaluation_result["scores"]
 
-            evaluation_result_record = EvalResult(
-                eval_history_id=evaluation_history_record.id,
-                strategy=strategy_description,
-                collection_name=collection_name,
-                answer=evaluation_result["answer"],
-                contexts=json.dumps(evaluation_result["contexts"]),
-                faithfulness_score=scores.get("faithfulness", {}).get("score", 0),
-                faithfulness_reason=scores.get("faithfulness", {}).get("reason", ""),
-                relevance_score=scores.get("relevance", {}).get("score", 0),
-                relevance_reason=scores.get("relevance", {}).get("reason", ""),
-                precision_score=scores.get("precision", {}).get("score", 0),
-                precision_reason=scores.get("precision", {}).get("reason", ""),
-                recall_score=scores.get("recall", {}).get("score", 0),
-                recall_reason=scores.get("recall", {}).get("reason", ""),
-                completeness_score=scores.get("completeness", {}).get("score", 0),
-                completeness_reason=scores.get("completeness", {}).get("reason", ""),
-                noise_ratio=scores.get("noise_ratio", 0.0),
-                coverage_rate=scores.get("coverage_rate", 0.0),
-                hallucination_count=scores.get("hallucination_count", 0),
-                gt_match_rate=scores.get("gt_match_rate", 0.0),
-                avg_chunk_length=scores.get("avg_chunk_length", 0),
+            EvaluatorService.save_strategy_evaluation_result(
+                database_session,
+                evaluation_history_record.id,
+                strategy_description,
+                collection_name,
+                evaluation_result["answer"],
+                evaluation_result["contexts"],
+                scores,
             )
-            database_session.add(evaluation_result_record)
 
             results.append(
                 StrategyEvaluationResult(
@@ -99,8 +83,6 @@ async def run_evaluation(
                     scores=scores,
                 )
             )
-
-        database_session.commit()
 
         return EvaluationResponse(
             question=request.question, ground_truth=request.ground_truth, results=results
@@ -151,10 +133,9 @@ async def run_json_evaluation(
 
         for key, group in qa_groups.items():
             qa = group["qa"]
-            evaluation_history_record = EvalHistory(question=qa.question, ground_truth=qa.answer)
-            database_session.add(evaluation_history_record)
-            database_session.commit()
-            database_session.refresh(evaluation_history_record)
+            evaluation_history_record = EvaluatorService.create_evaluation_history(
+                database_session, qa.question, qa.answer
+            )
 
             strategy_results = []
             for strategy_item, col_name, eval_res in group["results"]:
@@ -164,29 +145,15 @@ async def run_json_evaluation(
 
                 scores = eval_res["scores"]
 
-                evaluation_result_record = EvalResult(
-                    eval_history_id=evaluation_history_record.id,
-                    strategy=strategy_description,
-                    collection_name=col_name,
-                    answer=eval_res["answer"],
-                    contexts=json.dumps(eval_res["contexts"]),
-                    faithfulness_score=scores.get("faithfulness", {}).get("score", 0),
-                    faithfulness_reason=scores.get("faithfulness", {}).get("reason", ""),
-                    relevance_score=scores.get("relevance", {}).get("score", 0),
-                    relevance_reason=scores.get("relevance", {}).get("reason", ""),
-                    precision_score=scores.get("precision", {}).get("score", 0),
-                    precision_reason=scores.get("precision", {}).get("reason", ""),
-                    recall_score=scores.get("recall", {}).get("score", 0),
-                    recall_reason=scores.get("recall", {}).get("reason", ""),
-                    completeness_score=scores.get("completeness", {}).get("score", 0),
-                    completeness_reason=scores.get("completeness", {}).get("reason", ""),
-                    noise_ratio=scores.get("noise_ratio", 0.0),
-                    coverage_rate=scores.get("coverage_rate", 0.0),
-                    hallucination_count=scores.get("hallucination_count", 0),
-                    gt_match_rate=scores.get("gt_match_rate", 0.0),
-                    avg_chunk_length=scores.get("avg_chunk_length", 0),
+                EvaluatorService.save_strategy_evaluation_result(
+                    database_session,
+                    evaluation_history_record.id,
+                    strategy_description,
+                    col_name,
+                    eval_res["answer"],
+                    eval_res["contexts"],
+                    scores,
                 )
-                database_session.add(evaluation_result_record)
 
                 if strategy_description not in strategy_stats:
                     strategy_stats[strategy_description] = {
@@ -231,8 +198,6 @@ async def run_json_evaluation(
                 )
             )
 
-        database_session.commit()
-
         summaries = []
         for strategy_desc, stats in strategy_stats.items():
             def get_avg(lst):
@@ -257,4 +222,3 @@ async def run_json_evaluation(
 
     except Exception as exception:
         raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(exception)}")
-

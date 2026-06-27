@@ -1,57 +1,22 @@
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
 import json
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
 
-from app.schemas.rag import UploadResponse
-from app.services.chunking import ChunkingService
-from app.core.vectorstore import VectorStoreManager
+from app.schemas.rag import UploadResponse, UploadStatusResponse
+from app.services.document import DocumentService
 from app.core.database import get_database_session
-from app.models.history import UploadHistory
 
 router = APIRouter()
 
 
-def process_upload_task(
+def execute_background_upload(
     history_id: int, file_bytes: bytes, filename: str, strategy_list: list
 ) -> None:
     database_session = next(get_database_session())
     try:
-        text = ChunkingService.extract_text_from_file(file_bytes, filename)
-        vector_manager = VectorStoreManager()
-        strategies_applied = []
-        chunks_count = {}
-
-        for strategy in strategy_list:
-            documents = ChunkingService.split_document(text, strategy, filename)
-            collection_name = ChunkingService.get_collection_name_for_strategy(strategy)
-
-            document_ids = [f"{filename}_{collection_name}_{i}" for i in range(len(documents))]
-            vector_manager.delete_existing_documents(document_ids, collection_name=collection_name)
-            vector_manager.add_documents_batch(documents, document_ids, collection_name=collection_name)
-
-            strategies_applied.append(collection_name)
-            chunks_count[collection_name] = len(documents)
-
-        upload_history_record = database_session.query(UploadHistory).filter(UploadHistory.id == history_id).first()
-        if upload_history_record:
-            upload_history_record.status = "completed"
-            upload_history_record.strategies_applied = json.dumps(strategies_applied)
-            upload_history_record.chunks_count = json.dumps(chunks_count)
-            database_session.commit()
-
-            from app.services.rag import RagService
-            try:
-                RagService().init_bm25_retriever()
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning(f"Failed to reload BM25 retriever: {e}")
-    except Exception as exception:
-
-        upload_history_record = database_session.query(UploadHistory).filter(UploadHistory.id == history_id).first()
-        if upload_history_record:
-            upload_history_record.status = "failed"
-            upload_history_record.error_message = str(exception)
-            database_session.commit()
+        DocumentService.process_upload_task(
+            database_session, history_id, file_bytes, filename, strategy_list
+        )
     finally:
         database_session.close()
 
@@ -78,20 +43,10 @@ async def upload_document(
                 status_code=400, detail="Invalid JSON format for 'strategies'"
             )
 
-        # 1. Create upload history record in processing state
-        upload_history_record = UploadHistory(
-            filename=filename,
-            status="processing",
-            strategies_applied=json.dumps([]),
-            chunks_count=json.dumps({}),
-        )
-        database_session.add(upload_history_record)
-        database_session.commit()
-        database_session.refresh(upload_history_record)
+        upload_history_record = DocumentService.create_upload_history(database_session, filename)
 
-        # 2. Add chunking & embedding job to background tasks
         background_tasks.add_task(
-            process_upload_task,
+            execute_background_upload,
             upload_history_record.id,
             content,
             filename,
@@ -108,17 +63,25 @@ async def upload_document(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(exception)}")
 
 
-@router.get("/upload/status/{history_id}", summary="업로드 상태 조회")
-async def get_upload_status(history_id: int, database_session: Session = Depends(get_database_session)):
-    upload_history_record = database_session.query(UploadHistory).filter(UploadHistory.id == history_id).first()
+@router.get(
+    "/upload/status/{history_id}",
+    response_model=UploadStatusResponse,
+    summary="업로드 상태 조회"
+)
+async def get_upload_status(
+    history_id: int,
+    database_session: Session = Depends(get_database_session)
+):
+    upload_history_record = DocumentService.get_upload_history(database_session, history_id)
     if not upload_history_record:
         raise HTTPException(status_code=404, detail="Upload history not found")
-    return {
-        "id": upload_history_record.id,
-        "filename": upload_history_record.filename,
-        "status": upload_history_record.status,
-        "error_message": upload_history_record.error_message,
-        "strategies_applied": json.loads(upload_history_record.strategies_applied) if upload_history_record.strategies_applied else [],
-        "chunks_count": json.loads(upload_history_record.chunks_count) if upload_history_record.chunks_count else {},
-        "created_at": upload_history_record.created_at.isoformat(),
-    }
+        
+    return UploadStatusResponse(
+        id=upload_history_record.id,
+        filename=upload_history_record.filename,
+        status=upload_history_record.status,
+        error_message=upload_history_record.error_message,
+        strategies_applied=json.loads(upload_history_record.strategies_applied) if upload_history_record.strategies_applied else [],
+        chunks_count=json.loads(upload_history_record.chunks_count) if upload_history_record.chunks_count else {},
+        created_at=upload_history_record.created_at,
+    )

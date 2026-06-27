@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from typing import List, Dict, Any
+from sqlalchemy.orm import Session
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from kiwipiepy import Kiwi
@@ -9,6 +10,7 @@ from app.core.config import settings
 from app.core.vectorstore import VectorStoreManager
 from app.core.llm import LLMManager
 from app.core.retry import execute_with_retry
+from app.models.history import EvalHistory, EvalResult
 
 logger = logging.getLogger(__name__)
 kiwi = Kiwi()
@@ -327,4 +329,54 @@ class EvaluatorService:
             scores = await self.evaluate_answer(question, ground_truth, contexts, answer)
 
         return {"answer": answer, "contexts": contexts, "scores": scores}
+
+    @staticmethod
+    def create_evaluation_history(database_session: Session, question: str, ground_truth: str) -> EvalHistory:
+        history = EvalHistory(question=question, ground_truth=ground_truth)
+        database_session.add(history)
+        database_session.commit()
+        database_session.refresh(history)
+        return history
+
+    @staticmethod
+    def save_strategy_evaluation_result(
+        database_session: Session,
+        history_id: int,
+        strategy_description: str,
+        collection_name: str,
+        answer: str,
+        contexts: List[str],
+        scores: Dict[str, Any]
+    ) -> EvalResult:
+        result = EvalResult(
+            eval_history_id=history_id,
+            strategy=strategy_description,
+            collection_name=collection_name,
+            answer=answer,
+            contexts=json.dumps(contexts),
+            faithfulness_score=scores.get("faithfulness", {}).get("score", 0),
+            faithfulness_reason=scores.get("faithfulness", {}).get("reason", ""),
+            relevance_score=scores.get("relevance", {}).get("score", 0),
+            relevance_reason=scores.get("relevance", {}).get("reason", ""),
+            precision_score=scores.get("precision", {}).get("score", 0),
+            precision_reason=scores.get("precision", {}).get("reason", ""),
+            recall_score=scores.get("recall", {}).get("score", 0),
+            recall_reason=scores.get("recall", {}).get("reason", ""),
+            completeness_score=scores.get("completeness", {}).get("score", 0),
+            completeness_reason=scores.get("completeness", {}).get("reason", ""),
+            noise_ratio=scores.get("noise_ratio", 0.0),
+            coverage_rate=scores.get("coverage_rate", 0.0),
+            hallucination_count=scores.get("hallucination_count", 0),
+            gt_match_rate=scores.get("gt_match_rate", 0.0),
+            avg_chunk_length=scores.get("avg_chunk_length", 0),
+        )
+        database_session.add(result)
+        database_session.commit()
+        return result
+
+    @staticmethod
+    def get_all_evaluation_histories(database_session: Session) -> List[EvalHistory]:
+        return database_session.query(EvalHistory).order_by(EvalHistory.id.desc()).all()
+
+
 
