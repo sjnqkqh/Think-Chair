@@ -211,6 +211,42 @@ def test_eval_run_endpoint_success():
     mock_evaluator.run_evaluation_for_strategy.assert_called_once()
 
 
+def test_eval_run_json_endpoint_success():
+    mock_evaluator.run_evaluation_for_strategy.return_value = {
+        "answer": "지각 3회 시 결석 처리됩니다.",
+        "contexts": ["지각 3회 결석"],
+        "scores": {
+            "faithfulness": {"score": 5, "reason": "사실 기반"},
+            "relevance": {"score": 5, "reason": "질문에 답변"},
+            "precision": {"score": 5, "reason": "정확한 맥락"},
+        },
+    }
+
+    payload = {
+        "qa_pairs": [
+            {
+                "id": 1,
+                "type": "A",
+                "section": "섹션",
+                "retrieval_hint": "힌트",
+                "question": "지각 규정은?",
+                "answer": "지각 3회는 결석 1일"
+            }
+        ],
+        "strategies": [{"name": "recursive", "chunk_size": 500, "chunk_overlap": 50}],
+        "top_k": 3,
+    }
+
+    response = client.post("/evaluation/run-json", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["summaries"]) == 1
+    assert data["summaries"][0]["faithfulness_avg"] == 5.0
+    assert len(data["evaluations"]) == 1
+    assert data["evaluations"][0]["question"] == "지각 규정은?"
+
+
 def test_history_endpoints():
     # 1. Check initially empty or containing entries
     resp_upload = client.get("/history/uploads")

@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -50,5 +50,17 @@ class EvalResult(Base):
     relevance_reason = Column(Text, nullable=True)
     precision_score = Column(Integer, nullable=False)
     precision_reason = Column(Text, nullable=True)
+    recall_score = Column(Integer, nullable=False, default=0)
+    recall_reason = Column(Text, nullable=True)
+    completeness_score = Column(Integer, nullable=False, default=0)
+    completeness_reason = Column(Text, nullable=True)
+
+    # Quantitative Auxiliary Metrics
+    noise_ratio = Column(Float, nullable=True)
+    coverage_rate = Column(Float, nullable=True)
+    hallucination_count = Column(Integer, nullable=True)
+    gt_match_rate = Column(Float, nullable=True)
+    avg_chunk_length = Column(Integer, nullable=True)
 
     eval_history = relationship("EvalHistory", back_populates="results")
+

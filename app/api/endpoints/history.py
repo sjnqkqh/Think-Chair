@@ -52,9 +52,23 @@ async def get_evaluation_history(database_session: Session = Depends(get_databas
                             "score": result_item.precision_score,
                             "reason": result_item.precision_reason,
                         },
+                        "recall": {
+                            "score": result_item.recall_score,
+                            "reason": result_item.recall_reason,
+                        },
+                        "completeness": {
+                            "score": result_item.completeness_score,
+                            "reason": result_item.completeness_reason,
+                        },
+                        "noise_ratio": result_item.noise_ratio,
+                        "coverage_rate": result_item.coverage_rate,
+                        "hallucination_count": result_item.hallucination_count,
+                        "gt_match_rate": result_item.gt_match_rate,
+                        "avg_chunk_length": result_item.avg_chunk_length,
                     },
                 }
             )
+
         results.append(
             {
                 "id": history_item.id,

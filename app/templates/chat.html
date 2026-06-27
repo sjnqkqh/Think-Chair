@@ -551,6 +551,47 @@
       gap: 16px;
     }
 
+    /* JSON File Upload Zone */
+    .file-upload-zone {
+      border: 2px dashed var(--colors-border-regular);
+      border-radius: var(--radius-200);
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      background-color: var(--colors-bg-secondary);
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .file-upload-zone:hover, .file-upload-zone.dragover {
+      border-color: var(--colors-primary-regular);
+      background-color: var(--colors-primary-light);
+    }
+
+    /* Summary Table Style */
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    .summary-table th, .summary-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--colors-border-regular);
+    }
+    .summary-table th {
+      font-weight: var(--weight-bold);
+      background-color: var(--colors-bg-secondary);
+      color: var(--colors-text-secondary);
+    }
+    .summary-table tr:hover {
+      background-color: var(--colors-bg-secondary);
+    }
+
     .app-viewport.wide-mode .results-grid {
       grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
     }
@@ -941,14 +982,17 @@
         <!-- Input Panel -->
         <div class="eval-input-side">
           <div class="card">
-            <h2 class="form-title">테스트 파라미터 입력</h2>
+            <h2 class="form-title">평가 데이터 입력 (JSON)</h2>
             <div class="form-group">
-              <label class="form-label" for="evalQuestion">테스트 질문</label>
-              <input type="text" class="form-input" id="evalQuestion" placeholder="예: 지각 3번이면 하루 결석 처리되나요?">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="evalGroundTruth">정답 가이드라인 (Ground Truth)</label>
-              <textarea class="form-textarea" id="evalGroundTruth" placeholder="예: 지각, 조퇴, 외출 누적 3회는 결석 1일로 처리됩니다."></textarea>
+              <label class="form-label" for="evalJsonFile">평가용 JSON 파일 선택</label>
+              <div class="file-upload-zone" id="evalJsonUploadZone">
+                <input type="file" id="evalJsonFile" accept=".json" style="display: none;">
+                <span class="upload-icon" style="font-size: 28px; display: block; margin-bottom: 4px;">📂</span>
+                <span class="upload-text" id="evalJsonUploadText" style="font-size: 13px; font-weight: 500; color: var(--colors-text-secondary);">
+                  클릭하거나 JSON 파일을 여기로 드래그하세요
+                </span>
+                <div id="evalJsonSummary" style="margin-top: 8px; font-size: 12px; color: var(--colors-primary-regular); font-weight: bold; display: none;"></div>
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label">평가 비교 대상 청킹 전략</label>
@@ -987,13 +1031,46 @@
 
         <!-- Result Panel -->
         <div class="eval-result-side">
-          <div class="card" style="flex: 1; min-height: 200px;">
-            <h2 class="form-title">청킹 전략별 RAG 답변 및 평가 비교 결과</h2>
+          <!-- 1. 종합 성능 요약 카드 (기본 숨김, 결과가 있을 때 표시) -->
+          <div class="card" id="evalSummaryCard" style="display: none; width: 100%;">
+            <h2 class="form-title" style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              📊 청킹 전략별 종합 성능 비교 (평균 점수)
+            </h2>
+            <div style="overflow-x: auto;">
+              <table class="summary-table">
+                <thead>
+                  <tr>
+                    <th>청킹 전략</th>
+                    <th>충실성 (Faithfulness)</th>
+                    <th>답변 연관성 (Relevance)</th>
+                    <th>맥락 정확성 (Precision)</th>
+                    <th>맥락 재현율 (Recall)</th>
+                    <th>답변 완결성 (Completeness)</th>
+                    <th>노이즈 비율</th>
+                    <th>GT 커버리지</th>
+                    <th>GT 매치율</th>
+                  </tr>
+                </thead>
+                <tbody id="evalSummaryBody">
+                  <!-- 요약 행이 동적으로 생성됩니다 -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 2. 개별 문항 상세 분석 카드 -->
+          <div class="card" style="flex: 1; min-height: 200px; width: 100%;">
+            <h2 class="form-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <span>🔍 개별 문항 상세 비교 결과</span>
+              <select id="evalQaSelector" class="form-input" style="width: auto; min-width: 250px; max-width: 400px; margin: 0; padding: 6px 12px; font-size: 13px; display: none;" onchange="showSelectedQaResult()">
+                <!-- 문항 목록이 여기에 주입됩니다 -->
+              </select>
+            </h2>
             <div id="no-result-message" style="color: var(--colors-text-tertiary); font-size: 14px; text-align: center; padding: 40px 0;">
-              테스트 파라미터를 입력하고 [평가 시작]을 눌러 비교 데이터를 확인하세요.
+              평가용 JSON 파일을 업로드하고 [평가 시작]을 눌러 결과를 확인하세요.
             </div>
             <div class="results-grid" id="evalResultsGrid">
-              <!-- Result cards will be dynamically injected here -->
+              <!-- 선택된 문항의 카드들이 여기에 들어갑니다 -->
             </div>
           </div>
         </div>
@@ -1016,6 +1093,8 @@
     sessionStorage.setItem('rag_session_id', sessionId);
 
     let selectedFile = null;
+    let loadedQaPairs = null;
+    let evalResultsData = null;
 
     // Toast UI Generator
     function showToast(message, type = 'info') {
@@ -1298,18 +1377,78 @@
     }
 
     /* ---------------- EVALUATION LOGIC ---------------- */
-    async function runEvaluation() {
-      const question = document.getElementById('evalQuestion').value.trim();
-      const groundTruth = document.getElementById('evalGroundTruth').value.trim();
-      const topK = parseInt(document.getElementById('evalTopK').value) || 5;
-      const useRagas = document.getElementById('evalUseRagas').checked;
+    // DOM Elements for JSON Evaluation Upload
+    document.addEventListener('DOMContentLoaded', () => {
+      const evalUploadZone = document.getElementById('evalJsonUploadZone');
+      const evalFileInput = document.getElementById('evalJsonFile');
+      const evalUploadText = document.getElementById('evalJsonUploadText');
+      const evalSummaryDiv = document.getElementById('evalJsonSummary');
 
-      if (!question || !groundTruth) {
-        alert('질문과 정답 가이드라인(Ground Truth)을 모두 입력하십시오.');
+      if (evalUploadZone && evalFileInput) {
+        evalUploadZone.addEventListener('click', () => evalFileInput.click());
+        evalFileInput.addEventListener('change', handleEvalFileSelect);
+
+        evalUploadZone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          evalUploadZone.classList.add('dragover');
+        });
+
+        evalUploadZone.addEventListener('dragleave', () => {
+          evalUploadZone.classList.remove('dragover');
+        });
+
+        evalUploadZone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          evalUploadZone.classList.remove('dragover');
+          const files = e.dataTransfer.files;
+          if (files.length > 0) {
+            evalFileInput.files = files;
+            handleEvalFileSelect();
+          }
+        });
+      }
+
+      function handleEvalFileSelect() {
+        const file = evalFileInput.files[0];
+        if (!file) return;
+
+        if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+          showToast('JSON 형식의 파일만 업로드할 수 있습니다.', 'error');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const data = JSON.parse(e.target.result);
+            if (!data.qa_pairs || !Array.isArray(data.qa_pairs)) {
+              throw new Error("JSON 파일에 'qa_pairs' 배열이 존재해야 합니다.");
+            }
+            loadedQaPairs = data.qa_pairs;
+            evalUploadText.innerText = `${file.name}`;
+            evalSummaryDiv.style.display = 'block';
+            evalSummaryDiv.innerText = `총 ${loadedQaPairs.length}개의 QA 쌍이 로드되었습니다.`;
+            showToast('평가용 JSON 파일이 성공적으로 로드되었습니다.', 'success');
+          } catch (err) {
+            showToast(`JSON 파싱 실패: ${err.message}`, 'error');
+            loadedQaPairs = null;
+            evalSummaryDiv.style.display = 'none';
+            evalUploadText.innerText = '클릭하거나 JSON 파일을 여기로 드래그하세요';
+          }
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    async function runEvaluation() {
+      if (!loadedQaPairs || loadedQaPairs.length === 0) {
+        alert('평가용 JSON 파일을 먼저 업로드해주십시오.');
         return;
       }
 
-      // Check configured strategies
+      const topK = parseInt(document.getElementById('evalTopK').value) || 5;
+      const useRagas = document.getElementById('evalUseRagas').checked;
+
       const strategies = [];
       if (document.getElementById('eval-chk-rec-small').checked) {
         strategies.push({ name: 'recursive', chunk_size: 500, chunk_overlap: 50 });
@@ -1330,19 +1469,18 @@
       }
 
       const loaderMsg = useRagas 
-        ? "각 청킹 전략별 RAG 답변을 조회하고 Ragas 라이브러리 정밀 평가(DeepSeek 기반)를 실행 중입니다. 이 작업은 30초 이상 소요될 수 있습니다..."
-        : "각 청킹 전략별 RAG 답변을 조회하고 DeepSeek Judge 평가를 받아오는 중입니다...";
+        ? `총 ${loadedQaPairs.length}개 문항에 대해 각 청킹 전략별 RAG 답변을 조회하고 Ragas 라이브러리 정밀 평가를 실행 중입니다. 시간이 매우 오래 걸릴 수 있습니다...`
+        : `총 ${loadedQaPairs.length}개 문항에 대해 각 청킹 전략별 RAG 답변을 조회하고 DeepSeek Judge 평가를 받아오는 중입니다...`;
       showLoader(loaderMsg);
 
       try {
-        const response = await fetch('/evaluation/run', {
+        const response = await fetch('/evaluation/run-json', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            question: question,
-            ground_truth: groundTruth,
+            qa_pairs: loadedQaPairs,
             strategies: strategies,
             top_k: topK,
             use_ragas: useRagas
@@ -1356,7 +1494,12 @@
 
         const data = await response.json();
         hideLoader();
-        renderEvaluationResults(data.results);
+        
+        evalResultsData = data;
+        
+        renderEvaluationSummary(data.summaries);
+        setupQaSelector(data.evaluations);
+        showToast('성능 평가가 완료되었습니다!', 'success');
 
       } catch (err) {
         hideLoader();
@@ -1364,15 +1507,93 @@
       }
     }
 
-    function renderEvaluationResults(results) {
+    function renderEvaluationSummary(summaries) {
+      const summaryCard = document.getElementById('evalSummaryCard');
+      const summaryBody = document.getElementById('evalSummaryBody');
+      summaryBody.innerHTML = '';
+      
+      if (!summaries || summaries.length === 0) {
+        summaryCard.style.display = 'none';
+        return;
+      }
+      
+      summaryCard.style.display = 'block';
+      summaries.forEach(sum => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td style="padding: 10px; font-weight: bold;">${escapeHtml(sum.strategy)}</td>
+          <td style="padding: 10px; text-align: center;"><span class="score-value ${getScoreClass(Math.round(sum.faithfulness_avg))}">${sum.faithfulness_avg}/5</span></td>
+          <td style="padding: 10px; text-align: center;"><span class="score-value ${getScoreClass(Math.round(sum.relevance_avg))}">${sum.relevance_avg}/5</span></td>
+          <td style="padding: 10px; text-align: center;"><span class="score-value ${getScoreClass(Math.round(sum.precision_avg))}">${sum.precision_avg}/5</span></td>
+          <td style="padding: 10px; text-align: center;"><span class="score-value ${getScoreClass(Math.round(sum.recall_avg))}">${sum.recall_avg}/5</span></td>
+          <td style="padding: 10px; text-align: center;"><span class="score-value ${getScoreClass(Math.round(sum.completeness_avg))}">${sum.completeness_avg}/5</span></td>
+          <td style="padding: 10px; text-align: center;">${(sum.noise_ratio_avg * 100).toFixed(1)}%</td>
+          <td style="padding: 10px; text-align: center;">${(sum.coverage_rate_avg * 100).toFixed(1)}%</td>
+          <td style="padding: 10px; text-align: center;">${(sum.gt_match_rate_avg * 100).toFixed(1)}%</td>
+        `;
+        summaryBody.appendChild(row);
+      });
+    }
+
+    function setupQaSelector(evaluations) {
+      const selector = document.getElementById('evalQaSelector');
+      selector.innerHTML = '';
+      
+      if (!evaluations || evaluations.length === 0) {
+        selector.style.display = 'none';
+        return;
+      }
+      
+      selector.style.display = 'block';
+      evaluations.forEach((item, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        const shortQuestion = item.question.length > 30 ? item.question.substring(0, 30) + '...' : item.question;
+        option.text = `[문항 ${index + 1}] ${shortQuestion}`;
+        selector.appendChild(option);
+      });
+      
+      selector.value = 0;
+      showSelectedQaResult();
+    }
+
+    function showSelectedQaResult() {
+      const selector = document.getElementById('evalQaSelector');
+      const selectedIndex = parseInt(selector.value);
+      if (isNaN(selectedIndex) || !evalResultsData || !evalResultsData.evaluations[selectedIndex]) {
+        return;
+      }
+      
+      const selectedQa = evalResultsData.evaluations[selectedIndex];
+      
       document.getElementById('no-result-message').style.display = 'none';
       const grid = document.getElementById('evalResultsGrid');
       grid.innerHTML = '';
+      
+      const headerCard = document.createElement('div');
+      headerCard.style.gridColumn = '1 / -1';
+      headerCard.style.padding = '16px';
+      headerCard.style.backgroundColor = 'var(--colors-bg-secondary)';
+      headerCard.style.borderRadius = 'var(--radius-200)';
+      headerCard.style.border = '1px solid var(--colors-border-regular)';
+      headerCard.innerHTML = `
+        <div style="margin-bottom: 8px;"><strong>질문 (Question):</strong> ${escapeHtml(selectedQa.question)}</div>
+        <div><strong>정답 가이드라인 (Ground Truth):</strong> ${escapeHtml(selectedQa.ground_truth)}</div>
+      `;
+      grid.appendChild(headerCard);
 
-      results.forEach((res, index) => {
+      selectedQa.results.forEach((res, index) => {
         const faithfulness = res.scores.faithfulness || { score: 0, reason: 'N/A' };
         const relevance = res.scores.relevance || { score: 0, reason: 'N/A' };
         const precision = res.scores.precision || { score: 0, reason: 'N/A' };
+        const recall = res.scores.recall || { score: 0, reason: 'N/A' };
+        const completeness = res.scores.completeness || { score: 0, reason: 'N/A' };
+
+        const noiseRatio = res.scores.noise_ratio !== undefined ? res.scores.noise_ratio : 0;
+        const coverageRate = res.scores.coverage_rate !== undefined ? res.scores.coverage_rate : 0;
+        const hallucinationCount = res.scores.hallucination_count !== undefined ? res.scores.hallucination_count : 0;
+        const gtMatchRate = res.scores.gt_match_rate !== undefined ? res.scores.gt_match_rate : 0;
+        const avgChunkLength = res.scores.avg_chunk_length !== undefined ? res.scores.avg_chunk_length : 0;
 
         const card = document.createElement('div');
         card.className = 'result-card';
@@ -1384,7 +1605,7 @@
             </div>
           </div>
 
-          <div class="score-badges-grid">
+          <div class="score-badges-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
             <div class="score-badge-item">
               <div class="score-label">충실성 (Faithfulness)</div>
               <div class="score-value ${getScoreClass(faithfulness.score)}">${faithfulness.score}/5</div>
@@ -1397,6 +1618,25 @@
               <div class="score-label">맥락 정확성 (Precision)</div>
               <div class="score-value ${getScoreClass(precision.score)}">${precision.score}/5</div>
             </div>
+            <div class="score-badge-item">
+              <div class="score-label">맥락 재현율 (Recall)</div>
+              <div class="score-value ${getScoreClass(recall.score)}">${recall.score}/5</div>
+            </div>
+            <div class="score-badge-item">
+              <div class="score-label">답변 완결성 (Completeness)</div>
+              <div class="score-value ${getScoreClass(completeness.score)}">${completeness.score}/5</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 10px; padding: 10px; background-color: var(--colors-bg-secondary); border-radius: 6px; font-size: 12px; border: 1px solid var(--colors-border-regular);">
+            <strong style="display: block; margin-bottom: 6px; color: var(--colors-text-primary);">정량적 보조 지표 (코드 자동 계산)</strong>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 12px;">
+              <div>• <strong>노이즈 청크 비율:</strong> ${(noiseRatio * 100).toFixed(1)}%</div>
+              <div>• <strong>GT 문맥 커버리지:</strong> ${(coverageRate * 100).toFixed(1)}%</div>
+              <div>• <strong>환각 문장 개수:</strong> ${hallucinationCount}개</div>
+              <div>• <strong>GT 답변 매치율:</strong> ${(gtMatchRate * 100).toFixed(1)}%</div>
+              <div>• <strong>평균 청크 크기:</strong> ${avgChunkLength}자</div>
+            </div>
           </div>
 
           <div>
@@ -1406,10 +1646,12 @@
 
           <div>
             <div class="card-section-title">DeepSeek Judge 채점 근거</div>
-            <div class="card-text-block" id="reason-${index}" style="display: none; background-color: var(--colors-primary-light); font-size: 12px; color: var(--colors-primary-heavy);">
+            <div class="card-text-block" id="reason-${index}" style="display: none; background-color: var(--colors-primary-light); font-size: 12px; color: var(--colors-primary-heavy); line-height: 1.5;">
               <strong>충실성 사유:</strong> ${escapeHtml(faithfulness.reason)}<br><br>
               <strong>연관성 사유:</strong> ${escapeHtml(relevance.reason)}<br><br>
-              <strong>맥락 정확성 사유:</strong> ${escapeHtml(precision.reason)}
+              <strong>맥락 정확성 사유:</strong> ${escapeHtml(precision.reason)}<br><br>
+              <strong>맥락 재현율 사유:</strong> ${escapeHtml(recall.reason)}<br><br>
+              <strong>답변 완결성 사유:</strong> ${escapeHtml(completeness.reason)}
             </div>
             <span class="score-reason-toggle" onclick="toggleReason(${index}, this)">더보기 ▼</span>
           </div>
@@ -1445,6 +1687,7 @@
         trigger.innerText = '더보기 ▼';
       }
     }
+
 
     function getScoreClass(score) {
       if (score >= 4) return 'high';
