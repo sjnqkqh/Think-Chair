@@ -28,7 +28,17 @@ class ChunkWrapper:
 
 
 class RagService:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(RagService, cls).__new__(cls, *args, **kwargs)
+            cls._instance._initialized = False
+        return cls._instance
+
     def __init__(self):
+        if self._initialized:
+            return
         self.vector_store_manager = VectorStoreManager()
         self.llm_manager = LLMManager()
         self.sessions: dict[str, list] = {}
@@ -37,6 +47,8 @@ class RagService:
             self.init_bm25_retriever()
         except Exception as e:
             logger.warning(f"Error initializing BM25 retriever: {e}")
+        self._initialized = True
+
 
     @staticmethod
     def kiwi_tokenize(text: str) -> list[str]:

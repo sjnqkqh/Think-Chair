@@ -91,11 +91,20 @@ async def delete_upload_history(
         database_session.delete(upload_history_record)
         database_session.commit()
 
+        # 3. BM25 리트리버 업데이트
+        from app.services.rag import RagService
+        try:
+            RagService().init_bm25_retriever()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to reload BM25 retriever: {e}")
+
         return {
             "status": "success",
             "message": f"Successfully deleted document '{filename}' from database and vector store."
         }
     except Exception as exception:
+
         database_session.rollback()
         raise HTTPException(
             status_code=500,

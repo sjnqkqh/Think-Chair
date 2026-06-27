@@ -46,7 +46,7 @@ class VectorStoreManager:
                 print(
                     f"Clearing {existing_count} existing items from collection '{collection_name}'..."
                 )
-                store._collection.delete(ids=ids)
+                store.delete(ids=ids)
         except Exception as e:
             print(f"Warning during clearing collection '{collection_name}': {e}")
 
@@ -61,12 +61,20 @@ class VectorStoreManager:
         total = len(ids)
         for i in range(0, total, batch_size):
             batch_docs = documents[i : i + batch_size]
+            batch_ids = ids[i : i + batch_size]
             print(
                 f"Adding batch {i//batch_size + 1}... ({i}/{total}) to collection '{collection_name}'"
             )
             
             # 모듈화된 재시도 헬퍼 사용 (base_delay를 2.0초로 상향)
-            execute_with_retry(store.add_documents, batch_docs, max_retries=5, base_delay=2.0)
+            execute_with_retry(
+                store.add_documents,
+                batch_docs,
+                ids=batch_ids,
+                max_retries=5,
+                base_delay=2.0,
+            )
             
             # 성공 후 기본 10초 대기 (API 호출 에러 방지용 분리 딜레이)
             time.sleep(10.0)
+

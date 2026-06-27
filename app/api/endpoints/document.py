@@ -38,7 +38,15 @@ def process_upload_task(
             upload_history_record.strategies_applied = json.dumps(strategies_applied)
             upload_history_record.chunks_count = json.dumps(chunks_count)
             database_session.commit()
+
+            from app.services.rag import RagService
+            try:
+                RagService().init_bm25_retriever()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Failed to reload BM25 retriever: {e}")
     except Exception as exception:
+
         upload_history_record = database_session.query(UploadHistory).filter(UploadHistory.id == history_id).first()
         if upload_history_record:
             upload_history_record.status = "failed"
