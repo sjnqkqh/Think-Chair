@@ -24,5 +24,11 @@ dependencies = [
     "langchain-google-vertexai>=3.2.4",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=1.4.0",
+]
 
-
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
