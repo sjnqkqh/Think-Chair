@@ -20,11 +20,23 @@ kiwi = Kiwi()
 def compute_coverage_rate(gt: str, contexts: List[str]) -> float:
     if not gt:
         return 0.0
-    gt_tokens = set([t.form for t in kiwi.tokenize(gt) if t.tag.startswith("N") or t.tag.startswith("V")])
+    gt_tokens = set(
+        [
+            t.form
+            for t in kiwi.tokenize(gt)
+            if t.tag.startswith("N") or t.tag.startswith("V")
+        ]
+    )
     if not gt_tokens:
         return 0.0
     context_text = " ".join(contexts)
-    ctx_tokens = set([t.form for t in kiwi.tokenize(context_text) if t.tag.startswith("N") or t.tag.startswith("V")])
+    ctx_tokens = set(
+        [
+            t.form
+            for t in kiwi.tokenize(context_text)
+            if t.tag.startswith("N") or t.tag.startswith("V")
+        ]
+    )
     matching_tokens = gt_tokens.intersection(ctx_tokens)
     return round(len(matching_tokens) / len(gt_tokens), 4)
 
@@ -32,10 +44,22 @@ def compute_coverage_rate(gt: str, contexts: List[str]) -> float:
 def compute_gt_match_rate(gt: str, answer: str) -> float:
     if not gt or not answer:
         return 0.0
-    gt_tokens = set([t.form for t in kiwi.tokenize(gt) if t.tag.startswith("N") or t.tag.startswith("V")])
+    gt_tokens = set(
+        [
+            t.form
+            for t in kiwi.tokenize(gt)
+            if t.tag.startswith("N") or t.tag.startswith("V")
+        ]
+    )
     if not gt_tokens:
         return 0.0
-    ans_tokens = set([t.form for t in kiwi.tokenize(answer) if t.tag.startswith("N") or t.tag.startswith("V")])
+    ans_tokens = set(
+        [
+            t.form
+            for t in kiwi.tokenize(answer)
+            if t.tag.startswith("N") or t.tag.startswith("V")
+        ]
+    )
     matching_tokens = gt_tokens.intersection(ans_tokens)
     return round(len(matching_tokens) / len(gt_tokens), 4)
 
@@ -197,116 +221,74 @@ class EvaluatorService:
     async def evaluate_with_ragas(
         self, question: str, ground_truth: str, context: List[str], answer: str
     ) -> Dict[str, Any]:
-        judge_res = await self.evaluate_answer(question, ground_truth, context, answer)
+        from ragas.dataset_schema import SingleTurnSample
+        from ragas.llms import LangchainLLMWrapper
+        from ragas.embeddings import LangchainEmbeddingsWrapper
+        from ragas.metrics import (
+            faithfulness,
+            answer_relevancy,
+            context_precision,
+            context_recall,
+        )
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
-        try:
-            from datasets import Dataset
-            from ragas import evaluate
-            from ragas.metrics import (
-                faithfulness,
-                answer_relevancy,
-                context_precision,
-                context_recall,
-            )
-            import nest_asyncio
-            from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        logger.info("=== RAGAS Evaluation Started ===")
 
-            embeddings = GoogleGenerativeAIEmbeddings(
+        ragas_llm = LangchainLLMWrapper(self.judge_llm)
+        ragas_emb = LangchainEmbeddingsWrapper(
+            GoogleGenerativeAIEmbeddings(
                 model="models/gemini-embedding-2",
                 google_api_key=settings.GEMINI_API_KEY,
             )
+        )
 
-            nest_asyncio.apply()
+        faithfulness.llm = ragas_llm
+        answer_relevancy.llm = ragas_llm
+        answer_relevancy.embeddings = ragas_emb
+        answer_relevancy.strictness = 1
+        context_precision.llm = ragas_llm
+        context_recall.llm = ragas_llm
 
-            metrics = [
-                faithfulness,
-                answer_relevancy,
-                context_precision,
-                context_recall,
-            ]
-            
-            data = {
-                "question": [question],
-                "answer": [answer],
-                "contexts": [context],
-                "ground_truth": [ground_truth],
-            }
-            dataset = Dataset.from_dict(data)
+        sample = SingleTurnSample(
+            user_input=question,
+            response=answer,
+            retrieved_contexts=context,
+            reference=ground_truth,
+        )
 
-            ragas_result = await asyncio.to_thread(
-                execute_with_retry,
-                evaluate,
-                dataset=dataset,
-                metrics=metrics,
-                llm=self.judge_llm,
-                embeddings=embeddings,
-                max_retries=5,
-                base_delay=2.0,
-            )
+        metric_map = {
+            "faithfulness": faithfulness,
+            "relevance": answer_relevancy,
+            "precision": context_precision,
+            "recall": context_recall,
+        }
 
-            try:
-                faithfulness_score = int(round(ragas_result["faithfulness"] * 5))
-            except Exception:
-                faithfulness_score = 0
+        raw = await asyncio.gather(
+            *(m.single_turn_ascore(sample) for m in metric_map.values()),
+            return_exceptions=True,
+        )
 
-            try:
-                relevance_score = int(round(ragas_result["answer_relevancy"] * 5))
-            except Exception:
-                relevance_score = 0
+        def to_score(value: Any) -> Dict[str, Any]:
+            if isinstance(value, Exception) or value is None:
+                logger.warning("RAGAS metric failed: %s", value)
+                return {"score": 1, "reason": f"Ragas error: {value}"}
+            clamped = max(1, min(5, int(round(value * 5)))) if value > 0 else 1
+            return {"score": clamped, "reason": f"Ragas Score: {value:.2f}/1.00"}
 
-            try:
-                precision_score = int(round(ragas_result["context_precision"] * 5))
-            except Exception:
-                precision_score = 0
+        scores = {name: to_score(val) for name, val in zip(metric_map.keys(), raw)}
+        avg_chunk_length = (
+            int(sum(len(c) for c in context) / len(context)) if context else 0
+        )
 
-            try:
-                recall_score = int(round(ragas_result["context_recall"] * 5))
-            except Exception:
-                recall_score = 0
-
-            faithfulness_score = max(1, min(5, faithfulness_score)) if faithfulness_score > 0 else 1
-            relevance_score = max(1, min(5, relevance_score)) if relevance_score > 0 else 1
-            precision_score = max(1, min(5, precision_score)) if precision_score > 0 else 1
-            recall_score = max(1, min(5, recall_score)) if recall_score > 0 else 1
-
-            def format_ragas_reason(metric_name):
-                try:
-                    val = ragas_result[metric_name]
-                    return f"Ragas Score: {val:.2f}/1.00 (DeepSeek Judge 판별)"
-                except Exception:
-                    return "N/A"
-
-            return {
-                "faithfulness": {
-                    "score": faithfulness_score,
-                    "reason": format_ragas_reason("faithfulness"),
-                },
-                "relevance": {
-                    "score": relevance_score,
-                    "reason": format_ragas_reason("answer_relevancy"),
-                },
-                "precision": {
-                    "score": precision_score,
-                    "reason": format_ragas_reason("context_precision"),
-                },
-                "recall": {
-                    "score": recall_score,
-                    "reason": format_ragas_reason("context_recall"),
-                },
-                "completeness": judge_res.get("completeness", {"score": 0, "reason": "N/A"}),
-                "noise_ratio": judge_res.get("noise_ratio", 0.0),
-                "coverage_rate": judge_res.get("coverage_rate", 0.0),
-                "hallucination_count": judge_res.get("hallucination_count", 0),
-                "gt_match_rate": judge_res.get("gt_match_rate", 0.0),
-                "avg_chunk_length": judge_res.get("avg_chunk_length", 0),
-            }
-
-        except Exception as exception:
-            logger.error(f"Error during Ragas evaluation: {exception}")
-            logger.warning(
-                "Ragas evaluation failed. Falling back to direct LLM Judge evaluation."
-            )
-            return judge_res
+        return {
+            **scores,
+            "completeness": {"score": 0, "reason": "N/A (RAGAS only)"},
+            "noise_ratio": 0.0,
+            "coverage_rate": compute_coverage_rate(ground_truth, context),
+            "hallucination_count": 0,
+            "gt_match_rate": compute_gt_match_rate(ground_truth, answer),
+            "avg_chunk_length": avg_chunk_length,
+        }
 
     @traceable(name="EvaluatorService.run_evaluation_for_strategy", run_type="chain")
     async def run_evaluation_for_strategy(
@@ -317,25 +299,64 @@ class EvaluatorService:
         top_k: int = 5,
         use_ragas: bool = False,
     ) -> Dict[str, Any]:
-        store = self.vector_store_manager.get_vector_store(collection_name)
-        retriever = store.as_retriever(search_kwargs={"k": top_k})
-        documents = await retriever.ainvoke(question)
-        contexts = [document.page_content for document in documents]
-
-        stuff_chain = self.llm_manager.create_stuff_chain()
-        answer = await stuff_chain.ainvoke(
-            {"input": question, "chat_history": [], "context": documents}
+        logger.info("=== Strategy Evaluation Started ===")
+        logger.info(
+            f"Collection: {collection_name} | Top K: {top_k} | Use Ragas: {use_ragas}"
         )
+        logger.info(f"Question: {question}")
+
+        try:
+            store = self.vector_store_manager.get_vector_store(collection_name)
+            retriever = store.as_retriever(search_kwargs={"k": top_k})
+            logger.info("Retrieving contexts from vector store...")
+            documents = await retriever.ainvoke(question)
+            contexts = [document.page_content for document in documents]
+            logger.info(
+                f"Successfully retrieved {len(contexts)} contexts from collection '{collection_name}'"
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to retrieve contexts for collection '%s'",
+                collection_name,
+                exc_info=True,
+            )
+            raise e
+
+        try:
+            logger.info("Generating response from RAG stuff chain...")
+            stuff_chain = self.llm_manager.create_stuff_chain()
+            answer = await stuff_chain.ainvoke(
+                {"input": question, "chat_history": [], "context": documents}
+            )
+            logger.info(f"Generated answer length: {len(answer)} chars")
+        except Exception as e:
+            logger.error("Failed to generate answer via stuff chain", exc_info=True)
+            raise e
 
         if use_ragas:
-            scores = await self.evaluate_with_ragas(question, ground_truth, contexts, answer)
+            logger.info("Evaluating using RAGAS framework...")
+            scores = await self.evaluate_with_ragas(
+                question, ground_truth, contexts, answer
+            )
         else:
-            scores = await self.evaluate_answer(question, ground_truth, contexts, answer)
+            logger.info("Evaluating using direct LLM Judge...")
+            scores = await self.evaluate_answer(
+                question, ground_truth, contexts, answer
+            )
 
+        logger.info("=== Strategy Evaluation Completed ===")
+        logger.info(
+            f"Result summary - Faithfulness: {scores.get('faithfulness', {}).get('score')}, "
+            f"Relevance: {scores.get('relevance', {}).get('score')}, "
+            f"Precision: {scores.get('precision', {}).get('score')}, "
+            f"Recall: {scores.get('recall', {}).get('score')}"
+        )
         return {"answer": answer, "contexts": contexts, "scores": scores}
 
     @staticmethod
-    def create_evaluation_history(database_session: Session, question: str, ground_truth: str) -> EvalHistory:
+    def create_evaluation_history(
+        database_session: Session, question: str, ground_truth: str
+    ) -> EvalHistory:
         history = EvalHistory(question=question, ground_truth=ground_truth)
         database_session.add(history)
         database_session.commit()
@@ -350,7 +371,7 @@ class EvaluatorService:
         collection_name: str,
         answer: str,
         contexts: List[str],
-        scores: Dict[str, Any]
+        scores: Dict[str, Any],
     ) -> EvalResult:
         result = EvalResult(
             eval_history_id=history_id,
@@ -389,7 +410,7 @@ class EvaluatorService:
         ground_truth: str,
         strategies: List[dict],
         top_k: int,
-        use_ragas: bool
+        use_ragas: bool,
     ) -> List[Dict[str, Any]]:
         from app.services.chunking import ChunkingService
 
@@ -442,7 +463,7 @@ class EvaluatorService:
         qa_pairs: List[Any],
         strategies: List[dict],
         top_k: int,
-        use_ragas: bool
+        use_ragas: bool,
     ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         from app.services.chunking import ChunkingService
 
@@ -468,10 +489,7 @@ class EvaluatorService:
         for qa_item, strategy_item, col_name, eval_res in completed:
             key = qa_item.question
             if key not in qa_groups:
-                qa_groups[key] = {
-                    "qa": qa_item,
-                    "results": []
-                }
+                qa_groups[key] = {"qa": qa_item, "results": []}
             qa_groups[key]["results"].append((strategy_item, col_name, eval_res))
 
         strategy_stats = {}
@@ -513,13 +531,17 @@ class EvaluatorService:
                         "gt_match_rate": [],
                         "avg_chunk_length": [],
                     }
-                
+
                 stats = strategy_stats[strategy_description]
-                stats["faithfulness"].append(scores.get("faithfulness", {}).get("score", 0))
+                stats["faithfulness"].append(
+                    scores.get("faithfulness", {}).get("score", 0)
+                )
                 stats["relevance"].append(scores.get("relevance", {}).get("score", 0))
                 stats["precision"].append(scores.get("precision", {}).get("score", 0))
                 stats["recall"].append(scores.get("recall", {}).get("score", 0))
-                stats["completeness"].append(scores.get("completeness", {}).get("score", 0))
+                stats["completeness"].append(
+                    scores.get("completeness", {}).get("score", 0)
+                )
                 stats["noise_ratio"].append(scores.get("noise_ratio", 0.0))
                 stats["coverage_rate"].append(scores.get("coverage_rate", 0.0))
                 stats["gt_match_rate"].append(scores.get("gt_match_rate", 0.0))
@@ -546,6 +568,7 @@ class EvaluatorService:
 
         summaries = []
         for strategy_desc, stats in strategy_stats.items():
+
             def get_avg(lst):
                 return round(sum(lst) / len(lst), 2) if lst else 0.0
 
@@ -565,7 +588,3 @@ class EvaluatorService:
             )
 
         return summaries, evaluations
-
-
-
-

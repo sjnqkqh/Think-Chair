@@ -61,6 +61,7 @@ class RagService:
 
     def init_bm25_retriever(self) -> None:
         try:
+            self.vector_store_manager.auto_select_collection()
             all_data = self.vector_store_manager.vector_store.get()
             documents = []
             if all_data and "documents" in all_data and all_data["documents"]:
@@ -106,13 +107,16 @@ class RagService:
 
     @traceable(name="RagService.query", run_type="chain")
     def query(self, question: str, session_id: str, top_k: int = 5) -> dict:
-        retriever = self.get_ensemble_retriever(top_k)
-
         logger.info("=== RAG Database Query Access ===")
-        logger.info(f"Session ID: {session_id}")
+        logger.info(f"Session ID: {session_id} | Top K: {top_k}")
         logger.info(f"Question: {question}")
 
-        docs = execute_with_retry(retriever.invoke, question, max_retries=3, base_delay=2.0)
+        try:
+            retriever = self.get_ensemble_retriever(top_k)
+            docs = execute_with_retry(retriever.invoke, question, max_retries=3, base_delay=2.0)
+        except Exception as e:
+            logger.error("Error occurred during document retrieval in RAG pipeline", exc_info=True)
+            raise e
 
         logger.info(f"RAG DB Result (Found {len(docs)} documents):")
         for idx, doc in enumerate(docs):
@@ -125,19 +129,23 @@ class RagService:
         formatted_messages = self.llm_manager.prompt_template.format_messages(
             context=docs, chat_history=history, input=question
         )
-
         logger.info("=== Formatted Final Prompt to LLM ===")
         for idx, msg in enumerate(formatted_messages):
             logger.info(f"  [{idx + 1}] {msg.type.upper()}: {msg.content}")
         logger.info("=====================================")
 
-        stuff_chain = self.llm_manager.create_stuff_chain()
-        answer = execute_with_retry(
-            stuff_chain.invoke,
-            {"input": question, "chat_history": history, "context": docs},
-            max_retries=3,
-            base_delay=2.0,
-        )
+        try:
+            stuff_chain = self.llm_manager.create_stuff_chain()
+            answer = execute_with_retry(
+                stuff_chain.invoke,
+                {"input": question, "chat_history": history, "context": docs},
+                max_retries=3,
+                base_delay=2.0,
+            )
+            logger.info(f"Answer generation completed. Answer length: {len(answer)} chars.")
+        except Exception as e:
+            logger.error("Error occurred during LLM answer generation in RAG pipeline", exc_info=True)
+            raise e
 
         history.append(HumanMessage(content=question))
         history.append(AIMessage(content=answer))
@@ -150,13 +158,16 @@ class RagService:
 
     @traceable(name="RagService.query_stream", run_type="chain")
     def query_stream(self, question: str, session_id: str, top_k: int = 5):
-        retriever = self.get_ensemble_retriever(top_k)
-
         logger.info("=== RAG Database Query Stream Access ===")
-        logger.info(f"Session ID: {session_id}")
+        logger.info(f"Session ID: {session_id} | Top K: {top_k}")
         logger.info(f"Question: {question}")
 
-        docs = execute_with_retry(retriever.invoke, question, max_retries=3, base_delay=2.0)
+        try:
+            retriever = self.get_ensemble_retriever(top_k)
+            docs = execute_with_retry(retriever.invoke, question, max_retries=3, base_delay=2.0)
+        except Exception as e:
+            logger.error("Error occurred during document retrieval in stream RAG pipeline", exc_info=True)
+            raise e
 
         logger.info(f"RAG DB Result (Found {len(docs)} documents):")
         for idx, doc in enumerate(docs):
@@ -169,7 +180,6 @@ class RagService:
         formatted_messages = self.llm_manager.prompt_template.format_messages(
             context=docs, chat_history=history, input=question
         )
-
         logger.info("=== Formatted Final Prompt to LLM ===")
         for idx, msg in enumerate(formatted_messages):
             logger.info(f"  [{idx + 1}] {msg.type.upper()}: {msg.content}")
@@ -181,15 +191,20 @@ class RagService:
         stuff_chain = self.llm_manager.create_stuff_chain()
 
         def response_generator():
-            accumulated_answer = ""
-            for chunk in stuff_chain.stream(
-                {"context": docs, "input": question, "chat_history": history}
-            ):
-                accumulated_answer += chunk
-                yield ChunkWrapper(chunk)
+            try:
+                accumulated_answer = ""
+                for chunk in stuff_chain.stream(
+                    {"context": docs, "input": question, "chat_history": history}
+                ):
+                    accumulated_answer += chunk
+                    yield ChunkWrapper(chunk)
 
-            history.append(HumanMessage(content=question))
-            history.append(AIMessage(content=accumulated_answer))
-            self.sessions[session_id] = history[-10:]
+                logger.info(f"Stream generation completed. Total answer length: {len(accumulated_answer)} chars.")
+                history.append(HumanMessage(content=question))
+                history.append(AIMessage(content=accumulated_answer))
+                self.sessions[session_id] = history[-10:]
+            except Exception as e:
+                logger.error("Error occurred during streaming in RAG response generator", exc_info=True)
+                raise e
 
         return response_generator(), contexts, metadatas
