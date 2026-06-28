@@ -1027,6 +1027,16 @@
               <span>📊 DeepSeek Judge 평가 시작</span>
             </button>
           </div>
+
+          <!-- 과거 성능 평가 이력 카드 -->
+          <div class="card" style="margin-top: 12px;">
+            <h2 class="form-title">과거 성능 평가 이력</h2>
+            <div id="past-evaluations-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto;">
+              <div style="color: var(--colors-text-tertiary); font-size: 13px; text-align: center; padding: 20px 0;">
+                로드 중...
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Result Panel -->
@@ -1060,14 +1070,20 @@
 
           <!-- 2. 개별 문항 상세 분석 카드 -->
           <div class="card" style="flex: 1; min-height: 200px; width: 100%;">
-            <h2 class="form-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <h2 class="form-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;">
               <span>🔍 개별 문항 상세 비교 결과</span>
               <select id="evalQaSelector" class="form-input" style="width: auto; min-width: 250px; max-width: 400px; margin: 0; padding: 6px 12px; font-size: 13px; display: none;" onchange="showSelectedQaResult()">
                 <!-- 문항 목록이 여기에 주입됩니다 -->
               </select>
             </h2>
+            
+            <!-- 청킹 전략별 필터 버튼 그룹 -->
+            <div id="strategyFilterGroup" style="display: none; flex-direction: row; gap: 8px; margin: 12px 0; flex-wrap: wrap;">
+              <!-- 동적으로 생성될 버튼들 -->
+            </div>
+
             <div id="no-result-message" style="color: var(--colors-text-tertiary); font-size: 14px; text-align: center; padding: 40px 0;">
-              평가용 JSON 파일을 업로드하고 [평가 시작]을 눌러 결과를 확인하세요.
+              평가용 JSON 파일을 업로드하거나 과거 성능 평가 이력을 선택해 결과를 확인하세요.
             </div>
             <div class="results-grid" id="evalResultsGrid">
               <!-- 선택된 문항의 카드들이 여기에 들어갑니다 -->
@@ -1272,6 +1288,10 @@
 
       if (tabId === 'upload') {
         loadUploadedDocuments();
+      }
+
+      if (tabId === 'eval') {
+        loadEvaluationHistory();
       }
     }
 
@@ -1544,7 +1564,12 @@
         return;
       }
       
-      selector.style.display = 'block';
+      if (evaluations.length <= 1) {
+        selector.style.display = 'none';
+      } else {
+        selector.style.display = 'block';
+      }
+
       evaluations.forEach((item, index) => {
         const option = document.createElement('option');
         option.value = index;
@@ -1674,6 +1699,187 @@
           </div>
         `;
         grid.appendChild(card);
+      });
+
+      // 청킹 전략 필터 버튼 갱신
+      const strategyList = selectedQa.results.map(res => res.strategy);
+      updateStrategyFilterButtons(strategyList);
+    }
+
+    async function loadEvaluationHistory() {
+      const container = document.getElementById('past-evaluations-list');
+      if (!container) return;
+
+      try {
+        const response = await fetch('/history/evaluations');
+        if (!response.ok) throw new Error("과거 평가 이력 조회 실패");
+
+        const data = await response.json();
+        if (data.length === 0) {
+          container.innerHTML = `<div style="color: var(--colors-text-tertiary); font-size: 13px; text-align: center; padding: 20px 0;">과거 성능 평가 이력이 없습니다.</div>`;
+          return;
+        }
+
+        container.innerHTML = '';
+        data.forEach(item => {
+          const itemEl = document.createElement('div');
+          itemEl.className = 'document-item';
+          itemEl.style.cursor = 'pointer';
+          itemEl.style.padding = '10px';
+          itemEl.style.border = '1px solid var(--colors-border-regular)';
+          itemEl.style.borderRadius = 'var(--radius-100)';
+          itemEl.style.transition = 'all 0.2s ease';
+          itemEl.style.display = 'flex';
+          itemEl.style.flexDirection = 'column';
+          itemEl.style.gap = '4px';
+
+          itemEl.addEventListener('mouseenter', () => {
+            itemEl.style.backgroundColor = 'var(--colors-primary-light)';
+            itemEl.style.borderColor = 'var(--colors-primary-regular)';
+          });
+          itemEl.addEventListener('mouseleave', () => {
+            itemEl.style.backgroundColor = '';
+            itemEl.style.borderColor = 'var(--colors-border-regular)';
+          });
+
+          itemEl.addEventListener('click', () => loadPastEvaluationDetails(item));
+
+          const createdDate = new Date(item.created_at).toLocaleString('ko-KR');
+          const shortQuestion = item.question.length > 35 ? item.question.substring(0, 35) + '...' : item.question;
+          const shortGt = item.ground_truth.length > 40 ? item.ground_truth.substring(0, 40) + '...' : item.ground_truth;
+
+          itemEl.innerHTML = `
+            <div style="font-weight: bold; font-size: 12px; color: var(--colors-text-primary); word-break: break-all;">
+              📌 ${escapeHtml(shortQuestion)}
+            </div>
+            <div style="font-size: 11px; color: var(--colors-text-secondary); word-break: break-all;">
+              정답 가이드: ${escapeHtml(shortGt)}
+            </div>
+            <div style="font-size: 10px; color: var(--colors-text-tertiary); display: flex; justify-content: space-between; align-items: center;">
+              <span>🕒 ${createdDate}</span>
+              <span style="font-weight: bold; color: var(--colors-primary-regular); font-size: 9px; border: 1px solid var(--colors-primary-regular); border-radius: 4px; padding: 1px 4px; background: var(--colors-white);">
+                결과 보기
+              </span>
+            </div>
+          `;
+          container.appendChild(itemEl);
+        });
+      } catch (err) {
+        console.error(err);
+        container.innerHTML = `<div style="color: #EF4444; font-size: 12px; text-align: center; padding: 20px 0;">데이터 로드 오류: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function loadPastEvaluationDetails(item) {
+      if (!item || !item.results || item.results.length === 0) return;
+
+      const mockData = {
+        summaries: item.results.map(res => {
+          const faithfulness = res.scores.faithfulness || { score: 0 };
+          const relevance = res.scores.relevance || { score: 0 };
+          const precision = res.scores.precision || { score: 0 };
+          const recall = res.scores.recall || { score: 0 };
+          const completeness = res.scores.completeness || { score: 0 };
+
+          return {
+            strategy: res.strategy,
+            faithfulness_avg: faithfulness.score,
+            relevance_avg: relevance.score,
+            precision_avg: precision.score,
+            recall_avg: recall.score,
+            completeness_avg: completeness.score,
+            noise_ratio_avg: res.scores.noise_ratio || 0,
+            coverage_rate_avg: res.scores.coverage_rate || 0,
+            gt_match_rate_avg: res.scores.gt_match_rate || 0,
+            avg_chunk_length_avg: res.scores.avg_chunk_length || 0
+          };
+        }),
+        evaluations: [
+          {
+            id: item.id,
+            question: item.question,
+            ground_truth: item.ground_truth,
+            results: item.results.map(res => ({
+              strategy: res.strategy,
+              collection_name: res.collection_name,
+              answer: res.answer,
+              contexts: res.contexts,
+              scores: res.scores
+            }))
+          }
+        ]
+      };
+
+      evalResultsData = mockData;
+      renderEvaluationSummary(mockData.summaries);
+      setupQaSelector(mockData.evaluations);
+    }
+
+    function updateStrategyFilterButtons(strategies) {
+      const container = document.getElementById('strategyFilterGroup');
+      if (!container) return;
+
+      container.innerHTML = '';
+      
+      if (!strategies || strategies.length <= 1) {
+        container.style.display = 'none';
+        return;
+      }
+
+      container.style.display = 'flex';
+
+      // 1. [전체 보기] 버튼
+      const allBtn = document.createElement('button');
+      allBtn.className = 'guide-chip';
+      allBtn.style.margin = '0';
+      allBtn.style.fontWeight = 'bold';
+      allBtn.style.border = '2px solid var(--colors-primary-regular)';
+      allBtn.style.backgroundColor = 'var(--colors-primary-light)';
+      allBtn.innerText = '전체 보기';
+      allBtn.onclick = () => {
+        setActiveFilterButton(allBtn);
+        filterResultsByStrategy('all');
+      };
+      container.appendChild(allBtn);
+
+      // 2. 전략별 버튼
+      strategies.forEach(strategy => {
+        const btn = document.createElement('button');
+        btn.className = 'guide-chip';
+        btn.style.margin = '0';
+        btn.innerText = strategy;
+        btn.onclick = () => {
+          setActiveFilterButton(btn);
+          filterResultsByStrategy(strategy);
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function setActiveFilterButton(activeBtn) {
+      const container = document.getElementById('strategyFilterGroup');
+      container.querySelectorAll('button').forEach(btn => {
+        btn.style.border = '';
+        btn.style.backgroundColor = '';
+        btn.style.fontWeight = '';
+      });
+      activeBtn.style.border = '2px solid var(--colors-primary-regular)';
+      activeBtn.style.backgroundColor = 'var(--colors-primary-light)';
+      activeBtn.style.fontWeight = 'bold';
+    }
+
+    function filterResultsByStrategy(selectedStrategy) {
+      const cards = document.querySelectorAll('#evalResultsGrid .result-card');
+      cards.forEach(card => {
+        const badge = card.querySelector('.strategy-badge');
+        if (!badge) return;
+        
+        const cardStrategy = badge.innerText.trim();
+        if (selectedStrategy === 'all' || cardStrategy === selectedStrategy) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
       });
     }
 
