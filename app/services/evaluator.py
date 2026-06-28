@@ -2,66 +2,55 @@ import asyncio
 import json
 import logging
 from typing import List, Dict, Any, Tuple
-from sqlalchemy.orm import Session
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
+
 from kiwipiepy import Kiwi
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
 from langsmith import traceable
+from sqlalchemy.orm import Session
+
 from app.core.config import settings
-from app.core.vectorstore import VectorStoreManager
 from app.core.llm import LLMManager
-from app.core.retry import execute_with_retry
+from app.core.vectorstore import VectorStoreManager
 from app.models.history import EvalHistory, EvalResult
 
 logger = logging.getLogger(__name__)
 kiwi = Kiwi()
 
 
+def _tokenize_korean(text: str) -> set:
+    return {t.form for t in kiwi.tokenize(text) if t.tag.startswith("N") or t.tag.startswith("V")}
+
+
+def _avg_chunk_length(contexts: List[str]) -> int:
+    return int(sum(len(c) for c in contexts) / len(contexts)) if contexts else 0
+
+
+def _build_strategy_description(strategy: dict) -> str:
+    name = strategy.get("name", "")
+    if name in ["recursive", "character"]:
+        return f"{name} (s={strategy.get('chunk_size')}, o={strategy.get('chunk_overlap')})"
+    return name
+
+
 def compute_coverage_rate(gt: str, contexts: List[str]) -> float:
     if not gt:
         return 0.0
-    gt_tokens = set(
-        [
-            t.form
-            for t in kiwi.tokenize(gt)
-            if t.tag.startswith("N") or t.tag.startswith("V")
-        ]
-    )
+    gt_tokens = _tokenize_korean(gt)
     if not gt_tokens:
         return 0.0
-    context_text = " ".join(contexts)
-    ctx_tokens = set(
-        [
-            t.form
-            for t in kiwi.tokenize(context_text)
-            if t.tag.startswith("N") or t.tag.startswith("V")
-        ]
-    )
-    matching_tokens = gt_tokens.intersection(ctx_tokens)
-    return round(len(matching_tokens) / len(gt_tokens), 4)
+    ctx_tokens = _tokenize_korean(" ".join(contexts))
+    return round(len(gt_tokens.intersection(ctx_tokens)) / len(gt_tokens), 4)
 
 
 def compute_gt_match_rate(gt: str, answer: str) -> float:
     if not gt or not answer:
         return 0.0
-    gt_tokens = set(
-        [
-            t.form
-            for t in kiwi.tokenize(gt)
-            if t.tag.startswith("N") or t.tag.startswith("V")
-        ]
-    )
+    gt_tokens = _tokenize_korean(gt)
     if not gt_tokens:
         return 0.0
-    ans_tokens = set(
-        [
-            t.form
-            for t in kiwi.tokenize(answer)
-            if t.tag.startswith("N") or t.tag.startswith("V")
-        ]
-    )
-    matching_tokens = gt_tokens.intersection(ans_tokens)
-    return round(len(matching_tokens) / len(gt_tokens), 4)
+    ans_tokens = _tokenize_korean(answer)
+    return round(len(gt_tokens.intersection(ans_tokens)) / len(gt_tokens), 4)
 
 
 class EvaluatorService:
@@ -184,9 +173,7 @@ class EvaluatorService:
 
         coverage_rate = compute_coverage_rate(ground_truth, context)
         gt_match_rate = compute_gt_match_rate(ground_truth, answer)
-        avg_chunk_length = (
-            int(sum(len(c) for c in context) / len(context)) if context else 0
-        )
+        avg_chunk_length = _avg_chunk_length(context)
 
         try:
             response = await self.judge_llm.ainvoke(formatted_prompt)
@@ -276,10 +263,6 @@ class EvaluatorService:
             return {"score": clamped, "reason": f"Ragas Score: {value:.2f}/1.00"}
 
         scores = {name: to_score(val) for name, val in zip(metric_map.keys(), raw)}
-        avg_chunk_length = (
-            int(sum(len(c) for c in context) / len(context)) if context else 0
-        )
-
         return {
             **scores,
             "completeness": {"score": 0, "reason": "N/A (RAGAS only)"},
@@ -287,7 +270,7 @@ class EvaluatorService:
             "coverage_rate": compute_coverage_rate(ground_truth, context),
             "hallucination_count": 0,
             "gt_match_rate": compute_gt_match_rate(ground_truth, answer),
-            "avg_chunk_length": avg_chunk_length,
+            "avg_chunk_length": _avg_chunk_length(context),
         }
 
     @traceable(name="EvaluatorService.run_evaluation_for_strategy", run_type="chain")
@@ -430,10 +413,7 @@ class EvaluatorService:
                 use_ragas=use_ragas,
             )
 
-            strategy_description = f"{strategy.get('name')}"
-            if strategy.get("name") in ["recursive", "character"]:
-                strategy_description += f" (s={strategy.get('chunk_size')}, o={strategy.get('chunk_overlap')})"
-
+            strategy_description = _build_strategy_description(strategy)
             scores = evaluation_result["scores"]
 
             self.save_strategy_evaluation_result(
@@ -503,9 +483,7 @@ class EvaluatorService:
 
             strategy_results = []
             for strategy_item, col_name, eval_res in group["results"]:
-                strategy_description = f"{strategy_item.get('name')}"
-                if strategy_item.get("name") in ["recursive", "character"]:
-                    strategy_description += f" (s={strategy_item.get('chunk_size')}, o={strategy_item.get('chunk_overlap')})"
+                strategy_description = _build_strategy_description(strategy_item)
 
                 scores = eval_res["scores"]
 
@@ -566,12 +544,11 @@ class EvaluatorService:
                 }
             )
 
+        def get_avg(lst):
+            return round(sum(lst) / len(lst), 2) if lst else 0.0
+
         summaries = []
         for strategy_desc, stats in strategy_stats.items():
-
-            def get_avg(lst):
-                return round(sum(lst) / len(lst), 2) if lst else 0.0
-
             summaries.append(
                 {
                     "strategy": strategy_desc,

@@ -11,6 +11,13 @@ from app.services.rag import RagService
 logger = logging.getLogger(__name__)
 
 
+def _reload_bm25_quietly():
+    try:
+        RagService().init_bm25_retriever()
+    except Exception as e:
+        logger.warning(f"Failed to reload BM25 retriever: {e}")
+
+
 class DocumentService:
     @staticmethod
     def create_upload_history(
@@ -45,6 +52,11 @@ class DocumentService:
         filename: str,
         strategy_list: list,
     ) -> None:
+        upload_history_record = (
+            database_session.query(UploadHistory)
+            .filter(UploadHistory.id == history_id)
+            .first()
+        )
         try:
             text = ChunkingService.extract_text_from_file(file_bytes, filename)
             vector_manager = VectorStoreManager()
@@ -70,27 +82,13 @@ class DocumentService:
                 strategies_applied.append(collection_name)
                 chunks_count[collection_name] = len(documents)
 
-            upload_history_record = (
-                database_session.query(UploadHistory)
-                .filter(UploadHistory.id == history_id)
-                .first()
-            )
             if upload_history_record:
                 upload_history_record.status = "completed"
                 upload_history_record.strategies_applied = json.dumps(strategies_applied)
                 upload_history_record.chunks_count = json.dumps(chunks_count)
                 database_session.commit()
-
-                try:
-                    RagService().init_bm25_retriever()
-                except Exception as e:
-                    logger.warning(f"Failed to reload BM25 retriever: {e}")
+            _reload_bm25_quietly()
         except Exception as exception:
-            upload_history_record = (
-                database_session.query(UploadHistory)
-                .filter(UploadHistory.id == history_id)
-                .first()
-            )
             if upload_history_record:
                 upload_history_record.status = "failed"
                 upload_history_record.error_message = str(exception)
@@ -131,12 +129,7 @@ class DocumentService:
 
             database_session.delete(upload_history_record)
             database_session.commit()
-
-            try:
-                RagService().init_bm25_retriever()
-            except Exception as e:
-                logger.warning(f"Failed to reload BM25 retriever: {e}")
-
+            _reload_bm25_quietly()
             return filename
         except Exception as exception:
             database_session.rollback()
