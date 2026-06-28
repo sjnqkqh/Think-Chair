@@ -13,7 +13,9 @@ logger = logging.getLogger(__name__)
 
 class DocumentService:
     @staticmethod
-    def create_upload_history(database_session: Session, filename: str) -> UploadHistory:
+    def create_upload_history(
+        database_session: Session, filename: str
+    ) -> UploadHistory:
         upload_history_record = UploadHistory(
             filename=filename,
             status="processing",
@@ -26,12 +28,22 @@ class DocumentService:
         return upload_history_record
 
     @staticmethod
-    def get_upload_history(database_session: Session, history_id: int) -> UploadHistory:
-        return database_session.query(UploadHistory).filter(UploadHistory.id == history_id).first()
+    def get_upload_history(
+        database_session: Session, history_id: int
+    ) -> type[UploadHistory] | None:
+        return (
+            database_session.query(UploadHistory)
+            .filter(UploadHistory.id == history_id)
+            .first()
+        )
 
     @staticmethod
     def process_upload_task(
-        database_session: Session, history_id: int, file_bytes: bytes, filename: str, strategy_list: list
+        database_session: Session,
+        history_id: int,
+        file_bytes: bytes,
+        filename: str,
+        strategy_list: list,
     ) -> None:
         try:
             text = ChunkingService.extract_text_from_file(file_bytes, filename)
@@ -41,16 +53,28 @@ class DocumentService:
 
             for strategy in strategy_list:
                 documents = ChunkingService.split_document(text, strategy, filename)
-                collection_name = ChunkingService.get_collection_name_for_strategy(strategy)
+                collection_name = ChunkingService.get_collection_name_for_strategy(
+                    strategy
+                )
 
-                document_ids = [f"{filename}_{collection_name}_{i}" for i in range(len(documents))]
-                vector_manager.delete_existing_documents(document_ids, collection_name=collection_name)
-                vector_manager.add_documents_batch(documents, document_ids, collection_name=collection_name)
+                document_ids = [
+                    f"{filename}_{collection_name}_{i}" for i in range(len(documents))
+                ]
+                vector_manager.delete_existing_documents(
+                    document_ids, collection_name=collection_name
+                )
+                vector_manager.add_documents_batch(
+                    documents, document_ids, collection_name=collection_name
+                )
 
                 strategies_applied.append(collection_name)
                 chunks_count[collection_name] = len(documents)
 
-            upload_history_record = database_session.query(UploadHistory).filter(UploadHistory.id == history_id).first()
+            upload_history_record = (
+                database_session.query(UploadHistory)
+                .filter(UploadHistory.id == history_id)
+                .first()
+            )
             if upload_history_record:
                 upload_history_record.status = "completed"
                 upload_history_record.strategies_applied = json.dumps(strategies_applied)
@@ -62,7 +86,11 @@ class DocumentService:
                 except Exception as e:
                     logger.warning(f"Failed to reload BM25 retriever: {e}")
         except Exception as exception:
-            upload_history_record = database_session.query(UploadHistory).filter(UploadHistory.id == history_id).first()
+            upload_history_record = (
+                database_session.query(UploadHistory)
+                .filter(UploadHistory.id == history_id)
+                .first()
+            )
             if upload_history_record:
                 upload_history_record.status = "failed"
                 upload_history_record.error_message = str(exception)
@@ -70,11 +98,21 @@ class DocumentService:
 
     @staticmethod
     def get_all_upload_histories(database_session: Session) -> List[UploadHistory]:
-        return database_session.query(UploadHistory).order_by(UploadHistory.id.desc()).all()
+        return (
+            database_session.query(UploadHistory)
+            .order_by(UploadHistory.id.desc())
+            .all()
+        )
 
     @staticmethod
-    def delete_document_and_embeddings(database_session: Session, history_id: int) -> str:
-        upload_history_record = database_session.query(UploadHistory).filter(UploadHistory.id == history_id).first()
+    def delete_document_and_embeddings(
+        database_session: Session, history_id: int
+    ) -> str:
+        upload_history_record = (
+            database_session.query(UploadHistory)
+            .filter(UploadHistory.id == history_id)
+            .first()
+        )
         if not upload_history_record:
             raise HTTPException(status_code=404, detail="Upload history not found")
 
@@ -84,8 +122,12 @@ class DocumentService:
                 chunks_count_dict = json.loads(upload_history_record.chunks_count)
                 vector_manager = VectorStoreManager()
                 for collection_name, count in chunks_count_dict.items():
-                    document_ids = [f"{filename}_{collection_name}_{i}" for i in range(count)]
-                    vector_manager.delete_existing_documents(document_ids, collection_name=collection_name)
+                    document_ids = [
+                        f"{filename}_{collection_name}_{i}" for i in range(count)
+                    ]
+                    vector_manager.delete_existing_documents(
+                        document_ids, collection_name=collection_name
+                    )
 
             database_session.delete(upload_history_record)
             database_session.commit()
@@ -99,4 +141,3 @@ class DocumentService:
         except Exception as exception:
             database_session.rollback()
             raise exception
-

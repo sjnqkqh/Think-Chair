@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from kiwipiepy import Kiwi
+from langsmith import traceable
 from app.core.config import settings
 from app.core.vectorstore import VectorStoreManager
 from app.core.llm import LLMManager
@@ -145,6 +146,7 @@ class EvaluatorService:
             ]
         )
 
+    @traceable(name="EvaluatorService.evaluate_answer", run_type="chain")
     async def evaluate_answer(
         self, question: str, ground_truth: str, context: List[str], answer: str
     ) -> Dict[str, Any]:
@@ -191,6 +193,7 @@ class EvaluatorService:
                 "avg_chunk_length": avg_chunk_length,
             }
 
+    @traceable(name="EvaluatorService.evaluate_with_ragas", run_type="chain")
     async def evaluate_with_ragas(
         self, question: str, ground_truth: str, context: List[str], answer: str
     ) -> Dict[str, Any]:
@@ -305,6 +308,7 @@ class EvaluatorService:
             )
             return judge_res
 
+    @traceable(name="EvaluatorService.run_evaluation_for_strategy", run_type="chain")
     async def run_evaluation_for_strategy(
         self,
         question: str,

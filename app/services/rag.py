@@ -5,6 +5,7 @@ from langchain_classic.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, AIMessage
+from langsmith import traceable
 
 from app.core.llm import LLMManager
 from app.core.vectorstore import VectorStoreManager
@@ -103,6 +104,7 @@ class RagService:
             self.sessions[session_id] = []
         return self.sessions[session_id]
 
+    @traceable(name="RagService.query", run_type="chain")
     def query(self, question: str, session_id: str, top_k: int = 5) -> dict:
         retriever = self.get_ensemble_retriever(top_k)
 
@@ -146,6 +148,7 @@ class RagService:
 
         return {"answer": answer, "contexts": contexts, "metadatas": metadatas}
 
+    @traceable(name="RagService.query_stream", run_type="chain")
     def query_stream(self, question: str, session_id: str, top_k: int = 5):
         retriever = self.get_ensemble_retriever(top_k)
 

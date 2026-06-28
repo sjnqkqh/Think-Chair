@@ -1,5 +1,9 @@
 import os
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Load environment variables into os.environ for LangChain/LangSmith
+load_dotenv()
 
 
 class Settings(BaseSettings):
