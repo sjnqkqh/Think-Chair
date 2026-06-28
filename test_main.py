@@ -182,15 +182,21 @@ def test_upload_endpoint_success(monkeypatch):
 
 
 def test_eval_run_endpoint_success():
-    mock_evaluator.run_evaluation_for_strategy.return_value = {
-        "answer": "지각 3회 시 결석 처리됩니다.",
-        "contexts": ["지각 3회 결석"],
-        "scores": {
-            "faithfulness": {"score": 5, "reason": "사실 기반"},
-            "relevance": {"score": 5, "reason": "질문에 답변"},
-            "precision": {"score": 5, "reason": "정확한 맥락"},
-        },
-    }
+    async def mock_run_batch(*args, **kwargs):
+        return [
+            {
+                "strategy": "recursive (s=500, o=50)",
+                "collection_name": "rag_recursive_500_50",
+                "answer": "지각 3회 시 결석 처리됩니다.",
+                "contexts": ["지각 3회 결석"],
+                "scores": {
+                    "faithfulness": {"score": 5, "reason": "사실 기반"},
+                    "relevance": {"score": 5, "reason": "질문에 답변"},
+                    "precision": {"score": 5, "reason": "정확한 맥락"},
+                },
+            }
+        ]
+    mock_evaluator.run_batch_evaluation = mock_run_batch
 
     payload = {
         "question": "지각 규정은?",
@@ -208,19 +214,46 @@ def test_eval_run_endpoint_success():
     result_item = data["results"][0]
     assert "recursive" in result_item["strategy"]
     assert result_item["scores"]["faithfulness"]["score"] == 5
-    mock_evaluator.run_evaluation_for_strategy.assert_called_once()
 
 
 def test_eval_run_json_endpoint_success():
-    mock_evaluator.run_evaluation_for_strategy.return_value = {
-        "answer": "지각 3회 시 결석 처리됩니다.",
-        "contexts": ["지각 3회 결석"],
-        "scores": {
-            "faithfulness": {"score": 5, "reason": "사실 기반"},
-            "relevance": {"score": 5, "reason": "질문에 답변"},
-            "precision": {"score": 5, "reason": "정확한 맥락"},
-        },
-    }
+    async def mock_run_json_dataset(*args, **kwargs):
+        summaries = [
+            {
+                "strategy": "recursive (s=500, o=50)",
+                "faithfulness_avg": 5.0,
+                "relevance_avg": 5.0,
+                "precision_avg": 5.0,
+                "recall_avg": 0.0,
+                "completeness_avg": 0.0,
+                "noise_ratio_avg": 0.0,
+                "coverage_rate_avg": 0.0,
+                "gt_match_rate_avg": 0.0,
+                "avg_chunk_length_avg": 0.0,
+            }
+        ]
+        evaluations = [
+            {
+                "id": 1,
+                "question": "지각 규정은?",
+                "ground_truth": "지각 3회는 결석 1일",
+                "results": [
+                    {
+                        "strategy": "recursive (s=500, o=50)",
+                        "collection_name": "rag_recursive_500_50",
+                        "answer": "지각 3회 시 결석 처리됩니다.",
+                        "contexts": ["지각 3회 결석"],
+                        "scores": {
+                            "faithfulness": {"score": 5, "reason": "사실 기반"},
+                            "relevance": {"score": 5, "reason": "질문에 답변"},
+                            "precision": {"score": 5, "reason": "정확한 맥락"},
+                        },
+                    }
+                ]
+            }
+        ]
+        return summaries, evaluations
+    mock_evaluator.run_json_dataset_evaluation = mock_run_json_dataset
 
     payload = {
         "qa_pairs": [
