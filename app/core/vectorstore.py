@@ -27,23 +27,8 @@ class VectorStoreManager:
             )
             self.chroma_client = chromadb.PersistentClient(path=settings.CHROMA_DB_PATH)
 
-        self.auto_select_collection()
-
-    def auto_select_collection(self) -> None:
-        best_collection = "camp_rules"
-        try:
-            collections = self.chroma_client.list_collections()
-            active_cols = [c.name for c in collections if c.count() > 0]
-            if active_cols:
-                if "rag_rec_s500_o50" in active_cols:
-                    best_collection = "rag_rec_s500_o50"
-                else:
-                    best_collection = active_cols[0]
-        except Exception as e:
-            print(f"Warning during auto-selecting collection: {e}")
-        
-        print(f"Selecting collection '{best_collection}' as default active vector store.")
-        self.vector_store = self.get_vector_store(best_collection)
+        self.vector_store = self.get_vector_store(settings.CHROMA_COLLECTION_NAME)
+        print(f"Using collection '{settings.CHROMA_COLLECTION_NAME}' as active vector store.")
 
     def get_vector_store(self, collection_name: str) -> Chroma:
         return Chroma(

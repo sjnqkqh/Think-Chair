@@ -61,7 +61,6 @@ class RagService:
 
     def init_bm25_retriever(self) -> None:
         try:
-            self.vector_store_manager.auto_select_collection()
             all_data = self.vector_store_manager.vector_store.get()
             documents = []
             if all_data and "documents" in all_data and all_data["documents"]:
