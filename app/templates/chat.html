@@ -551,6 +551,47 @@
       gap: 16px;
     }
 
+    /* JSON File Upload Zone */
+    .file-upload-zone {
+      border: 2px dashed var(--colors-border-regular);
+      border-radius: var(--radius-200);
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      background-color: var(--colors-bg-secondary);
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .file-upload-zone:hover, .file-upload-zone.dragover {
+      border-color: var(--colors-primary-regular);
+      background-color: var(--colors-primary-light);
+    }
+
+    /* Summary Table Style */
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    .summary-table th, .summary-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--colors-border-regular);
+    }
+    .summary-table th {
+      font-weight: var(--weight-bold);
+      background-color: var(--colors-bg-secondary);
+      color: var(--colors-text-secondary);
+    }
+    .summary-table tr:hover {
+      background-color: var(--colors-bg-secondary);
+    }
+
     .app-viewport.wide-mode .results-grid {
       grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
     }
@@ -692,6 +733,132 @@
       font-weight: var(--weight-semibold);
       color: var(--colors-text-secondary);
     }
+
+    /* Toast 알림 스타일 */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    .toast {
+      background-color: var(--colors-gray-850);
+      color: var(--colors-white);
+      padding: 12px 20px;
+      border-radius: var(--radius-200);
+      font-size: 14px;
+      font-weight: var(--weight-medium);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.success {
+      border-left: 4px solid var(--colors-success);
+    }
+
+    .toast.error {
+      border-left: 4px solid #EF4444;
+    }
+
+    .toast.info {
+      border-left: 4px solid var(--colors-primary-regular);
+    }
+
+    /* 문서 관리 목록 스타일 */
+    .document-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      background-color: var(--colors-gray-50);
+      border: 1px solid var(--colors-border-regular);
+      border-radius: var(--radius-200);
+      gap: 12px;
+    }
+
+    .document-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .document-name {
+      font-size: 14px;
+      font-weight: var(--weight-bold);
+      color: var(--colors-text-strong);
+      word-break: break-all;
+    }
+
+    .document-meta {
+      font-size: 11px;
+      color: var(--colors-text-tertiary);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: var(--radius-100);
+      font-size: 11px;
+      font-weight: var(--weight-bold);
+    }
+
+    .status-badge.completed {
+      background-color: var(--colors-success-light);
+      color: var(--colors-success);
+    }
+
+    .status-badge.processing {
+      background-color: var(--colors-warning-light);
+      color: var(--colors-warning);
+    }
+
+    .status-badge.failed {
+      background-color: #FEE2E2;
+      color: #EF4444;
+    }
+
+    .delete-btn {
+      background-color: transparent;
+      border: 1px solid #EF4444;
+      color: #EF4444;
+      padding: 6px 12px;
+      border-radius: var(--radius-150);
+      font-size: 12px;
+      font-weight: var(--weight-semibold);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .delete-btn:hover {
+      background-color: #EF4444;
+      color: var(--colors-white);
+    }
+
+    .delete-btn:disabled {
+      border-color: var(--colors-gray-300);
+      color: var(--colors-text-disabled);
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -730,7 +897,6 @@
           <button class="guide-chip" onclick="sendChipQuestion('성능 평가에서 측정하는 세 가지 평가 지표(Faithfulness, Relevance, Precision)의 의미는?')">평가 지표 안내</button>
         </div>
       </main>
-
 
       <footer class="input-bar-container">
         <div class="input-wrapper">
@@ -797,6 +963,16 @@
         <button class="primary-btn" id="uploadBtn" onclick="uploadAndChunk()" disabled>
           <span>📤 문서 청킹 및 벡터 임베딩 저장</span>
         </button>
+
+        <!-- 저장된 문서 목록 관리 카드 -->
+        <div class="card" style="margin-top: 12px;">
+          <h2 class="form-title">저장된 RAG 문서 관리</h2>
+          <div id="uploaded-documents-list" style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="color: var(--colors-text-tertiary); font-size: 13px; text-align: center; padding: 20px 0;">
+              로드 중...
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -806,14 +982,17 @@
         <!-- Input Panel -->
         <div class="eval-input-side">
           <div class="card">
-            <h2 class="form-title">테스트 파라미터 입력</h2>
+            <h2 class="form-title">평가 데이터 입력 (JSON)</h2>
             <div class="form-group">
-              <label class="form-label" for="evalQuestion">테스트 질문</label>
-              <input type="text" class="form-input" id="evalQuestion" placeholder="예: 지각 3번이면 하루 결석 처리되나요?">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="evalGroundTruth">정답 가이드라인 (Ground Truth)</label>
-              <textarea class="form-textarea" id="evalGroundTruth" placeholder="예: 지각, 조퇴, 외출 누적 3회는 결석 1일로 처리됩니다."></textarea>
+              <label class="form-label" for="evalJsonFile">평가용 JSON 파일 선택</label>
+              <div class="file-upload-zone" id="evalJsonUploadZone">
+                <input type="file" id="evalJsonFile" accept=".json" style="display: none;">
+                <span class="upload-icon" style="font-size: 28px; display: block; margin-bottom: 4px;">📂</span>
+                <span class="upload-text" id="evalJsonUploadText" style="font-size: 13px; font-weight: 500; color: var(--colors-text-secondary);">
+                  클릭하거나 JSON 파일을 여기로 드래그하세요
+                </span>
+                <div id="evalJsonSummary" style="margin-top: 8px; font-size: 12px; color: var(--colors-primary-regular); font-weight: bold; display: none;"></div>
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label">평가 비교 대상 청킹 전략</label>
@@ -848,17 +1027,66 @@
               <span>📊 DeepSeek Judge 평가 시작</span>
             </button>
           </div>
+
+          <!-- 과거 성능 평가 이력 카드 -->
+          <div class="card" style="margin-top: 12px;">
+            <h2 class="form-title">과거 성능 평가 이력</h2>
+            <div id="past-evaluations-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto;">
+              <div style="color: var(--colors-text-tertiary); font-size: 13px; text-align: center; padding: 20px 0;">
+                로드 중...
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Result Panel -->
         <div class="eval-result-side">
-          <div class="card" style="flex: 1; min-height: 200px;">
-            <h2 class="form-title">청킹 전략별 RAG 답변 및 평가 비교 결과</h2>
+          <!-- 1. 종합 성능 요약 카드 (기본 숨김, 결과가 있을 때 표시) -->
+          <div class="card" id="evalSummaryCard" style="display: none; width: 100%;">
+            <h2 class="form-title" style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              📊 청킹 전략별 종합 성능 비교 (평균 점수)
+            </h2>
+            <div style="overflow-x: auto;">
+              <table class="summary-table">
+                <thead>
+                  <tr>
+                    <th>청킹 전략</th>
+                    <th>충실성 (Faithfulness)</th>
+                    <th>답변 연관성 (Relevance)</th>
+                    <th>맥락 정확성 (Precision)</th>
+                    <th>맥락 재현율 (Recall)</th>
+                    <th>답변 완결성 (Completeness)</th>
+                    <th>노이즈 비율</th>
+                    <th>GT 커버리지</th>
+                    <th>GT 매치율</th>
+                  </tr>
+                </thead>
+                <tbody id="evalSummaryBody">
+                  <!-- 요약 행이 동적으로 생성됩니다 -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 2. 개별 문항 상세 분석 카드 -->
+          <div class="card" style="flex: 1; min-height: 200px; width: 100%;">
+            <h2 class="form-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;">
+              <span>🔍 개별 문항 상세 비교 결과</span>
+              <select id="evalQaSelector" class="form-input" style="width: auto; min-width: 250px; max-width: 400px; margin: 0; padding: 6px 12px; font-size: 13px; display: none;" onchange="showSelectedQaResult()">
+                <!-- 문항 목록이 여기에 주입됩니다 -->
+              </select>
+            </h2>
+            
+            <!-- 청킹 전략별 필터 버튼 그룹 -->
+            <div id="strategyFilterGroup" style="display: none; flex-direction: row; gap: 8px; margin: 12px 0; flex-wrap: wrap;">
+              <!-- 동적으로 생성될 버튼들 -->
+            </div>
+
             <div id="no-result-message" style="color: var(--colors-text-tertiary); font-size: 14px; text-align: center; padding: 40px 0;">
-              테스트 파라미터를 입력하고 [평가 시작]을 눌러 비교 데이터를 확인하세요.
+              평가용 JSON 파일을 업로드하거나 과거 성능 평가 이력을 선택해 결과를 확인하세요.
             </div>
             <div class="results-grid" id="evalResultsGrid">
-              <!-- Result cards will be dynamically injected here -->
+              <!-- 선택된 문항의 카드들이 여기에 들어갑니다 -->
             </div>
           </div>
         </div>
@@ -871,6 +1099,9 @@
       <div class="loader-text" id="loaderText">문서 업로드 진행 중...</div>
     </div>
 
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
   </div>
 
   <script>
@@ -878,6 +1109,155 @@
     sessionStorage.setItem('rag_session_id', sessionId);
 
     let selectedFile = null;
+    let loadedQaPairs = null;
+    let evalResultsData = null;
+
+    // Toast UI Generator
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      
+      let icon = 'ℹ️';
+      if (type === 'success') icon = '✅';
+      else if (type === 'error') icon = '❌';
+      
+      toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+      container.appendChild(toast);
+      
+      // Trigger transition
+      setTimeout(() => toast.classList.add('show'), 50);
+      
+      // Auto remove
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+    
+    // System Browser Notification
+    if (window.Notification && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+    
+    function sendSystemNotification(title, body) {
+      if (window.Notification && Notification.permission === "granted") {
+        new Notification(title, { body: body });
+      }
+    }
+
+    // Document Manager & Polling background tasks
+    async function loadUploadedDocuments() {
+      const listContainer = document.getElementById('uploaded-documents-list');
+      if (!listContainer) return;
+
+      try {
+        const response = await fetch('/history/uploads');
+        if (!response.ok) throw new Error("업로드 이력 조회 실패");
+
+        const data = await response.json();
+        if (data.length === 0) {
+          listContainer.innerHTML = `<div style="color: var(--colors-text-tertiary); font-size: 13px; text-align: center; padding: 20px 0;">저장된 문서가 없습니다.</div>`;
+          return;
+        }
+
+        listContainer.innerHTML = '';
+        data.forEach(item => {
+          const itemEl = document.createElement('div');
+          itemEl.className = 'document-item';
+          
+          let statusText = '대기 중';
+          if (item.status === 'completed') statusText = '완료';
+          else if (item.status === 'failed') statusText = '실패';
+          else if (item.status === 'processing') statusText = '처리 중';
+
+          const createdDate = new Date(item.created_at).toLocaleString('ko-KR');
+
+          // Build strategies information string
+          let strategiesInfo = '';
+          if (item.strategies_applied && item.strategies_applied.length > 0) {
+            strategiesInfo = item.strategies_applied.map(strat => {
+              const count = item.chunks_count[strat] || 0;
+              return `${strat.replace('rag_', '')} (${count}개)`;
+            }).join(', ');
+          } else {
+            strategiesInfo = '적용 전략 없음';
+          }
+
+          itemEl.innerHTML = `
+            <div class="document-info">
+              <span class="document-name">${escapeHtml(item.filename)}</span>
+              <div class="document-meta">
+                <span class="status-badge ${item.status}">${statusText}</span>
+                <span>등록: ${createdDate}</span>
+              </div>
+              <div class="document-meta" style="margin-top: 2px;">
+                <span>전략: ${escapeHtml(strategiesInfo)}</span>
+              </div>
+              ${item.error_message ? `<div style="color: #EF4444; font-size: 11px; margin-top: 2px; word-break: break-all;">에러: ${escapeHtml(item.error_message)}</div>` : ''}
+            </div>
+            <button class="delete-btn" onclick="deleteDocument(${item.id}, '${escapeHtml(item.filename)}')" ${item.status === 'processing' ? 'disabled' : ''}>삭제</button>
+          `;
+          listContainer.appendChild(itemEl);
+        });
+      } catch (err) {
+        console.error(err);
+        listContainer.innerHTML = `<div style="color: #EF4444; font-size: 13px; text-align: center; padding: 20px 0;">데이터 로드 오류: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    async function deleteDocument(historyId, filename) {
+      if (!confirm(`[${filename}] 문서를 데이터베이스 및 벡터 스토어에서 영구히 삭제하시겠습니까?`)) {
+        return;
+      }
+
+      showLoader(`[${filename}] 문서를 삭제하고 있습니다...`);
+
+      try {
+        const response = await fetch(`/history/uploads/${historyId}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) {
+          const detail = await response.json();
+          throw new Error(detail.detail || '삭제 실패');
+        }
+
+        showToast(`[${filename}] 문서가 성공적으로 삭제되었습니다.`, "success");
+        sendSystemNotification("RAG 문서 삭제 완료", `[${filename}] 문서 삭제가 완료되었습니다.`);
+        await loadUploadedDocuments();
+      } catch (err) {
+        showToast(`삭제 실패: ${err.message}`, "error");
+      } finally {
+        hideLoader();
+      }
+    }
+
+    function startUploadPolling(historyId, filename) {
+      const interval = setInterval(async () => {
+        try {
+          const response = await fetch(`/upload/status/${historyId}`);
+          if (!response.ok) return;
+          
+          const data = await response.json();
+          if (data.status === 'completed') {
+            clearInterval(interval);
+            hideLoader();
+            showToast(`[${filename}] 청킹 및 임베딩 완료!`, "success");
+            sendSystemNotification("RAG 임베딩 완료", `[${filename}] 파일의 임베딩 작업이 성공적으로 완료되었습니다.`);
+            loadUploadedDocuments();
+          } else if (data.status === 'failed') {
+            clearInterval(interval);
+            hideLoader();
+            showToast(`[${filename}] 임베딩 실패: ${data.error_message}`, "error");
+            sendSystemNotification("RAG 임베딩 실패", `[${filename}] 작업 도중 에러가 발생했습니다.`);
+            loadUploadedDocuments();
+          }
+        } catch (err) {
+          console.error("Status polling failed:", err);
+        }
+      }, 3000);
+    }
 
     // UI Tab Switch Coordinator
     function switchTab(tabId) {
@@ -904,6 +1284,14 @@
       
       if (tabId === 'chat') {
         scrollToBottom();
+      }
+
+      if (tabId === 'upload') {
+        loadUploadedDocuments();
+      }
+
+      if (tabId === 'eval') {
+        loadEvaluationHistory();
       }
     }
 
@@ -971,11 +1359,19 @@
         return;
       }
 
-      showLoader("RAG 문서를 분석하여 다중 청킹 및 임베딩을 진행 중입니다...");
+      showLoader(`[${selectedFile.name}] 파일을 업로드하고 있습니다...`);
 
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("strategies", JSON.stringify(strategies));
+
+      const currentFilename = selectedFile.name;
+
+      // Reset file input
+      selectedFile = null;
+      dropzone.classList.remove('has-file');
+      dropzoneText.innerText = "클릭하거나 여기에 파일을 드래그하여 드롭하세요. (.txt, .md, .pdf 지원)";
+      uploadBtn.disabled = true;
 
       try {
         const response = await fetch('/upload', {
@@ -989,39 +1385,90 @@
         }
 
         const data = await response.json();
-        hideLoader();
+        showLoader(`[${currentFilename}] 문서의 청킹 및 벡터 임베딩을 분석하는 중입니다. 잠시만 기다려 주세요...`);
         
-        let resultMsg = `문서 [${data.filename}] 적재 성공!\n\n적용된 컬렉션 및 청크 개수:\n`;
-        for (const [coll, count] of Object.entries(data.chunks_count)) {
-          resultMsg += `- ${coll}: ${count}개 청크\n`;
-        }
-        alert(resultMsg);
-        
-        // Reset file input
-        selectedFile = null;
-        dropzone.classList.remove('has-file');
-        dropzoneText.innerText = "클릭하거나 여기에 파일을 드래그하여 드롭하세요. (.txt, .md, .pdf 지원)";
-        uploadBtn.disabled = true;
+        // Start polling background status
+        startUploadPolling(data.history_id, currentFilename);
 
       } catch (err) {
         hideLoader();
-        alert(`오류 발생: ${err.message}`);
+        showToast(`업로드 실패: ${err.message}`, "error");
       }
     }
 
     /* ---------------- EVALUATION LOGIC ---------------- */
-    async function runEvaluation() {
-      const question = document.getElementById('evalQuestion').value.trim();
-      const groundTruth = document.getElementById('evalGroundTruth').value.trim();
-      const topK = parseInt(document.getElementById('evalTopK').value) || 5;
-      const useRagas = document.getElementById('evalUseRagas').checked;
+    // DOM Elements for JSON Evaluation Upload
+    document.addEventListener('DOMContentLoaded', () => {
+      const evalUploadZone = document.getElementById('evalJsonUploadZone');
+      const evalFileInput = document.getElementById('evalJsonFile');
+      const evalUploadText = document.getElementById('evalJsonUploadText');
+      const evalSummaryDiv = document.getElementById('evalJsonSummary');
 
-      if (!question || !groundTruth) {
-        alert('질문과 정답 가이드라인(Ground Truth)을 모두 입력하십시오.');
+      if (evalUploadZone && evalFileInput) {
+        evalUploadZone.addEventListener('click', () => evalFileInput.click());
+        evalFileInput.addEventListener('change', handleEvalFileSelect);
+
+        evalUploadZone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          evalUploadZone.classList.add('dragover');
+        });
+
+        evalUploadZone.addEventListener('dragleave', () => {
+          evalUploadZone.classList.remove('dragover');
+        });
+
+        evalUploadZone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          evalUploadZone.classList.remove('dragover');
+          const files = e.dataTransfer.files;
+          if (files.length > 0) {
+            evalFileInput.files = files;
+            handleEvalFileSelect();
+          }
+        });
+      }
+
+      function handleEvalFileSelect() {
+        const file = evalFileInput.files[0];
+        if (!file) return;
+
+        if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+          showToast('JSON 형식의 파일만 업로드할 수 있습니다.', 'error');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const data = JSON.parse(e.target.result);
+            if (!data.qa_pairs || !Array.isArray(data.qa_pairs)) {
+              throw new Error("JSON 파일에 'qa_pairs' 배열이 존재해야 합니다.");
+            }
+            loadedQaPairs = data.qa_pairs;
+            evalUploadText.innerText = `${file.name}`;
+            evalSummaryDiv.style.display = 'block';
+            evalSummaryDiv.innerText = `총 ${loadedQaPairs.length}개의 QA 쌍이 로드되었습니다.`;
+            showToast('평가용 JSON 파일이 성공적으로 로드되었습니다.', 'success');
+          } catch (err) {
+            showToast(`JSON 파싱 실패: ${err.message}`, 'error');
+            loadedQaPairs = null;
+            evalSummaryDiv.style.display = 'none';
+            evalUploadText.innerText = '클릭하거나 JSON 파일을 여기로 드래그하세요';
+          }
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    async function runEvaluation() {
+      if (!loadedQaPairs || loadedQaPairs.length === 0) {
+        alert('평가용 JSON 파일을 먼저 업로드해주십시오.');
         return;
       }
 
-      // Check configured strategies
+      const topK = parseInt(document.getElementById('evalTopK').value) || 5;
+      const useRagas = document.getElementById('evalUseRagas').checked;
+
       const strategies = [];
       if (document.getElementById('eval-chk-rec-small').checked) {
         strategies.push({ name: 'recursive', chunk_size: 500, chunk_overlap: 50 });
@@ -1042,19 +1489,18 @@
       }
 
       const loaderMsg = useRagas 
-        ? "각 청킹 전략별 RAG 답변을 조회하고 Ragas 라이브러리 정밀 평가(DeepSeek 기반)를 실행 중입니다. 이 작업은 30초 이상 소요될 수 있습니다..."
-        : "각 청킹 전략별 RAG 답변을 조회하고 DeepSeek Judge 평가를 받아오는 중입니다...";
+        ? `총 ${loadedQaPairs.length}개 문항에 대해 각 청킹 전략별 RAG 답변을 조회하고 Ragas 라이브러리 정밀 평가를 실행 중입니다. 시간이 매우 오래 걸릴 수 있습니다...`
+        : `총 ${loadedQaPairs.length}개 문항에 대해 각 청킹 전략별 RAG 답변을 조회하고 DeepSeek Judge 평가를 받아오는 중입니다...`;
       showLoader(loaderMsg);
 
       try {
-        const response = await fetch('/eval/run', {
+        const response = await fetch('/evaluation/run-json', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            question: question,
-            ground_truth: groundTruth,
+            qa_pairs: loadedQaPairs,
             strategies: strategies,
             top_k: topK,
             use_ragas: useRagas
@@ -1068,7 +1514,12 @@
 
         const data = await response.json();
         hideLoader();
-        renderEvaluationResults(data.results);
+        
+        evalResultsData = data;
+        
+        renderEvaluationSummary(data.summaries);
+        setupQaSelector(data.evaluations);
+        showToast('성능 평가가 완료되었습니다!', 'success');
 
       } catch (err) {
         hideLoader();
@@ -1076,15 +1527,98 @@
       }
     }
 
-    function renderEvaluationResults(results) {
+    function renderEvaluationSummary(summaries) {
+      const summaryCard = document.getElementById('evalSummaryCard');
+      const summaryBody = document.getElementById('evalSummaryBody');
+      summaryBody.innerHTML = '';
+      
+      if (!summaries || summaries.length === 0) {
+        summaryCard.style.display = 'none';
+        return;
+      }
+      
+      summaryCard.style.display = 'block';
+      summaries.forEach(sum => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td style="padding: 10px; font-weight: bold;">${escapeHtml(sum.strategy)}</td>
+          <td style="padding: 10px; text-align: center;"><span class="score-value ${getScoreClass(Math.round(sum.faithfulness_avg))}">${sum.faithfulness_avg}/5</span></td>
+          <td style="padding: 10px; text-align: center;"><span class="score-value ${getScoreClass(Math.round(sum.relevance_avg))}">${sum.relevance_avg}/5</span></td>
+          <td style="padding: 10px; text-align: center;"><span class="score-value ${getScoreClass(Math.round(sum.precision_avg))}">${sum.precision_avg}/5</span></td>
+          <td style="padding: 10px; text-align: center;"><span class="score-value ${getScoreClass(Math.round(sum.recall_avg))}">${sum.recall_avg}/5</span></td>
+          <td style="padding: 10px; text-align: center;"><span class="score-value ${getScoreClass(Math.round(sum.completeness_avg))}">${sum.completeness_avg}/5</span></td>
+          <td style="padding: 10px; text-align: center;">${(sum.noise_ratio_avg * 100).toFixed(1)}%</td>
+          <td style="padding: 10px; text-align: center;">${(sum.coverage_rate_avg * 100).toFixed(1)}%</td>
+          <td style="padding: 10px; text-align: center;">${(sum.gt_match_rate_avg * 100).toFixed(1)}%</td>
+        `;
+        summaryBody.appendChild(row);
+      });
+    }
+
+    function setupQaSelector(evaluations) {
+      const selector = document.getElementById('evalQaSelector');
+      selector.innerHTML = '';
+      
+      if (!evaluations || evaluations.length === 0) {
+        selector.style.display = 'none';
+        return;
+      }
+      
+      if (evaluations.length <= 1) {
+        selector.style.display = 'none';
+      } else {
+        selector.style.display = 'block';
+      }
+
+      evaluations.forEach((item, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        const shortQuestion = item.question.length > 30 ? item.question.substring(0, 30) + '...' : item.question;
+        option.text = `[문항 ${index + 1}] ${shortQuestion}`;
+        selector.appendChild(option);
+      });
+      
+      selector.value = 0;
+      showSelectedQaResult();
+    }
+
+    function showSelectedQaResult() {
+      const selector = document.getElementById('evalQaSelector');
+      const selectedIndex = parseInt(selector.value);
+      if (isNaN(selectedIndex) || !evalResultsData || !evalResultsData.evaluations[selectedIndex]) {
+        return;
+      }
+      
+      const selectedQa = evalResultsData.evaluations[selectedIndex];
+      
       document.getElementById('no-result-message').style.display = 'none';
       const grid = document.getElementById('evalResultsGrid');
       grid.innerHTML = '';
+      
+      const headerCard = document.createElement('div');
+      headerCard.style.gridColumn = '1 / -1';
+      headerCard.style.padding = '16px';
+      headerCard.style.backgroundColor = 'var(--colors-bg-secondary)';
+      headerCard.style.borderRadius = 'var(--radius-200)';
+      headerCard.style.border = '1px solid var(--colors-border-regular)';
+      headerCard.innerHTML = `
+        <div style="margin-bottom: 8px;"><strong>질문 (Question):</strong> ${escapeHtml(selectedQa.question)}</div>
+        <div><strong>정답 가이드라인 (Ground Truth):</strong> ${escapeHtml(selectedQa.ground_truth)}</div>
+      `;
+      grid.appendChild(headerCard);
 
-      results.forEach((res, index) => {
+      selectedQa.results.forEach((res, index) => {
         const faithfulness = res.scores.faithfulness || { score: 0, reason: 'N/A' };
         const relevance = res.scores.relevance || { score: 0, reason: 'N/A' };
         const precision = res.scores.precision || { score: 0, reason: 'N/A' };
+        const recall = res.scores.recall || { score: 0, reason: 'N/A' };
+        const completeness = res.scores.completeness || { score: 0, reason: 'N/A' };
+
+        const noiseRatio = res.scores.noise_ratio !== undefined ? res.scores.noise_ratio : 0;
+        const coverageRate = res.scores.coverage_rate !== undefined ? res.scores.coverage_rate : 0;
+        const hallucinationCount = res.scores.hallucination_count !== undefined ? res.scores.hallucination_count : 0;
+        const gtMatchRate = res.scores.gt_match_rate !== undefined ? res.scores.gt_match_rate : 0;
+        const avgChunkLength = res.scores.avg_chunk_length !== undefined ? res.scores.avg_chunk_length : 0;
 
         const card = document.createElement('div');
         card.className = 'result-card';
@@ -1096,7 +1630,7 @@
             </div>
           </div>
 
-          <div class="score-badges-grid">
+          <div class="score-badges-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
             <div class="score-badge-item">
               <div class="score-label">충실성 (Faithfulness)</div>
               <div class="score-value ${getScoreClass(faithfulness.score)}">${faithfulness.score}/5</div>
@@ -1109,6 +1643,25 @@
               <div class="score-label">맥락 정확성 (Precision)</div>
               <div class="score-value ${getScoreClass(precision.score)}">${precision.score}/5</div>
             </div>
+            <div class="score-badge-item">
+              <div class="score-label">맥락 재현율 (Recall)</div>
+              <div class="score-value ${getScoreClass(recall.score)}">${recall.score}/5</div>
+            </div>
+            <div class="score-badge-item">
+              <div class="score-label">답변 완결성 (Completeness)</div>
+              <div class="score-value ${getScoreClass(completeness.score)}">${completeness.score}/5</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 10px; padding: 10px; background-color: var(--colors-bg-secondary); border-radius: 6px; font-size: 12px; border: 1px solid var(--colors-border-regular);">
+            <strong style="display: block; margin-bottom: 6px; color: var(--colors-text-primary);">정량적 보조 지표 (코드 자동 계산)</strong>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 12px;">
+              <div>• <strong>노이즈 청크 비율:</strong> ${(noiseRatio * 100).toFixed(1)}%</div>
+              <div>• <strong>GT 문맥 커버리지:</strong> ${(coverageRate * 100).toFixed(1)}%</div>
+              <div>• <strong>환각 문장 개수:</strong> ${hallucinationCount}개</div>
+              <div>• <strong>GT 답변 매치율:</strong> ${(gtMatchRate * 100).toFixed(1)}%</div>
+              <div>• <strong>평균 청크 크기:</strong> ${avgChunkLength}자</div>
+            </div>
           </div>
 
           <div>
@@ -1118,10 +1671,12 @@
 
           <div>
             <div class="card-section-title">DeepSeek Judge 채점 근거</div>
-            <div class="card-text-block" id="reason-${index}" style="display: none; background-color: var(--colors-primary-light); font-size: 12px; color: var(--colors-primary-heavy);">
+            <div class="card-text-block" id="reason-${index}" style="display: none; background-color: var(--colors-primary-light); font-size: 12px; color: var(--colors-primary-heavy); line-height: 1.5;">
               <strong>충실성 사유:</strong> ${escapeHtml(faithfulness.reason)}<br><br>
               <strong>연관성 사유:</strong> ${escapeHtml(relevance.reason)}<br><br>
-              <strong>맥락 정확성 사유:</strong> ${escapeHtml(precision.reason)}
+              <strong>맥락 정확성 사유:</strong> ${escapeHtml(precision.reason)}<br><br>
+              <strong>맥락 재현율 사유:</strong> ${escapeHtml(recall.reason)}<br><br>
+              <strong>답변 완결성 사유:</strong> ${escapeHtml(completeness.reason)}
             </div>
             <span class="score-reason-toggle" onclick="toggleReason(${index}, this)">더보기 ▼</span>
           </div>
@@ -1145,6 +1700,187 @@
         `;
         grid.appendChild(card);
       });
+
+      // 청킹 전략 필터 버튼 갱신
+      const strategyList = selectedQa.results.map(res => res.strategy);
+      updateStrategyFilterButtons(strategyList);
+    }
+
+    async function loadEvaluationHistory() {
+      const container = document.getElementById('past-evaluations-list');
+      if (!container) return;
+
+      try {
+        const response = await fetch('/history/evaluations');
+        if (!response.ok) throw new Error("과거 평가 이력 조회 실패");
+
+        const data = await response.json();
+        if (data.length === 0) {
+          container.innerHTML = `<div style="color: var(--colors-text-tertiary); font-size: 13px; text-align: center; padding: 20px 0;">과거 성능 평가 이력이 없습니다.</div>`;
+          return;
+        }
+
+        container.innerHTML = '';
+        data.forEach(item => {
+          const itemEl = document.createElement('div');
+          itemEl.className = 'document-item';
+          itemEl.style.cursor = 'pointer';
+          itemEl.style.padding = '10px';
+          itemEl.style.border = '1px solid var(--colors-border-regular)';
+          itemEl.style.borderRadius = 'var(--radius-100)';
+          itemEl.style.transition = 'all 0.2s ease';
+          itemEl.style.display = 'flex';
+          itemEl.style.flexDirection = 'column';
+          itemEl.style.gap = '4px';
+
+          itemEl.addEventListener('mouseenter', () => {
+            itemEl.style.backgroundColor = 'var(--colors-primary-light)';
+            itemEl.style.borderColor = 'var(--colors-primary-regular)';
+          });
+          itemEl.addEventListener('mouseleave', () => {
+            itemEl.style.backgroundColor = '';
+            itemEl.style.borderColor = 'var(--colors-border-regular)';
+          });
+
+          itemEl.addEventListener('click', () => loadPastEvaluationDetails(item));
+
+          const createdDate = new Date(item.created_at).toLocaleString('ko-KR');
+          const shortQuestion = item.question.length > 35 ? item.question.substring(0, 35) + '...' : item.question;
+          const shortGt = item.ground_truth.length > 40 ? item.ground_truth.substring(0, 40) + '...' : item.ground_truth;
+
+          itemEl.innerHTML = `
+            <div style="font-weight: bold; font-size: 12px; color: var(--colors-text-primary); word-break: break-all;">
+              📌 ${escapeHtml(shortQuestion)}
+            </div>
+            <div style="font-size: 11px; color: var(--colors-text-secondary); word-break: break-all;">
+              정답 가이드: ${escapeHtml(shortGt)}
+            </div>
+            <div style="font-size: 10px; color: var(--colors-text-tertiary); display: flex; justify-content: space-between; align-items: center;">
+              <span>🕒 ${createdDate}</span>
+              <span style="font-weight: bold; color: var(--colors-primary-regular); font-size: 9px; border: 1px solid var(--colors-primary-regular); border-radius: 4px; padding: 1px 4px; background: var(--colors-white);">
+                결과 보기
+              </span>
+            </div>
+          `;
+          container.appendChild(itemEl);
+        });
+      } catch (err) {
+        console.error(err);
+        container.innerHTML = `<div style="color: #EF4444; font-size: 12px; text-align: center; padding: 20px 0;">데이터 로드 오류: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function loadPastEvaluationDetails(item) {
+      if (!item || !item.results || item.results.length === 0) return;
+
+      const mockData = {
+        summaries: item.results.map(res => {
+          const faithfulness = res.scores.faithfulness || { score: 0 };
+          const relevance = res.scores.relevance || { score: 0 };
+          const precision = res.scores.precision || { score: 0 };
+          const recall = res.scores.recall || { score: 0 };
+          const completeness = res.scores.completeness || { score: 0 };
+
+          return {
+            strategy: res.strategy,
+            faithfulness_avg: faithfulness.score,
+            relevance_avg: relevance.score,
+            precision_avg: precision.score,
+            recall_avg: recall.score,
+            completeness_avg: completeness.score,
+            noise_ratio_avg: res.scores.noise_ratio || 0,
+            coverage_rate_avg: res.scores.coverage_rate || 0,
+            gt_match_rate_avg: res.scores.gt_match_rate || 0,
+            avg_chunk_length_avg: res.scores.avg_chunk_length || 0
+          };
+        }),
+        evaluations: [
+          {
+            id: item.id,
+            question: item.question,
+            ground_truth: item.ground_truth,
+            results: item.results.map(res => ({
+              strategy: res.strategy,
+              collection_name: res.collection_name,
+              answer: res.answer,
+              contexts: res.contexts,
+              scores: res.scores
+            }))
+          }
+        ]
+      };
+
+      evalResultsData = mockData;
+      renderEvaluationSummary(mockData.summaries);
+      setupQaSelector(mockData.evaluations);
+    }
+
+    function updateStrategyFilterButtons(strategies) {
+      const container = document.getElementById('strategyFilterGroup');
+      if (!container) return;
+
+      container.innerHTML = '';
+      
+      if (!strategies || strategies.length <= 1) {
+        container.style.display = 'none';
+        return;
+      }
+
+      container.style.display = 'flex';
+
+      // 1. [전체 보기] 버튼
+      const allBtn = document.createElement('button');
+      allBtn.className = 'guide-chip';
+      allBtn.style.margin = '0';
+      allBtn.style.fontWeight = 'bold';
+      allBtn.style.border = '2px solid var(--colors-primary-regular)';
+      allBtn.style.backgroundColor = 'var(--colors-primary-light)';
+      allBtn.innerText = '전체 보기';
+      allBtn.onclick = () => {
+        setActiveFilterButton(allBtn);
+        filterResultsByStrategy('all');
+      };
+      container.appendChild(allBtn);
+
+      // 2. 전략별 버튼
+      strategies.forEach(strategy => {
+        const btn = document.createElement('button');
+        btn.className = 'guide-chip';
+        btn.style.margin = '0';
+        btn.innerText = strategy;
+        btn.onclick = () => {
+          setActiveFilterButton(btn);
+          filterResultsByStrategy(strategy);
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function setActiveFilterButton(activeBtn) {
+      const container = document.getElementById('strategyFilterGroup');
+      container.querySelectorAll('button').forEach(btn => {
+        btn.style.border = '';
+        btn.style.backgroundColor = '';
+        btn.style.fontWeight = '';
+      });
+      activeBtn.style.border = '2px solid var(--colors-primary-regular)';
+      activeBtn.style.backgroundColor = 'var(--colors-primary-light)';
+      activeBtn.style.fontWeight = 'bold';
+    }
+
+    function filterResultsByStrategy(selectedStrategy) {
+      const cards = document.querySelectorAll('#evalResultsGrid .result-card');
+      cards.forEach(card => {
+        const badge = card.querySelector('.strategy-badge');
+        if (!badge) return;
+        
+        const cardStrategy = badge.innerText.trim();
+        if (selectedStrategy === 'all' || cardStrategy === selectedStrategy) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
     }
 
     function toggleReason(index, trigger) {
@@ -1157,6 +1893,7 @@
         trigger.innerText = '더보기 ▼';
       }
     }
+
 
     function getScoreClass(score) {
       if (score >= 4) return 'high';
@@ -1344,6 +2081,9 @@
         sendMessage();
       }
     });
+
+    // Initial load
+    loadUploadedDocuments();
   </script>
 </body>
 </html>

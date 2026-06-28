@@ -2,7 +2,11 @@ import io
 from typing import List, Dict, Any
 from pypdf import PdfReader
 from langchain_core.documents import Document
-from langchain_text_splitters import RecursiveCharacterTextSplitter, CharacterTextSplitter, MarkdownHeaderTextSplitter
+from langchain_text_splitters import (
+    RecursiveCharacterTextSplitter,
+    CharacterTextSplitter,
+    MarkdownHeaderTextSplitter,
+)
 
 
 class ChunkingService:
@@ -24,7 +28,9 @@ class ChunkingService:
             raise ValueError(f"Unsupported file format: {ext}")
 
     @staticmethod
-    def split_document(text: str, strategy: Dict[str, Any], filename: str) -> List[Document]:
+    def split_document(
+        text: str, strategy: Dict[str, Any], filename: str
+    ) -> List[Document]:
         strategy_name = strategy.get("name", "recursive")
         metadata = {"source": filename}
 
@@ -32,9 +38,7 @@ class ChunkingService:
             chunk_size = strategy.get("chunk_size", 500)
             chunk_overlap = strategy.get("chunk_overlap", 50)
             splitter = RecursiveCharacterTextSplitter(
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap,
-                length_function=len
+                chunk_size=chunk_size, chunk_overlap=chunk_overlap, length_function=len
             )
             docs = splitter.create_documents([text], metadatas=[metadata])
             for i, doc in enumerate(docs):
@@ -47,9 +51,7 @@ class ChunkingService:
             chunk_size = strategy.get("chunk_size", 500)
             chunk_overlap = strategy.get("chunk_overlap", 50)
             splitter = CharacterTextSplitter(
-                separator=separator,
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap
+                separator=separator, chunk_size=chunk_size, chunk_overlap=chunk_overlap
             )
             docs = splitter.create_documents([text], metadatas=[metadata])
             for i, doc in enumerate(docs):
@@ -63,14 +65,16 @@ class ChunkingService:
                 ("##", "Header 2"),
                 ("###", "Header 3"),
             ]
-            splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+            splitter = MarkdownHeaderTextSplitter(
+                headers_to_split_on=headers_to_split_on
+            )
             docs = splitter.split_text(text)
             for i, doc in enumerate(docs):
                 doc.metadata.update(metadata)
                 doc.metadata["chunk_index"] = i
                 doc.metadata["strategy"] = "markdown_header"
             return docs
-            
+
         else:
             splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
             docs = splitter.create_documents([text], metadatas=[metadata])
