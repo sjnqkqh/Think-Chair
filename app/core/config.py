@@ -1,5 +1,9 @@
 import os
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Load environment variables into os.environ for LangChain/LangSmith
+load_dotenv()
 
 
 class Settings(BaseSettings):
@@ -7,6 +11,7 @@ class Settings(BaseSettings):
     CHROMA_MODE: str = "local"
     CHROMA_HOST: str = "localhost"
     CHROMA_PORT: int = 8000
+    CHROMA_COLLECTION_NAME: str = "rag_rec_s500_o50"
 
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_API_BASE: str = "https://api.deepseek.com"

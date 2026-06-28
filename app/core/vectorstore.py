@@ -27,7 +27,8 @@ class VectorStoreManager:
             )
             self.chroma_client = chromadb.PersistentClient(path=settings.CHROMA_DB_PATH)
 
-        self.vector_store = self.get_vector_store("camp_rules")
+        self.vector_store = self.get_vector_store(settings.CHROMA_COLLECTION_NAME)
+        print(f"Using collection '{settings.CHROMA_COLLECTION_NAME}' as active vector store.")
 
     def get_vector_store(self, collection_name: str) -> Chroma:
         return Chroma(

@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,8 @@ from app.schemas.rag import (
 )
 from app.services.evaluator import EvaluatorService
 from app.core.database import get_database_session
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 _evaluator_service_instance = None
@@ -51,6 +54,7 @@ async def run_evaluation(
             results=results
         )
     except Exception as exception:
+        logger.error("Exception occurred in run_evaluation endpoint", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(exception)}")
 
 
@@ -74,4 +78,5 @@ async def run_json_evaluation(
         return EvaluationJSONResponse(summaries=summaries, evaluations=evaluations)
 
     except Exception as exception:
+        logger.error("Exception occurred in run_json_evaluation endpoint", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(exception)}")
