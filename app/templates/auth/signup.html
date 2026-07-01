@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}회원가입 - Draftsmith{% endblock %}
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-[#fafaf9]"
+     x-data="{
+       login_id: '', nickname: '', password: '', error: '',
+       async submit() {
+         this.error = '';
+         const res = await fetch('/api/auth/signup', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ login_id: this.login_id, nickname: this.nickname, password: this.password })
+         });
+         if (res.ok) { window.location.href = '/'; return; }
+         const data = await res.json().catch(() => ({}));
+         this.error = data.detail || '회원가입에 실패했습니다.';
+       }
+     }">
+  <div class="w-full max-w-[400px] bg-white border border-[#ebeced] rounded-xl p-8 shadow-sm">
+    <h1 class="text-2xl font-semibold text-[#37352f] mb-1">회원가입</h1>
+    <p class="text-sm text-[#787671] mb-6">Draftsmith와 함께 글감을 발굴해보세요.</p>
+
+    <div x-show="error" x-cloak
+         class="mb-4 rounded-lg bg-[#fde0ec] border border-[#e03131] text-[#e03131] text-sm px-3 py-2"
+         x-text="error"></div>
+
+    <form @submit.prevent="submit" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-[#37352f] mb-1">아이디</label>
+        <input type="text" x-model="login_id" required minlength="3" maxlength="64"
+               class="w-full border border-[#ebeced] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5645d4]" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-[#37352f] mb-1">닉네임</label>
+        <input type="text" x-model="nickname" required maxlength="64"
+               class="w-full border border-[#ebeced] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5645d4]" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-[#37352f] mb-1">비밀번호</label>
+        <input type="password" x-model="password" required minlength="8" maxlength="128"
+               class="w-full border border-[#ebeced] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5645d4]" />
+      </div>
+      <button type="submit"
+              class="w-full bg-[#5645d4] hover:bg-[#4534b3] text-white font-medium rounded-lg py-2.5 text-sm transition-colors">
+        가입하기
+      </button>
+    </form>
+
+    <p class="text-sm text-[#787671] mt-6 text-center">
+      이미 계정이 있으신가요?
+      <a href="/login" class="text-[#5645d4] font-medium hover:underline">로그인</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

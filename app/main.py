@@ -1,9 +1,10 @@
 from fastapi import FastAPI
-from app.api.endpoints import router as api_router
-from app.pages.user_interface import router as pages_router
-from app.core.database import engine, Base
-import app.models.history
+
 import app.models.user
+from app.api.endpoints import router as api_router
+from app.core.database import engine, Base
+from app.pages.auth_pages import router as auth_pages_router
+from app.pages.user_interface import router as pages_router
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -17,3 +18,4 @@ app = FastAPI(
 # Register API routes
 app.include_router(api_router)
 app.include_router(pages_router)
+app.include_router(auth_pages_router)
