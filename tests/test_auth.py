@@ -49,6 +49,21 @@ def test_login_wrong_password(client):
     assert response.status_code == 401
 
 
+def test_login_failure_is_logged(client, caplog):
+    # 로그인 실패는 login_id가 포함된 warning 로그를 남겨서 외부에서 원인을 추적할 수 있어야 한다.
+    client.post(
+        "/api/auth/signup",
+        json={"login_id": "logtarget", "password": "password123", "nickname": "X"},
+    )
+    with caplog.at_level("WARNING", logger="app.services.auth_service"):
+        client.post(
+            "/api/auth/login",
+            json={"login_id": "logtarget", "password": "incorrect"},
+        )
+    assert any("login failed" in record.message for record in caplog.records)
+    assert any("logtarget" in record.message for record in caplog.records)
+
+
 def test_login_unknown_user(client):
     # 존재하지 않는 login_id로 로그인 시도해도 401을 반환해야 한다(계정 존재 여부 노출 방지).
     response = client.post(

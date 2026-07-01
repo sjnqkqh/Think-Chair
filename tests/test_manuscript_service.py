@@ -37,3 +37,17 @@ def test_get_manuscript_raises_404_when_not_owned(db_session):
         manuscript_service.get_manuscript(db_session, stranger, manuscript.id)
 
     assert exc_info.value.status_code == 404
+
+
+def test_get_manuscript_not_found_is_logged(db_session, caplog):
+    # 원고를 찾지 못했을 때 manuscript_id/user_id가 포함된 warning 로그를 남겨야 한다.
+    owner = _create_user(db_session, "svc_owner3")
+    stranger = _create_user(db_session, "svc_stranger2")
+    payload = ManuscriptCreateRequest(topic="t", concept=ConceptType.ESSAY)
+    manuscript = manuscript_service.create_manuscript(db_session, owner, payload)
+
+    with caplog.at_level("WARNING", logger="app.services.manuscript_service"):
+        with pytest.raises(NotFoundError):
+            manuscript_service.get_manuscript(db_session, stranger, manuscript.id)
+
+    assert any("not found or not owned" in record.message for record in caplog.records)
