@@ -22,11 +22,15 @@ dependencies = [
     "black>=26.5.1",
     "langsmith>=0.9.0",
     "langchain-google-vertexai>=3.2.4",
+    "pyjwt>=2.13.0",
+    "langgraph-checkpoint-sqlite>=3.1.0",
+    "langchain-core>=1.4.8",
 ]
 
 [dependency-groups]
 dev = [
     "pytest-asyncio>=1.4.0",
+    "ruff>=0.15.20",
 ]
 
 [tool.pytest.ini_options]
