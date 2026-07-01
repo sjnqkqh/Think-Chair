@@ -1,58 +1,64 @@
 def test_signup_success(client):
-    res = client.post(
+    # 회원가입 성공 시 201과 함께 access_token 쿠키가 발급되어야 한다.
+    response = client.post(
         "/api/auth/signup",
         json={"login_id": "tester1", "password": "password123", "nickname": "테스터"},
     )
-    assert res.status_code == 201
-    assert res.json()["login_id"] == "tester1"
-    assert "access_token" in res.cookies
+    assert response.status_code == 201
+    assert response.json()["login_id"] == "tester1"
+    assert "access_token" in response.cookies
 
 
 def test_signup_duplicate_login_id(client):
+    # 이미 존재하는 login_id로 재가입을 시도하면 409(Conflict)를 반환해야 한다.
     client.post(
         "/api/auth/signup",
         json={"login_id": "dupuser", "password": "password123", "nickname": "A"},
     )
-    res = client.post(
+    response = client.post(
         "/api/auth/signup",
         json={"login_id": "dupuser", "password": "password123", "nickname": "B"},
     )
-    assert res.status_code == 409
+    assert response.status_code == 409
 
 
 def test_login_success(client):
+    # 가입된 계정으로 로그인하면 200과 함께 access_token 쿠키가 재발급되어야 한다.
     client.post(
         "/api/auth/signup",
         json={"login_id": "loginuser", "password": "password123", "nickname": "로그인"},
     )
-    res = client.post(
+    response = client.post(
         "/api/auth/login",
         json={"login_id": "loginuser", "password": "password123"},
     )
-    assert res.status_code == 200
-    assert "access_token" in res.cookies
+    assert response.status_code == 200
+    assert "access_token" in response.cookies
 
 
 def test_login_wrong_password(client):
+    # 비밀번호가 틀리면 401(Unauthorized)을 반환해야 한다.
     client.post(
         "/api/auth/signup",
         json={"login_id": "wrongpw", "password": "password123", "nickname": "X"},
     )
-    res = client.post(
+    response = client.post(
         "/api/auth/login",
         json={"login_id": "wrongpw", "password": "incorrect"},
     )
-    assert res.status_code == 401
+    assert response.status_code == 401
 
 
 def test_login_unknown_user(client):
-    res = client.post(
+    # 존재하지 않는 login_id로 로그인 시도해도 401을 반환해야 한다(계정 존재 여부 노출 방지).
+    response = client.post(
         "/api/auth/login",
         json={"login_id": "nobody", "password": "whatever"},
     )
-    assert res.status_code == 401
+    assert response.status_code == 401
 
 
 def test_logout_clears_cookie(client):
-    res = client.post("/api/auth/logout")
-    assert res.status_code == 204
+    # 로그아웃 요청은 인증 여부와 무관하게 204와 함께 쿠키 삭제 응답을 반환해야 한다.
+    response = client.post("/api/auth/logout")
+    assert response.status_code == 204
