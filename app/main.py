@@ -3,6 +3,7 @@ from app.api.endpoints import router as api_router
 from app.pages.user_interface import router as pages_router
 from app.core.database import engine, Base
 import app.models.history
+import app.models.user
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
