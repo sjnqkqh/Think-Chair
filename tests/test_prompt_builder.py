@@ -36,7 +36,7 @@ def test_purpose_is_nonempty(concept):
     assert CONCEPT_TEMPLATES[concept]["purpose"].text.strip()
 
 
-def test_prompt_prohibits_hanja():
+def test_prompt_prohibits_chinese_characters():
     # 모든 프롬프트는 한자 사용 금지 문구를 포함해야 한다.
     prompt = build_system_prompt("tech_deepdive", "draft", topic="테스트 주제")
 
