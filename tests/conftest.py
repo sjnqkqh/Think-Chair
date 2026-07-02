@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -9,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.endpoints.evaluation import get_evaluator_service
 from app.api.endpoints.query import get_rag_service
 from app.core.database import Base, get_database_session
+from app.graph import llm_registry
 from app.services.evaluator import EvaluatorService
 from app.services.rag import RagService
 from main import app as fastapi_app
@@ -69,3 +71,13 @@ def mock_rag(setup_dependency_overrides):
 @pytest.fixture
 def mock_evaluator(setup_dependency_overrides):
     return setup_dependency_overrides[1]
+
+
+@pytest.fixture
+def fake_llm():
+    llm = FakeListChatModel(responses=["테스트 응답입니다."])
+    original = llm_registry._registry.get("default")
+    llm_registry.register("default", llm)
+    yield llm
+    if original is not None:
+        llm_registry.register("default", original)
