@@ -1,0 +1,8 @@
+{% if pending_version %}
+<div id="version-list" hx-swap-oob="beforeend">
+  <div class="flex justify-between text-xs text-[#787671] py-1">
+    <span>{{ pending_version.kind }}</span>
+    <span>v{{ pending_version.get("version_id", "")[:8] }}</span>
+  </div>
+</div>
+{% endif %}

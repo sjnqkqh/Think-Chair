@@ -1,0 +1,27 @@
+{% if active_manuscript %}
+<div class="space-y-2 mb-6">
+  {% for prompt_text, label in [
+      ("이 정도면 괜찮을까요? 점검해주세요.", "점검 요청"),
+      ("지금까지 내용에 피드백 부탁드립니다.", "피드백"),
+      ("개요부터 잡아주세요.", "개요 생성"),
+      ("초고 작성해주세요.", "초고 작성"),
+      ("탈고해주세요.", "탈고"),
+  ] %}
+  <button
+    hx-post="/api/chat/{{ active_manuscript.id }}/message"
+    hx-vals='{"content": "{{ prompt_text }}"}'
+    hx-target="#chat-log" hx-swap="beforeend"
+    class="w-full rounded-[8px] border border-[#c8c4be] py-2 text-sm"
+  >{{ label }}</button>
+  {% endfor %}
+</div>
+<div id="version-list" class="space-y-1 text-sm">
+  <!-- pending_version이 생긴 응답에서 hx-swap-oob="true" #version-list 로 갱신됨 -->
+</div>
+<button
+  hx-post="/api/manuscripts/{{ active_manuscript.id }}/finalize"
+  class="w-full mt-4 rounded-[8px] bg-black text-white py-2 text-sm"
+>최종 확정</button>
+{% else %}
+<p class="text-sm text-[#787671]">원고를 선택하거나 새로 만드세요.</p>
+{% endif %}

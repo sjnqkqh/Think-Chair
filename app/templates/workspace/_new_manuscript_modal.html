@@ -1,0 +1,13 @@
+<div x-data="{ open: false }" @open-new-manuscript-modal.window="open = true">
+  <div x-show="open" class="fixed inset-0 bg-black/30 flex items-center justify-center" style="display:none">
+    <form hx-post="/api/manuscripts" hx-ext="json-enc" class="bg-white rounded-[12px] p-6 w-[400px] space-y-3">
+      <input name="topic" placeholder="주제" required class="w-full border border-[#c8c4be] rounded-[8px] px-3 py-2 text-sm" />
+      <select name="concept" x-data x-model="concept" required class="w-full border border-[#c8c4be] rounded-[8px] px-3 py-2 text-sm">
+        {% for c in concepts %}<option value="{{ c.value }}">{{ c.value }}</option>{% endfor %}
+      </select>
+      <input x-show="concept === 'teaching'" name="audience_level" placeholder="독자 수준 (예: 초급)"
+             class="w-full border border-[#c8c4be] rounded-[8px] px-3 py-2 text-sm" style="display:none" />
+      <button type="submit" class="w-full bg-[#2383E2] text-white rounded-[8px] py-2 text-sm">만들기</button>
+    </form>
+  </div>
+</div>
