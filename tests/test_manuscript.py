@@ -1,3 +1,8 @@
+import uuid
+
+from app.models.manuscript import ManuscriptVersion
+
+
 def _signup_and_login(client, login_id="mstester"):
     client.post(
         "/api/auth/signup",
@@ -39,3 +44,64 @@ def test_create_manuscript_invalid_concept_returns_422(client):
         "/api/manuscripts", json={"topic": "A", "concept": "not_a_real_concept"}
     )
     assert response.status_code == 422
+
+
+def _create_version(db_session, manuscript_id: str, kind="draft", revision=1) -> str:
+    version = ManuscriptVersion(
+        manuscript_id=uuid.UUID(manuscript_id),
+        kind=kind,
+        revision=revision,
+        storage_key=f"{kind}s/{uuid.uuid4()}.md",
+    )
+    db_session.add(version)
+    db_session.commit()
+    db_session.refresh(version)
+    return str(version.id)
+
+
+def test_finalize_manuscript_marks_version_and_status(client, db_session):
+    _signup_and_login(client, login_id="finalizetester")
+    create_response = client.post(
+        "/api/manuscripts", json={"topic": "탈고 대상", "concept": "til"}
+    )
+    manuscript_id = create_response.json()["id"]
+    version_id = _create_version(db_session, manuscript_id)
+
+    response = client.post(
+        f"/api/manuscripts/{manuscript_id}/finalize", params={"version_id": version_id}
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "finalized"
+
+    version = db_session.get(ManuscriptVersion, uuid.UUID(version_id))
+    assert version.is_finalized is True
+
+
+def test_finalize_manuscript_unknown_version_returns_404(client):
+    _signup_and_login(client, login_id="finalizetester2")
+    create_response = client.post(
+        "/api/manuscripts", json={"topic": "탈고 대상2", "concept": "til"}
+    )
+    manuscript_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/api/manuscripts/{manuscript_id}/finalize",
+        params={"version_id": str(uuid.uuid4())},
+    )
+    assert response.status_code == 404
+
+
+def test_finalize_manuscript_other_users_version_returns_404(client, db_session):
+    _signup_and_login(client, login_id="owner_user")
+    create_response = client.post(
+        "/api/manuscripts", json={"topic": "소유자 원고", "concept": "til"}
+    )
+    manuscript_id = create_response.json()["id"]
+    version_id = _create_version(db_session, manuscript_id)
+
+    # 다른 사용자로 재로그인하면 쿠키가 교체된다.
+    _signup_and_login(client, login_id="other_user")
+    response = client.post(
+        f"/api/manuscripts/{manuscript_id}/finalize", params={"version_id": version_id}
+    )
+    assert response.status_code == 404

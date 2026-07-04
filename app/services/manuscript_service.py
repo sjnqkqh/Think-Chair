@@ -38,3 +38,17 @@ def get_manuscript(db: Session, user: User, manuscript_id: uuid.UUID):
         )
         raise NotFoundError("원고를 찾을 수 없습니다.")
     return manuscript
+
+
+def finalize_manuscript(
+    db: Session, user: User, manuscript_id: uuid.UUID, version_id: uuid.UUID
+):
+    manuscript = get_manuscript(db, user, manuscript_id)
+    version = manuscript_repo.get_version_owned(db, user, manuscript_id, version_id)
+    if not version:
+        raise NotFoundError("버전을 찾을 수 없습니다.")
+    manuscript_repo.finalize(db, manuscript, version)
+    logger.info(
+        "manuscript finalized: manuscript_id=%s version_id=%s", manuscript_id, version_id
+    )
+    return manuscript

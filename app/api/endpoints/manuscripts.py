@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_database_session
@@ -9,6 +9,7 @@ from app.models.user import User
 from app.schemas.manuscript import ManuscriptCreateRequest, ManuscriptResponse
 from app.services.manuscript_service import (
     create_manuscript,
+    finalize_manuscript,
     get_manuscript,
     list_manuscripts,
 )
@@ -19,10 +20,12 @@ router = APIRouter(prefix="/api/manuscripts", tags=["manuscripts"])
 @router.post("", response_model=ManuscriptResponse, status_code=201)
 def create(
     payload: ManuscriptCreateRequest,
+    response: Response,
     user: User = Depends(require_user),
     db: Session = Depends(get_database_session),
 ):
     manuscript = create_manuscript(db, user, payload)
+    response.headers["HX-Redirect"] = f"/workspace/{manuscript.id}"
     return ManuscriptResponse(
         id=str(manuscript.id),
         topic=manuscript.topic,
@@ -57,6 +60,23 @@ def get(
     db: Session = Depends(get_database_session),
 ):
     manuscript = get_manuscript(db, user, manuscript_id)
+    return ManuscriptResponse(
+        id=str(manuscript.id),
+        topic=manuscript.topic,
+        concept=manuscript.concept,
+        status=manuscript.status,
+        audience_level=manuscript.audience_level,
+    )
+
+
+@router.post("/{manuscript_id}/finalize", response_model=ManuscriptResponse)
+def finalize(
+    manuscript_id: uuid.UUID,
+    version_id: uuid.UUID,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_database_session),
+):
+    manuscript = finalize_manuscript(db, user, manuscript_id, version_id)
     return ManuscriptResponse(
         id=str(manuscript.id),
         topic=manuscript.topic,
