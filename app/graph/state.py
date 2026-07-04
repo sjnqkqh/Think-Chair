@@ -13,6 +13,7 @@ class PendingVersion(TypedDict, total=False):
     content: str
     storage_key: str
     version_id: str
+    revision: int
 
 
 class DraftsmithState(TypedDict):

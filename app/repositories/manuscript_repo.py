@@ -36,6 +36,21 @@ def get_owned(db: Session, user: User, manuscript_id: uuid.UUID) -> Manuscript |
     )
 
 
+def list_versions_by_manuscript(
+    db: Session, user: User, manuscript_id: uuid.UUID
+) -> list[ManuscriptVersion]:
+    return (
+        db.query(ManuscriptVersion)
+        .join(Manuscript, Manuscript.id == ManuscriptVersion.manuscript_id)
+        .filter(
+            ManuscriptVersion.manuscript_id == manuscript_id,
+            Manuscript.user_id == user.id,
+        )
+        .order_by(ManuscriptVersion.created_at.asc())
+        .all()
+    )
+
+
 def get_version_owned(
     db: Session, user: User, manuscript_id: uuid.UUID, version_id: uuid.UUID
 ) -> ManuscriptVersion | None:

@@ -35,4 +35,11 @@ def persist_version_node(state: DraftsmithState, config: RunnableConfig) -> dict
     db.add(row)
     db.commit()
 
-    return {"pending_version": {**pending_version, "storage_key": key, "version_id": str(row.id)}}
+    return {
+        "pending_version": {
+            **pending_version,
+            "storage_key": key,
+            "version_id": str(row.id),
+            "revision": row.revision,
+        }
+    }

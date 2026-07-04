@@ -67,7 +67,9 @@ async def test_full_manuscript_flow(e2e_chat_service):
                 f"/api/chat/{manuscript_id}/message", data={"content": "초고 작성해주세요"}
             )
             assert draft_res.status_code == 200
-            assert "초고 본문입니다" in draft_res.text
+            # 파일 생성 시 본문 전체 대신 완료 안내만 채팅에 노출된다.
+            assert "작성 완료되었습니다" in draft_res.text
+            assert "초고 본문입니다" not in draft_res.text
         finally:
             if original_llm is not None:
                 llm_registry.register("default", original_llm)

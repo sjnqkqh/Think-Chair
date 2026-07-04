@@ -11,7 +11,11 @@ from app.core.config import settings
 from app.core.database import get_database_session
 from app.models.manuscript import ConceptType
 from app.models.user import User
-from app.services.manuscript_service import get_manuscript, list_manuscripts
+from app.services.manuscript_service import (
+    get_manuscript,
+    list_manuscript_versions,
+    list_manuscripts,
+)
 
 router = APIRouter()
 
@@ -33,6 +37,7 @@ async def workspace_root(
             "concepts": list(ConceptType),
             "active_manuscript": None,
             "messages": [],
+            "versions": [],
         },
     )
 
@@ -54,6 +59,7 @@ async def workspace_detail(
             "concepts": list(ConceptType),
             "active_manuscript": active,
             "messages": await _load_messages(request, active),
+            "versions": list_manuscript_versions(db, user, manuscript_id),
         },
     )
 

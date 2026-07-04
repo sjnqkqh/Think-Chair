@@ -40,6 +40,22 @@ def get_manuscript(db: Session, user: User, manuscript_id: uuid.UUID):
     return manuscript
 
 
+def list_manuscript_versions(db: Session, user: User, manuscript_id: uuid.UUID):
+    get_manuscript(db, user, manuscript_id)
+    return manuscript_repo.list_versions_by_manuscript(db, user, manuscript_id)
+
+
+def get_version_file(
+    db: Session, user: User, manuscript_id: uuid.UUID, version_id: uuid.UUID, storage
+):
+    version = manuscript_repo.get_version_owned(db, user, manuscript_id, version_id)
+    if not version:
+        raise NotFoundError("버전을 찾을 수 없습니다.")
+    content = storage.read(version.storage_key)
+    filename = f"{version.kind}_v{version.revision}.md"
+    return filename, content
+
+
 def finalize_manuscript(
     db: Session, user: User, manuscript_id: uuid.UUID, version_id: uuid.UUID
 ):

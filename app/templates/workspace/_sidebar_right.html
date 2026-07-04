@@ -16,7 +16,13 @@
   {% endfor %}
 </div>
 <div id="version-list" class="space-y-1 text-sm">
-  <!-- pending_version이 생긴 응답에서 hx-swap-oob="true" #version-list 로 갱신됨 -->
+  {% for version in versions %}
+  <div class="flex justify-between items-center py-1">
+    <span>{{ version.kind }} v{{ version.revision }}</span>
+    <a href="/api/manuscripts/{{ active_manuscript.id }}/versions/{{ version.id }}/download"
+       class="text-[#5645d4] hover:underline">다운로드</a>
+  </div>
+  {% endfor %}
 </div>
 <button
   hx-post="/api/manuscripts/{{ active_manuscript.id }}/finalize"

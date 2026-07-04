@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_database_session
@@ -11,6 +11,7 @@ from app.services.manuscript_service import (
     create_manuscript,
     finalize_manuscript,
     get_manuscript,
+    get_version_file,
     list_manuscripts,
 )
 
@@ -66,6 +67,23 @@ def get(
         concept=manuscript.concept,
         status=manuscript.status,
         audience_level=manuscript.audience_level,
+    )
+
+
+@router.get("/{manuscript_id}/versions/{version_id}/download")
+def download_version(
+    manuscript_id: uuid.UUID,
+    version_id: uuid.UUID,
+    request: Request,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_database_session),
+):
+    storage = request.app.state.chat_service.storage
+    filename, content = get_version_file(db, user, manuscript_id, version_id, storage)
+    return Response(
+        content=content,
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

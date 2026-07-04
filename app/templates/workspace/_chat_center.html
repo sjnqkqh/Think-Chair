@@ -11,7 +11,7 @@
   hx-indicator="#chat-spinner"
   hx-disabled-elt="find button, find textarea"
   hx-on::after-request="if(event.detail.successful) { this.reset(); const t = this.querySelector('textarea'); t.style.height = 'auto'; }"
-  class="border-t border-[#EBECED] p-4 flex gap-2 items-end"
+  class="border-t border-[#e5e3df] p-4 flex gap-2 items-end"
 >
   <textarea
     name="content" placeholder="메시지 입력…" required rows="1"
@@ -20,6 +20,6 @@
     onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); if (this.value.trim()) htmx.trigger(this.closest('form'), 'submit'); }"
   ></textarea>
   <span id="chat-spinner" class="htmx-indicator text-xs text-[#787671]">전송 중…</span>
-  <button type="submit" class="rounded-[8px] bg-[#2383E2] text-white px-4 py-2 text-sm disabled:opacity-50">→</button>
+  <button type="submit" class="rounded-[8px] bg-[#5645d4] text-white px-4 py-2 text-sm disabled:opacity-50">→</button>
 </form>
 {% endif %}

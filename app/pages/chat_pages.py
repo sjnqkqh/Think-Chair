@@ -33,15 +33,20 @@ async def send_message(
 ):
     manuscript = get_manuscript(db, user, manuscript_id)
     state = await svc.run(manuscript, user_message=content)
-    last_ai = next(
-        msg for msg in reversed(state["messages"]) if isinstance(msg, AIMessage)
-    )
+    pending_version = state.get("pending_version")
+    if pending_version:
+        ai_message = AIMessage(content="작성 완료되었습니다. 확인해보세요.")
+    else:
+        ai_message = next(
+            msg for msg in reversed(state["messages"]) if isinstance(msg, AIMessage)
+        )
     return templates.TemplateResponse(
         request,
         "workspace/_chat_turn.html",
         {
             "human_message": HumanMessage(content=content),
-            "ai_message": last_ai,
-            "pending_version": state.get("pending_version"),
+            "ai_message": ai_message,
+            "pending_version": pending_version,
+            "manuscript_id": manuscript_id,
         },
     )
