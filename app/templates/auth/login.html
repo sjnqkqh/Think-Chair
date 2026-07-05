@@ -11,7 +11,7 @@
            headers: { 'Content-Type': 'application/json' },
            body: JSON.stringify({ login_id: this.login_id, password: this.password })
          });
-         if (res.ok) { window.location.href = '/'; return; }
+         if (res.ok) { window.location.href = '/workspace'; return; }
          const data = await res.json().catch(() => ({}));
          this.error = data.detail || '로그인에 실패했습니다.';
        }

@@ -5,6 +5,7 @@
 </div>
 {% if active_manuscript %}
 <form
+  id="chat-form"
   hx-post="/api/chat/{{ active_manuscript.id }}/message"
   hx-target="#chat-log"
   hx-swap="beforeend"
@@ -22,4 +23,52 @@
   <span id="chat-spinner" class="htmx-indicator text-xs text-[#787671]">전송 중…</span>
   <button type="submit" class="rounded-[8px] bg-[#5645d4] text-white px-4 py-2 text-sm disabled:opacity-50">→</button>
 </form>
+<script>
+(function () {
+  const log = document.getElementById('chat-log');
+
+  document.body.addEventListener('htmx:beforeRequest', (evt) => {
+    const form = evt.detail.elt;
+    if (!form || form.id !== 'chat-form') return;
+
+    const textarea = form.querySelector('textarea[name="content"]');
+    const content = textarea.value.trim();
+    if (!content) return;
+
+    const human = document.createElement('div');
+    human.id = 'optimistic-human-message';
+    human.className = 'message message-human flex justify-start';
+    human.innerHTML = '<p class="bg-[#F6F5F4] rounded-[8px] px-3 py-2 text-sm max-w-[80%] whitespace-pre-wrap"></p>';
+    human.querySelector('p').textContent = content;
+    log.appendChild(human);
+
+    const pending = document.createElement('div');
+    pending.id = 'optimistic-pending-ai';
+    pending.className = 'message message-ai flex justify-end';
+    pending.innerHTML = '<p class="bg-[#5645d4] text-white rounded-[8px] px-3 py-2 text-sm max-w-[80%] flex items-center"><span class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span></p>';
+    log.appendChild(pending);
+
+    log.scrollTop = log.scrollHeight;
+
+    textarea.value = '';
+    textarea.style.height = 'auto';
+  });
+
+  document.body.addEventListener('htmx:beforeSwap', (evt) => {
+    if (evt.detail.target !== log) return;
+    document.getElementById('optimistic-human-message')?.remove();
+    document.getElementById('optimistic-pending-ai')?.remove();
+  });
+
+  document.body.addEventListener('htmx:responseError', (evt) => {
+    if (evt.detail.elt?.id !== 'chat-form') return;
+    document.getElementById('optimistic-pending-ai')?.remove();
+  });
+
+  document.body.addEventListener('htmx:sendError', (evt) => {
+    if (evt.detail.elt?.id !== 'chat-form') return;
+    document.getElementById('optimistic-pending-ai')?.remove();
+  });
+})();
+</script>
 {% endif %}

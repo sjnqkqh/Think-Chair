@@ -1,16 +1,16 @@
 import logging
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
-from app.core.exceptions import AppError
+from app.core.exceptions import AppError, UnauthorizedError
 
 logger = logging.getLogger(__name__)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
-    async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
+    async def handle_app_error(request: Request, exc: AppError):
         logger.warning(
             "app error: method=%s path=%s status=%s detail=%s client=%s",
             request.method,
@@ -19,6 +19,8 @@ def register_exception_handlers(app: FastAPI) -> None:
             exc.detail,
             request.client.host if request.client else "-",
         )
+        if isinstance(exc, UnauthorizedError) and not request.url.path.startswith("/api"):
+            return RedirectResponse(url="/login", status_code=303)
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
     @app.exception_handler(Exception)
