@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 import pytest
 from fastapi.testclient import TestClient
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
@@ -7,12 +5,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.endpoints.evaluation import get_evaluator_service
-from app.api.endpoints.query import get_rag_service
 from app.core.database import Base, get_database_session
 from app.graph import llm_registry
-from app.services.evaluator import EvaluatorService
-from app.services.rag import RagService
 from main import app as fastapi_app
 
 test_engine = create_engine(
@@ -32,10 +26,7 @@ def db_session():
 
 
 @pytest.fixture(autouse=True)
-def setup_dependency_overrides(monkeypatch):
-    mock_rag = MagicMock(spec=RagService)
-    mock_evaluator = MagicMock(spec=EvaluatorService)
-
+def setup_dependency_overrides():
     def override_get_db():
         db = TestSessionLocal()
         try:
@@ -43,17 +34,9 @@ def setup_dependency_overrides(monkeypatch):
         finally:
             db.close()
 
-    fastapi_app.dependency_overrides[get_rag_service] = lambda: mock_rag
-    fastapi_app.dependency_overrides[get_evaluator_service] = lambda: mock_evaluator
     fastapi_app.dependency_overrides[get_database_session] = override_get_db
 
-    import app.api.endpoints.document
-    import app.api.endpoints.history
-    monkeypatch.setattr(app.api.endpoints.document, "get_database_session", override_get_db)
-    monkeypatch.setattr(app.api.endpoints.evaluation, "get_database_session", override_get_db)
-    monkeypatch.setattr(app.api.endpoints.history, "get_database_session", override_get_db)
-
-    yield mock_rag, mock_evaluator
+    yield
 
     fastapi_app.dependency_overrides.clear()
 
@@ -61,16 +44,6 @@ def setup_dependency_overrides(monkeypatch):
 @pytest.fixture
 def client():
     return TestClient(fastapi_app)
-
-
-@pytest.fixture
-def mock_rag(setup_dependency_overrides):
-    return setup_dependency_overrides[0]
-
-
-@pytest.fixture
-def mock_evaluator(setup_dependency_overrides):
-    return setup_dependency_overrides[1]
 
 
 @pytest.fixture

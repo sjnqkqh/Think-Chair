@@ -19,15 +19,23 @@
   {% for version in versions %}
   <div class="flex justify-between items-center py-1">
     <span>{{ version.kind }} v{{ version.revision }}</span>
-    <a href="/api/manuscripts/{{ active_manuscript.id }}/versions/{{ version.id }}/download"
-       class="text-[#5645d4] hover:underline">다운로드</a>
+    <div class="flex items-center gap-2">
+      <a href="/api/manuscripts/{{ active_manuscript.id }}/versions/{{ version.id }}/download"
+         class="text-[#5645d4] hover:underline">다운로드</a>
+      {% if version.is_finalized %}
+      <span class="text-xs text-[#787671]">확정됨</span>
+      {% else %}
+      <button
+        hx-post="/api/manuscripts/{{ active_manuscript.id }}/finalize?version_id={{ version.id }}"
+        hx-swap="none"
+        hx-on::after-request="if(event.detail.successful) window.location.reload()"
+        class="rounded-[6px] border border-[#c8c4be] px-2 py-1 text-xs"
+      >확정</button>
+      {% endif %}
+    </div>
   </div>
   {% endfor %}
 </div>
-<button
-  hx-post="/api/manuscripts/{{ active_manuscript.id }}/finalize"
-  class="w-full mt-4 rounded-[8px] bg-black text-white py-2 text-sm"
->최종 확정</button>
 {% else %}
 <p class="text-sm text-[#787671]">원고를 선택하거나 새로 만드세요.</p>
 {% endif %}

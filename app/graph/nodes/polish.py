@@ -16,6 +16,6 @@ async def polish_node(state: DraftsmithState, config: RunnableConfig) -> dict:
     )
     resp = await llm.ainvoke([SystemMessage(content=system), *state["messages"]])
     return {
-        "messages": [AIMessage(content=resp.content)],
+        "messages": [AIMessage(content="탈고 완료되었습니다. 확인해보세요.")],
         "pending_version": {"kind": "polish", "content": resp.content},
     }

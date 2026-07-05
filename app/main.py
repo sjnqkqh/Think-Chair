@@ -14,7 +14,6 @@ from app.graph.builder import build_graph
 from app.graph.checkpointer import make_checkpointer
 from app.pages.auth_pages import router as auth_pages_router
 from app.pages.chat_pages import router as chat_pages_router
-from app.pages.user_interface import router as pages_router
 from app.pages.workspace_pages import router as workspace_pages_router
 from app.services.chat_service import ChatService
 from app.services.storage.local import LocalFileStorage
@@ -43,8 +42,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="RAG FastAPI Server",
-    description="RAG 기능을 포함한 챗봇 서버",
+    title="Draftsmith FastAPI Server",
+    description="AI 글쓰기 협업 워크스페이스 서버",
     version="2.0.0",
     lifespan=lifespan,
 )
@@ -53,7 +52,6 @@ register_exception_handlers(app)
 
 # Register API routes
 app.include_router(api_router)
-app.include_router(pages_router)
 app.include_router(auth_pages_router)
 app.include_router(chat_pages_router)
 app.include_router(workspace_pages_router)

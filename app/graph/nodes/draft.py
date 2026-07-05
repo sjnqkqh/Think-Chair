@@ -18,6 +18,6 @@ async def draft_node(state: DraftsmithState, config: RunnableConfig) -> dict:
     # converse_node와 달리 pending_version을 채운다 -> builder.py의 조건부 엣지가
     # chinese_prevent 이후 persist_version으로 이어지게 만드는 트리거가 된다.
     return {
-        "messages": [AIMessage(content=resp.content)],
+        "messages": [AIMessage(content="초고 작성 완료되었습니다. 확인해보세요.")],
         "pending_version": {"kind": "draft", "content": resp.content},
     }
