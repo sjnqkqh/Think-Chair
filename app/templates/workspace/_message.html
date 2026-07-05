@@ -1,0 +1,9 @@
+{% if message.type == "human" %}
+<div class="message message-human flex justify-start">
+  <p class="bg-[#F6F5F4] rounded-[8px] px-3 py-2 text-sm max-w-[80%] whitespace-pre-wrap">{{ message.content }}</p>
+</div>
+{% else %}
+<div class="message message-ai flex justify-end">
+  <p class="bg-[#5645d4] text-white rounded-[8px] px-3 py-2 text-sm max-w-[80%] whitespace-pre-wrap">{{ message.content }}</p>
+</div>
+{% endif %}

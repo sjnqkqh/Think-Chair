@@ -1,0 +1,9 @@
+{% if pending_version %}
+<div id="version-list" hx-swap-oob="beforeend">
+  <div class="flex justify-between items-center py-1 text-sm">
+    <span>{{ pending_version.kind }} v{{ pending_version.revision }}</span>
+    <a href="/api/manuscripts/{{ manuscript_id }}/versions/{{ pending_version.version_id }}/download"
+       class="text-[#5645d4] hover:underline">다운로드</a>
+  </div>
+</div>
+{% endif %}
