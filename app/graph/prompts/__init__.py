@@ -2,6 +2,7 @@ from app.graph.prompts.concepts import CONCEPT_TEMPLATES
 from app.graph.prompts.constraints.ascii_ban import ASCII_DIAGRAM_BAN
 from app.graph.prompts.constraints.emoji_ban import EMOJI_BAN
 from app.graph.prompts.constraints.chinese_ban import CHINESE_BAN
+from app.graph.prompts.constraints.table_ban import TABLE_BAN
 from app.graph.prompts.persona.base_persona import BASE_PERSONA
 from app.graph.prompts.phases.draft import DRAFT
 from app.graph.prompts.phases.feedback import FEEDBACK
@@ -29,7 +30,7 @@ PHASE_INSTRUCTIONS = {
     "polish": POLISH,
 }
 
-GLOBAL_CONSTRAINTS = [CHINESE_BAN, ASCII_DIAGRAM_BAN, EMOJI_BAN]
+GLOBAL_CONSTRAINTS = [CHINESE_BAN, ASCII_DIAGRAM_BAN, EMOJI_BAN, TABLE_BAN]
 
 
 def get_concept_content(concept: str, phase: str) -> PromptTemplate:
@@ -54,5 +55,6 @@ def build_system_prompt(
         concept_content.text,
         phase_template.text,
         context,
+        '"초고 작성해주세요." "초고 작성 완료되었습니다. 확인해보세요." 같은 고정적 메시지는 내용을 생성하는데 참고하지 않습니다.'
     ]
     return "\n\n".join(parts)
