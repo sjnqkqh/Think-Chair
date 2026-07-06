@@ -8,9 +8,9 @@
       ("탈고해주세요.", "탈고"),
   ] %}
   <button
-    hx-post="/api/chat/{{ active_manuscript.id }}/message"
-    hx-vals='{"content": "{{ prompt_text }}"}'
-    hx-target="#chat-log" hx-swap="beforeend"
+    type="button"
+    data-prompt="{{ prompt_text }}"
+    onclick="const f = document.getElementById('chat-form'); const t = f.querySelector('textarea[name=content]'); t.value = this.dataset.prompt; htmx.trigger(f, 'submit');"
     class="w-full rounded-[8px] border border-[#c8c4be] py-2 text-sm"
   >{{ label }}</button>
   {% endfor %}
