@@ -1,4 +1,5 @@
 import uuid
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
@@ -80,10 +81,16 @@ def download_version(
 ):
     storage = request.app.state.chat_service.storage
     filename, content = get_version_file(db, user, manuscript_id, version_id, storage)
+    encoded_filename = quote(filename)
     return Response(
         content=content,
         media_type="text/markdown",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename=\"{encoded_filename}\"; "
+                f"filename*=UTF-8''{encoded_filename}"
+            )
+        },
     )
 
 

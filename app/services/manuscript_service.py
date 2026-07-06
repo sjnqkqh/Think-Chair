@@ -1,4 +1,5 @@
 import logging
+import re
 import uuid
 
 from sqlalchemy.orm import Session
@@ -45,14 +46,22 @@ def list_manuscript_versions(db: Session, user: User, manuscript_id: uuid.UUID):
     return manuscript_repo.list_versions_by_manuscript(db, user, manuscript_id)
 
 
+def _slugify_topic(topic: str) -> str:
+    slug = re.sub(r"\s+", "-", topic.strip())
+    slug = re.sub(r"[^0-9A-Za-z가-힣\-]", "", slug)
+    return slug or "manuscript"
+
+
 def get_version_file(
     db: Session, user: User, manuscript_id: uuid.UUID, version_id: uuid.UUID, storage
 ):
+    manuscript = get_manuscript(db, user, manuscript_id)
     version = manuscript_repo.get_version_owned(db, user, manuscript_id, version_id)
     if not version:
         raise NotFoundError("버전을 찾을 수 없습니다.")
     content = storage.read(version.storage_key)
-    filename = f"{version.kind}_v{version.revision}.md"
+    topic_slug = _slugify_topic(manuscript.topic)
+    filename = f"{topic_slug}_{version.kind}_v{version.revision}.md"
     return filename, content
 
 
