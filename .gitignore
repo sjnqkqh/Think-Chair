@@ -233,3 +233,4 @@ rag_history.db
 
 # PR documentation
 pr-docs/
+.hermes/

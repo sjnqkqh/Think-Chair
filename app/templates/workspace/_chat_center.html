@@ -1,4 +1,4 @@
-<div id="chat-log" class="flex-1 overflow-y-auto p-6 space-y-3">
+<div id="chat-log" class="flex-1 overflow-y-auto p-8 space-y-4">
   {% for message in messages %}
     {% include "workspace/_message.html" with context %}
   {% endfor %}
@@ -12,16 +12,16 @@
   hx-indicator="#chat-spinner"
   hx-disabled-elt="find button, find textarea"
   hx-on::after-request="if(event.detail.successful) { this.reset(); const t = this.querySelector('textarea'); t.style.height = 'auto'; }"
-  class="border-t border-[#e5e3df] p-4 flex gap-2 items-end"
+  class="border-t border-[#e5e3df] p-5 flex gap-3 items-end bg-white"
 >
   <textarea
     name="content" placeholder="메시지 입력…" required rows="1"
-    class="flex-1 rounded-[8px] border border-[#c8c4be] px-3 py-2 text-sm resize-none overflow-y-auto max-h-40 disabled:opacity-50"
+    class="flex-1 rounded-[8px] border border-[#c8c4be] px-4 py-3 text-base resize-none overflow-y-auto max-h-52 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#d1d5db]"
     oninput="this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 160) + 'px'"
     onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); if (this.value.trim()) htmx.trigger(this.closest('form'), 'submit'); }"
   ></textarea>
   <span id="chat-spinner" class="htmx-indicator text-xs text-[#787671]">전송 중…</span>
-  <button type="submit" class="rounded-[8px] bg-[#5645d4] text-white px-4 py-2 text-sm disabled:opacity-50">→</button>
+  <button type="submit" class="rounded-[8px] bg-[#e5e7eb] text-[#1f1f1f] px-5 py-3 text-base disabled:opacity-50 hover:bg-[#d1d5db]">→</button>
 </form>
 <script>
 (function () {
@@ -38,14 +38,14 @@
     const human = document.createElement('div');
     human.id = 'optimistic-human-message';
     human.className = 'message message-human flex justify-start';
-    human.innerHTML = '<p class="bg-[#F6F5F4] rounded-[8px] px-3 py-2 text-sm max-w-[80%] whitespace-pre-wrap"></p>';
+    human.innerHTML = '<p class="bg-[#F6F5F4] rounded-[8px] px-4 py-3 text-base max-w-[88%] whitespace-pre-wrap leading-7"></p>';
     human.querySelector('p').textContent = content;
     log.appendChild(human);
 
     const pending = document.createElement('div');
     pending.id = 'optimistic-pending-ai';
     pending.className = 'message message-ai flex justify-end';
-    pending.innerHTML = '<p class="bg-[#5645d4] text-white rounded-[8px] px-3 py-2 text-sm max-w-[80%] flex items-center"><span class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span></p>';
+    pending.innerHTML = '<p class="bg-[#e5e7eb] text-[#1f1f1f] rounded-[8px] px-4 py-3 text-base max-w-[88%] flex items-center"><span class="w-3.5 h-3.5 border-2 border-[#1f1f1f] border-t-transparent rounded-full animate-spin"></span></p>';
     log.appendChild(pending);
 
     log.scrollTop = log.scrollHeight;

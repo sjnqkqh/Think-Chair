@@ -5,17 +5,16 @@ from app.graph.checkpointer import make_checkpointer
 
 
 @pytest.mark.asyncio
-async def test_build_graph_compiles_with_nine_nodes():
+async def test_build_graph_compiles_with_eight_nodes():
     async with make_checkpointer(":memory:") as checkpointer:
         graph = build_graph(checkpointer)
         nodes = [n for n in graph.nodes if n != "__start__"]
-        assert len(nodes) == 9
+        assert len(nodes) == 8
         for name in (
             "router",
             "converse",
             "feedback",
             "outline",
-            "draft",
             "polish",
             "finalize",
             "chinese_prevent",

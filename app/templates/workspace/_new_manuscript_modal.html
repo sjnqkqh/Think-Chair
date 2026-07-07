@@ -1,13 +1,31 @@
-<div x-data="{ open: false }" @open-new-manuscript-modal.window="open = true">
-  <div x-show="open" class="fixed inset-0 bg-black/30 flex items-center justify-center" style="display:none">
-    <form hx-post="/api/manuscripts" hx-ext="json-enc" class="bg-white rounded-[12px] p-6 w-[400px] space-y-3">
+<div x-data="{ open: false }" @open-new-manuscript-modal.window="open = true" @keydown.escape.window="open = false">
+  <div
+    x-show="open"
+    @click.self="open = false"
+    class="fixed inset-0 bg-black/30 flex items-center justify-center"
+    style="display:none"
+  >
+    <form
+      hx-post="/api/manuscripts"
+      hx-ext="json-enc"
+      @click.stop
+      class="relative bg-white rounded-[12px] p-6 w-[400px] space-y-3"
+    >
+      <button
+        type="button"
+        @click="open = false"
+        aria-label="모달 닫기"
+        class="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-[6px] text-[#787671] hover:bg-[#F6F5F4] hover:text-[#1f1f1f]"
+      >
+        X
+      </button>
       <input name="topic" placeholder="주제" required class="w-full border border-[#c8c4be] rounded-[8px] px-3 py-2 text-sm" />
       <select name="concept" x-data x-model="concept" required class="w-full border border-[#c8c4be] rounded-[8px] px-3 py-2 text-sm">
         {% for c in concepts %}<option value="{{ c.value }}">{{ c.value }}</option>{% endfor %}
       </select>
       <input x-show="concept === 'teaching'" name="audience_level" placeholder="독자 수준 (예: 초급)"
              class="w-full border border-[#c8c4be] rounded-[8px] px-3 py-2 text-sm" style="display:none" />
-      <button type="submit" class="w-full bg-[#5645d4] text-white rounded-[8px] py-2 text-sm">만들기</button>
+      <button type="submit" class="w-full bg-[#e5e7eb] text-[#1f1f1f] rounded-[8px] py-2.5 text-sm hover:bg-[#d1d5db]">만들기</button>
     </form>
   </div>
 </div>

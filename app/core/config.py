@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     DEEPSEEK_API_BASE: str = "https://api.deepseek.com"
     DEEPSEEK_MODEL: str = "deepseek-chat"
 
-    # Draftsmith
+    # Think Chair
     JWT_SECRET: str = "dev-secret-change-me"
     JWT_TTL_HOURS: int = 24
     STORAGE_ROOT: Path = Path.home() / "storage"

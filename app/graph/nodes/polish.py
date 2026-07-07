@@ -14,6 +14,7 @@ async def polish_node(state: DraftsmithState, config: RunnableConfig) -> dict:
         topic=state["topic"],
         audience=state.get("audience_level"),
     )
+
     resp = await llm.ainvoke([SystemMessage(content=system), *state["messages"]])
     return {
         "messages": [AIMessage(content="탈고 완료되었습니다. 확인해보세요.")],

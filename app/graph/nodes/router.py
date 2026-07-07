@@ -9,7 +9,7 @@ from app.graph.state import DraftsmithState
 
 logger = logging.getLogger(__name__)
 
-CLASSIFIABLE_ACTIONS = {"say", "inspect", "feedback", "outline", "draft", "polish"}
+CLASSIFIABLE_ACTIONS = {"say", "feedback", "outline", "polish"}
 
 
 async def router_node(state: DraftsmithState, config: RunnableConfig) -> dict:

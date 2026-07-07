@@ -1,3 +1,8 @@
+import os
+
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
+os.environ["LANGSMITH_TRACING"] = "false"
+
 import pytest
 from fastapi.testclient import TestClient
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
