@@ -4,7 +4,7 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
 UserAction = Literal[
-    "say", "inspect", "feedback", "outline", "polish", "finalize"
+    "say", "feedback", "outline", "polish", "finalize"
 ]
 
 

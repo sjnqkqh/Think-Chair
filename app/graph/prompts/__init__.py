@@ -5,7 +5,6 @@ from app.graph.prompts.constraints.emoji_ban import EMOJI_BAN
 from app.graph.prompts.constraints.table_ban import TABLE_BAN
 from app.graph.prompts.persona.base_persona import BASE_PERSONA
 from app.graph.prompts.phases.feedback import FEEDBACK
-from app.graph.prompts.phases.inspect import INSPECT
 from app.graph.prompts.phases.outline import OUTLINE
 from app.graph.prompts.phases.polish import POLISH
 from app.graph.prompts.phases.say import SAY
@@ -13,7 +12,6 @@ from app.graph.prompts.types import PromptTemplate
 
 PHASE_ROLES = {
     "say": "purpose",
-    "inspect": "checkpoint",
     "feedback": "checkpoint",
     "outline": "generate",
     "polish": "generate",
@@ -21,7 +19,6 @@ PHASE_ROLES = {
 
 PHASE_INSTRUCTIONS = {
     "say": SAY,
-    "inspect": INSPECT,
     "feedback": FEEDBACK,
     "outline": OUTLINE,
     "polish": POLISH,

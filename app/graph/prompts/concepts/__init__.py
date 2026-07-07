@@ -22,7 +22,7 @@ def _load_concept(concept: ConceptType) -> dict[str, PromptTemplate]:
         "checkpoint": PromptTemplate(
             id=f"concept.{concept.value}.checkpoint",
             text=checkpoint_md,
-            used_when="inspect/feedback 점검 단계에서 사용",
+            used_when="feedback 점검 단계에서 사용",
             description=f"{concept.value} 문서 점검용 체크리스트. GENERATE의 기준을 요약 참조한다.",
         ),
         "purpose": PromptTemplate(

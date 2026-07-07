@@ -31,6 +31,9 @@ def test_workspace_root_renders_new_manuscript_button(client):
     _signup_and_login(client)
     response = client.get("/workspace")
     assert response.status_code == 200
+    assert "Think Chair" in response.text
+    assert "로그아웃" in response.text
+    assert "grid-cols-[16rem_minmax(0,1fr)_20rem]" in response.text
     assert "새 원고" in response.text
     assert 'aria-label="모달 닫기"' in response.text
     assert '@click.self="open = false"' in response.text
@@ -51,6 +54,7 @@ def test_workspace_detail_does_not_render_draft_prompt_button(client):
         response = client.get(f"/workspace/{manuscript_id}")
         assert response.status_code == 200
         assert "초고 작성" not in response.text
+        assert "점검 요청" not in response.text
         assert "개요 생성" in response.text
         assert "탈고" in response.text
     finally:

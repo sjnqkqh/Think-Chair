@@ -30,7 +30,6 @@ def build_graph(checkpointer):
         route_by_action,
         {
             "say": "converse",
-            "inspect": "converse",
             "feedback": "feedback",
             "outline": "outline",
             "polish": "polish",
