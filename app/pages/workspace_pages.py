@@ -13,6 +13,7 @@ from app.models.manuscript import ConceptType
 from app.models.user import User
 from app.services.manuscript_service import (
     get_manuscript,
+    group_manuscripts_by_date,
     list_manuscript_versions,
     list_manuscripts,
 )
@@ -33,7 +34,7 @@ async def workspace_root(
         request,
         "workspace/index.html",
         {
-            "manuscripts": manuscripts,
+            "manuscript_groups": group_manuscripts_by_date(manuscripts),
             "user": user,
             "concepts": list(ConceptType),
             "active_manuscript": None,
@@ -56,7 +57,7 @@ async def workspace_detail(
         request,
         "workspace/index.html",
         {
-            "manuscripts": manuscripts,
+            "manuscript_groups": group_manuscripts_by_date(manuscripts),
             "user": user,
             "concepts": list(ConceptType),
             "active_manuscript": active,

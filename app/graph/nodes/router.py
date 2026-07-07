@@ -17,15 +17,26 @@ async def router_node(state: DraftsmithState, config: RunnableConfig) -> dict:
         (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)), None
     )
     if last_human is None or not last_human.content:
+        logger.info("router_node: msg=%r -> action=say reason=빈 메시지", "")
         return {"user_action": "say"}
+
+    preview = str(last_human.content)[:30]
 
     llm = get_llm(config["configurable"].get("model", "default"))
     resp = await llm.ainvoke([SystemMessage(content=CLASSIFIER.text), last_human])
-    action = (resp.content or "").strip().lower()
+    raw = (resp.content or "").strip()
+    action_part, _, reason_part = raw.partition("|")
+    action = action_part.strip().lower()
+    reason = reason_part.strip()
 
     if action not in CLASSIFIABLE_ACTIONS:
-        logger.warning("router_node: unrecognized classification %r, falling back to 'say'", action)
+        logger.warning(
+            "router_node: msg=%r unrecognized classification %r, falling back to 'say'", preview, raw
+        )
         action = "say"
+        reason = "분류 실패로 기본값 적용"
+
+    logger.info("router_node: msg=%r -> action=%s reason=%s", preview, action, reason)
 
     return {"user_action": action}
 

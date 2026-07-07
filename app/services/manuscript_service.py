@@ -28,6 +28,19 @@ def list_manuscripts(db: Session, user: User):
     return manuscript_repo.list_by_user(db, user)
 
 
+def group_manuscripts_by_date(manuscripts):
+    """created_at 내림차순으로 정렬된 목록을 날짜(YYYY-MM-DD) 단위로 그룹핑한다."""
+    groups = []
+    current_date = None
+    for manuscript in manuscripts:
+        date_str = manuscript.created_at.strftime("%Y-%m-%d")
+        if date_str != current_date:
+            current_date = date_str
+            groups.append({"date": current_date, "manuscripts": []})
+        groups[-1]["manuscripts"].append(manuscript)
+    return groups
+
+
 def get_manuscript(db: Session, user: User, manuscript_id: uuid.UUID):
     manuscript = manuscript_repo.get_owned(db, user, manuscript_id)
     if not manuscript:

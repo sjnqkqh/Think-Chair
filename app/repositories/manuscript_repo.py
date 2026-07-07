@@ -23,7 +23,7 @@ def list_by_user(db: Session, user: User) -> list[Manuscript]:
     return (
         db.query(Manuscript)
         .filter(Manuscript.user_id == user.id)
-        .order_by(Manuscript.last_active_at.desc())
+        .order_by(Manuscript.created_at.desc())
         .all()
     )
 
