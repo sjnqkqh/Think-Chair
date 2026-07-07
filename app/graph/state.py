@@ -4,12 +4,12 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
 UserAction = Literal[
-    "say", "inspect", "feedback", "outline", "draft", "polish", "finalize"
+    "say", "inspect", "feedback", "outline", "polish", "finalize"
 ]
 
 
 class PendingVersion(TypedDict, total=False):
-    kind: Literal["outline", "draft", "polish"]
+    kind: Literal["outline", "polish"]
     content: str
     storage_key: str
     version_id: str

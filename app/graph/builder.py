@@ -1,7 +1,6 @@
 from langgraph.graph import END, START, StateGraph
 
 from app.graph.nodes.converse import converse_node
-from app.graph.nodes.draft import draft_node
 from app.graph.nodes.feedback import feedback_node
 from app.graph.nodes.finalize import finalize_node
 from app.graph.nodes.chinese_prevent import chinese_prevent_node
@@ -18,7 +17,6 @@ def build_graph(checkpointer):
     graph.add_node("converse", converse_node)
     graph.add_node("feedback", feedback_node)
     graph.add_node("outline", outline_node)
-    graph.add_node("draft", draft_node)
     graph.add_node("polish", polish_node)
     graph.add_node("finalize", finalize_node)
     graph.add_node("chinese_prevent", chinese_prevent_node)
@@ -35,13 +33,12 @@ def build_graph(checkpointer):
             "inspect": "converse",
             "feedback": "feedback",
             "outline": "outline",
-            "draft": "draft",
             "polish": "polish",
             "finalize": "finalize",
         },
     )
 
-    for n in ("converse", "feedback", "outline", "draft", "polish"):
+    for n in ("converse", "feedback", "outline", "polish"):
         graph.add_edge(n, "chinese_prevent")
 
     graph.add_conditional_edges(

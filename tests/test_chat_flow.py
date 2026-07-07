@@ -58,18 +58,18 @@ async def test_full_manuscript_flow(e2e_chat_service):
         # HumanMessage 3 + AIMessage 3 = 6개 (fake_llm 고정 응답이므로 매번 동일 텍스트)
         assert len(snapshot.values["messages"]) == 6
 
-        # 4) 초고 작성 요청 → 파일 저장 + DB row 확인
-        # router 분류(1번째 LLM 호출) + draft_node 생성(2번째 호출)이 순서대로 소비되도록 전용 FakeListChatModel 등록
+        # 4) 원고 작성 요청 → 파일 저장 + DB row 확인
+        # router 분류(1번째 LLM 호출) + polish_node 생성(2번째 호출)이 순서대로 소비되도록 전용 FakeListChatModel 등록
         original_llm = llm_registry._registry.get("default")
-        llm_registry.register("default", FakeListChatModel(responses=["draft", "초고 본문입니다."]))
+        llm_registry.register("default", FakeListChatModel(responses=["polish", "원고 본문입니다."]))
         try:
-            draft_res = await client.post(
-                f"/api/chat/{manuscript_id}/message", data={"content": "초고 작성해주세요"}
+            polish_res = await client.post(
+                f"/api/chat/{manuscript_id}/message", data={"content": "원고 작성해주세요"}
             )
-            assert draft_res.status_code == 200
+            assert polish_res.status_code == 200
             # 파일 생성 시 본문 전체 대신 완료 안내만 채팅에 노출된다.
-            assert "작성 완료되었습니다" in draft_res.text
-            assert "초고 본문입니다" not in draft_res.text
+            assert "탈고 완료되었습니다" in polish_res.text
+            assert "원고 본문입니다" not in polish_res.text
         finally:
             if original_llm is not None:
                 llm_registry.register("default", original_llm)

@@ -1,5 +1,5 @@
 import uuid
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from httpx import ASGITransport, AsyncClient
 
@@ -18,13 +18,13 @@ def _signup_and_login(client, login_id="workspacetester"):
 
 
 def test_workspace_root_requires_auth(client):
-    response = client.get("/workspace")
-    assert response.status_code == 401
+    response = client.get("/workspace", follow_redirects=False)
+    assert response.status_code == 303
 
 
 def test_workspace_detail_requires_auth(client):
-    response = client.get(f"/workspace/{uuid.uuid4()}")
-    assert response.status_code == 401
+    response = client.get(f"/workspace/{uuid.uuid4()}", follow_redirects=False)
+    assert response.status_code == 303
 
 
 def test_workspace_root_renders_new_manuscript_button(client):
@@ -32,6 +32,29 @@ def test_workspace_root_renders_new_manuscript_button(client):
     response = client.get("/workspace")
     assert response.status_code == 200
     assert "새 원고" in response.text
+    assert 'aria-label="모달 닫기"' in response.text
+    assert '@click.self="open = false"' in response.text
+    assert '@keydown.escape.window="open = false"' in response.text
+
+
+def test_workspace_detail_does_not_render_draft_prompt_button(client):
+    _signup_and_login(client, login_id=f"workspacetester-{uuid.uuid4()}")
+    create_response = client.post(
+        "/api/manuscripts", json={"topic": "워크스페이스", "concept": "til"}
+    )
+    manuscript_id = create_response.json()["id"]
+
+    chat_service = MagicMock()
+    chat_service.graph.aget_state = AsyncMock(return_value=MagicMock(values={}))
+    fastapi_app.state.chat_service = chat_service
+    try:
+        response = client.get(f"/workspace/{manuscript_id}")
+        assert response.status_code == 200
+        assert "초고 작성" not in response.text
+        assert "개요 생성" in response.text
+        assert "탈고" in response.text
+    finally:
+        del fastapi_app.state.chat_service
 
 
 def test_workspace_detail_unknown_manuscript_returns_404(client):
