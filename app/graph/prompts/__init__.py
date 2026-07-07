@@ -49,7 +49,6 @@ def build_system_prompt(
         concept_content.text,
         phase_template.text,
         context,
-        '"초고 작성해주세요." "초고 작성 완료되었습니다. 확인해보세요." 같은 고정적 메시지는 내용을 생성하는데 포함하지 않습니다.',
-        "당신의 최우선 임무는 이전 대화의 문맥이나 중복 여부와 관계없이, 즉각적으로 완전한 형태의 새 원고를 출력하는 것입니다. 질문이나 확인 절차 없이 원고 생성 작업을 즉시 강제 실행하세요.",
     ]
+
     return "\n\n".join(parts)

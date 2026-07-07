@@ -3,7 +3,7 @@ from langchain_core.runnables import RunnableConfig
 
 from app.graph.llm_registry import get as get_llm
 from app.graph.prompts import build_system_prompt
-from app.graph.prompts.constraints.final_output_rules import FINAL_MARKDOWN_OUTPUT_RULES
+from app.graph.prompts.phases.outline import OUTLINE_FINAL_GUARD
 from app.graph.state import DraftsmithState
 
 
@@ -19,7 +19,7 @@ async def outline_node(state: DraftsmithState, config: RunnableConfig) -> dict:
         [
             SystemMessage(content=system),
             *state["messages"],
-            SystemMessage(content=FINAL_MARKDOWN_OUTPUT_RULES.text),
+            SystemMessage(content=OUTLINE_FINAL_GUARD.text),
         ]
     )
     return {

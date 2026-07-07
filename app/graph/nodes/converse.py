@@ -3,6 +3,7 @@ from langchain_core.runnables import RunnableConfig
 
 from app.graph.llm_registry import get as get_llm
 from app.graph.prompts import build_system_prompt
+from app.graph.prompts.phases.say import SAY_DOCUMENT_GUARD
 from app.graph.state import DraftsmithState
 
 
@@ -14,5 +15,11 @@ async def converse_node(state: DraftsmithState, config: RunnableConfig) -> dict:
         topic=state["topic"],
         audience=state.get("audience_level"),
     )
-    resp = await llm.ainvoke([SystemMessage(content=system), *state["messages"]])
+    resp = await llm.ainvoke(
+        [
+            SystemMessage(content=system),
+            *state["messages"],
+            SystemMessage(content=SAY_DOCUMENT_GUARD.text),
+        ]
+    )
     return {"messages": [AIMessage(content=resp.content)]}
