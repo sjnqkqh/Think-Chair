@@ -2,12 +2,15 @@ from unittest.mock import MagicMock
 
 import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.graph import llm_registry
 from app.graph.nodes.chinese_prevent import chinese_prevent_node
+from app.graph.nodes.outline import outline_node
 from app.graph.nodes.persist_version import persist_version_node
+from app.graph.nodes.polish import polish_node
 from app.graph.nodes.router import router_node
+from app.graph.prompts.constraints.final_output_rules import FINAL_MARKDOWN_OUTPUT_RULES
 
 
 def _base_state(**overrides):
@@ -22,6 +25,16 @@ def _base_state(**overrides):
     }
     state.update(overrides)
     return state
+
+
+class RecordingLLM:
+    def __init__(self):
+        self.messages = None
+
+    async def ainvoke(self, messages):
+        self.messages = messages
+        return AIMessage(content="생성된 원고 본문")
+
 
 def test_chinese_prevent_node_removes_chinese_from_message_and_pending_version():
     state = _base_state(
@@ -77,3 +90,30 @@ async def test_router_node_falls_back_to_say_on_unrecognized_response(fake_llm):
     result = await router_node(state, {"configurable": {"model": "default"}})
 
     assert result["user_action"] == "say"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("node", "kind"),
+    [(outline_node, "outline"), (polish_node, "polish")],
+)
+async def test_generation_nodes_append_final_output_rules_after_history(node, kind):
+    original = llm_registry._registry.get("default")
+    llm = RecordingLLM()
+    llm_registry.register("default", llm)
+    try:
+        human_message = HumanMessage(content="표 대신 리스트로 원고 작성해주세요.")
+        state = _base_state(messages=[human_message])
+
+        result = await node(state, {"configurable": {"model": "default"}})
+
+        assert result["pending_version"]["kind"] == kind
+        assert llm.messages[-2] is human_message
+        assert isinstance(llm.messages[-1], SystemMessage)
+        assert llm.messages[-1].content == FINAL_MARKDOWN_OUTPUT_RULES.text
+        assert "텍스트 표를 절대 넣지 마십시오" in llm.messages[-1].content
+        assert "절대 거절하지 마십시오" in llm.messages[-1].content
+        assert "인사말, 안내문, 코멘트, 마침말" in llm.messages[-1].content
+    finally:
+        if original is not None:
+            llm_registry.register("default", original)

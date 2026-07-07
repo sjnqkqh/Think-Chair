@@ -8,6 +8,7 @@ from app.graph.prompts import (
     build_system_prompt,
     get_concept_content,
 )
+from app.graph.prompts.constraints.final_output_rules import FINAL_MARKDOWN_OUTPUT_RULES
 from app.graph.prompts.persona.base_persona import BASE_PERSONA
 
 
@@ -67,7 +68,12 @@ def test_prompt_prohibits_emoji():
 
 
 def _all_templates():
-    templates = [BASE_PERSONA, *GLOBAL_CONSTRAINTS, *PHASE_INSTRUCTIONS.values()]
+    templates = [
+        BASE_PERSONA,
+        FINAL_MARKDOWN_OUTPUT_RULES,
+        *GLOBAL_CONSTRAINTS,
+        *PHASE_INSTRUCTIONS.values(),
+    ]
     for roles in CONCEPT_TEMPLATES.values():
         templates.extend(roles.values())
     return templates

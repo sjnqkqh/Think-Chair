@@ -3,6 +3,7 @@ from langchain_core.runnables import RunnableConfig
 
 from app.graph.llm_registry import get as get_llm
 from app.graph.prompts import build_system_prompt
+from app.graph.prompts.constraints.final_output_rules import FINAL_MARKDOWN_OUTPUT_RULES
 from app.graph.state import DraftsmithState
 
 
@@ -15,7 +16,13 @@ async def polish_node(state: DraftsmithState, config: RunnableConfig) -> dict:
         audience=state.get("audience_level"),
     )
 
-    resp = await llm.ainvoke([SystemMessage(content=system), *state["messages"]])
+    resp = await llm.ainvoke(
+        [
+            SystemMessage(content=system),
+            *state["messages"],
+            SystemMessage(content=FINAL_MARKDOWN_OUTPUT_RULES.text),
+        ]
+    )
     return {
         "messages": [AIMessage(content="탈고 완료되었습니다. 확인해보세요.")],
         "pending_version": {"kind": "polish", "content": resp.content},
