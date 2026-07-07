@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Draftsmith FastAPI Server",
+    title="Think Chair FastAPI Server",
     description="AI 글쓰기 협업 워크스페이스 서버",
     version="2.0.0",
     lifespan=lifespan,
