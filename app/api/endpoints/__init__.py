@@ -7,7 +7,7 @@ router = APIRouter()
 @router.get("/")
 async def root():
     return {
-        "service": "Draftsmith API",
+        "service": "Think Chair API",
         "status": "online",
         "documentation": "/docs",
     }
