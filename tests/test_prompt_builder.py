@@ -87,5 +87,5 @@ def _all_templates():
 def test_every_template_documents_its_usage_context(template):
     # 모든 PromptTemplate은 향후 DB 이관을 대비해 used_when/description 메타데이터를 채워야 한다.
     assert template.id
-    assert template.used_경when.strip()
+    assert template.used_when.strip()
     assert template.description.strip()
