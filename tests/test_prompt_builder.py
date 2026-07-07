@@ -8,8 +8,10 @@ from app.graph.prompts import (
     build_system_prompt,
     get_concept_content,
 )
-from app.graph.prompts.constraints.final_output_rules import FINAL_MARKDOWN_OUTPUT_RULES
 from app.graph.prompts.persona.base_persona import BASE_PERSONA
+from app.graph.prompts.phases.outline import OUTLINE_FINAL_GUARD
+from app.graph.prompts.phases.polish import POLISH_FINAL_GUARD
+from app.graph.prompts.phases.say import SAY_DOCUMENT_GUARD
 
 
 @pytest.mark.parametrize("concept", list(CONCEPT_TEMPLATES.keys()))
@@ -70,7 +72,9 @@ def test_prompt_prohibits_emoji():
 def _all_templates():
     templates = [
         BASE_PERSONA,
-        FINAL_MARKDOWN_OUTPUT_RULES,
+        SAY_DOCUMENT_GUARD,
+        OUTLINE_FINAL_GUARD,
+        POLISH_FINAL_GUARD,
         *GLOBAL_CONSTRAINTS,
         *PHASE_INSTRUCTIONS.values(),
     ]
@@ -83,5 +87,5 @@ def _all_templates():
 def test_every_template_documents_its_usage_context(template):
     # 모든 PromptTemplate은 향후 DB 이관을 대비해 used_when/description 메타데이터를 채워야 한다.
     assert template.id
-    assert template.used_when.strip()
+    assert template.used_경when.strip()
     assert template.description.strip()

@@ -10,7 +10,8 @@ from app.graph.nodes.outline import outline_node
 from app.graph.nodes.persist_version import persist_version_node
 from app.graph.nodes.polish import polish_node
 from app.graph.nodes.router import router_node
-from app.graph.prompts.constraints.final_output_rules import FINAL_MARKDOWN_OUTPUT_RULES
+from app.graph.prompts.phases.outline import OUTLINE_FINAL_GUARD
+from app.graph.prompts.phases.polish import POLISH_FINAL_GUARD
 
 
 def _base_state(**overrides):
@@ -98,6 +99,7 @@ async def test_router_node_falls_back_to_say_on_unrecognized_response(fake_llm):
     [(outline_node, "outline"), (polish_node, "polish")],
 )
 async def test_generation_nodes_append_final_output_rules_after_history(node, kind):
+    expected_guard = {"outline": OUTLINE_FINAL_GUARD, "polish": POLISH_FINAL_GUARD}[kind]
     original = llm_registry._registry.get("default")
     llm = RecordingLLM()
     llm_registry.register("default", llm)
@@ -110,7 +112,7 @@ async def test_generation_nodes_append_final_output_rules_after_history(node, ki
         assert result["pending_version"]["kind"] == kind
         assert llm.messages[-2] is human_message
         assert isinstance(llm.messages[-1], SystemMessage)
-        assert llm.messages[-1].content == FINAL_MARKDOWN_OUTPUT_RULES.text
+        assert llm.messages[-1].content == expected_guard.text
         assert "텍스트 표를 절대 넣지 마십시오" in llm.messages[-1].content
         assert "절대 거절하지 마십시오" in llm.messages[-1].content
         assert "인사말, 안내문, 코멘트, 마침말" in llm.messages[-1].content

@@ -38,6 +38,7 @@ def test_workspace_root_renders_new_manuscript_button(client):
     assert 'aria-label="모달 닫기"' in response.text
     assert '@click.self="open = false"' in response.text
     assert '@keydown.escape.window="open = false"' in response.text
+    assert "::selection { background-color: #bfdbfe; color: #111827; }" in response.text
 
 
 def test_workspace_detail_does_not_render_draft_prompt_button(client):
