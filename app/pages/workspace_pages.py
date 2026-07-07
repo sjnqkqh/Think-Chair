@@ -34,6 +34,7 @@ async def workspace_root(
         "workspace/index.html",
         {
             "manuscripts": manuscripts,
+            "user": user,
             "concepts": list(ConceptType),
             "active_manuscript": None,
             "messages": [],
@@ -56,6 +57,7 @@ async def workspace_detail(
         "workspace/index.html",
         {
             "manuscripts": manuscripts,
+            "user": user,
             "concepts": list(ConceptType),
             "active_manuscript": active,
             "messages": await _load_messages(request, active),
