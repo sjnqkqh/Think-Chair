@@ -91,6 +91,34 @@ def test_finalize_manuscript_unknown_version_returns_404(client):
     assert response.status_code == 404
 
 
+def test_delete_manuscript_soft_deletes_and_hides_from_list(client):
+    # 삭제 요청 시 204를 반환하고, 목록/조회 API에서 더 이상 노출되지 않아야 한다.
+    _signup_and_login(client, login_id="deletetester")
+    create_response = client.post(
+        "/api/manuscripts", json={"topic": "삭제 대상", "concept": "TIL"}
+    )
+    manuscript_id = create_response.json()["id"]
+
+    response = client.delete(f"/api/manuscripts/{manuscript_id}")
+    assert response.status_code == 204
+
+    assert client.get(f"/api/manuscripts/{manuscript_id}").status_code == 404
+    list_ids = [m["id"] for m in client.get("/api/manuscripts").json()]
+    assert manuscript_id not in list_ids
+
+
+def test_delete_manuscript_requires_ownership(client, db_session):
+    _signup_and_login(client, login_id="delowner")
+    create_response = client.post(
+        "/api/manuscripts", json={"topic": "타인 원고", "concept": "TIL"}
+    )
+    manuscript_id = create_response.json()["id"]
+
+    _signup_and_login(client, login_id="delother")
+    response = client.delete(f"/api/manuscripts/{manuscript_id}")
+    assert response.status_code == 404
+
+
 def test_finalize_manuscript_other_users_version_returns_404(client, db_session):
     _signup_and_login(client, login_id="owner_user")
     create_response = client.post(

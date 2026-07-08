@@ -8,12 +8,20 @@
   <p class="px-2 pb-1 text-sm font-bold text-[#1f1f1f]">{{ group.date }}</p>
   <ul class="space-y-1">
     {% for m in group.manuscripts %}
-    <li>
-      <a href="/workspace/{{ m.id }}"
-         class="block rounded-[6px] px-2 py-1.5 text-sm {% if active_manuscript and active_manuscript.id == m.id %}bg-[#e5e3df] font-medium{% else %}hover:bg-[#F6F5F4]{% endif %}">
+    <li class="group flex items-center rounded-[6px] {% if active_manuscript and active_manuscript.id == m.id %}bg-[#e5e3df] font-medium{% else %}hover:bg-[#F6F5F4]{% endif %}">
+      <a href="/workspace/{{ m.id }}" class="block flex-1 min-w-0 px-2 py-1.5 text-sm">
         <span class="block text-xs text-[#787671]">{{ m.concept.value }}</span>
         {{ m.topic }}
       </a>
+      <button
+        type="button"
+        title="삭제"
+        hx-delete="/api/manuscripts/{{ m.id }}"
+        hx-swap="none"
+        hx-confirm="'{{ m.topic }}' 원고를 삭제하시겠습니까?"
+        hx-on::after-request="if(event.detail.successful && {{ 'true' if active_manuscript and active_manuscript.id == m.id else 'false' }}) window.location.href = '/workspace'"
+        class="shrink-0 mr-1 px-1.5 py-1 text-xs text-[#9b9891] opacity-0 group-hover:opacity-100 hover:text-red-600"
+      >✕</button>
     </li>
     {% endfor %}
   </ul>

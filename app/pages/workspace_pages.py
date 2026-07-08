@@ -44,6 +44,42 @@ async def workspace_root(
     )
 
 
+@router.get("/workspace/sidebar", response_class=HTMLResponse)
+async def workspace_sidebar(
+    request: Request,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_database_session),
+):
+    manuscripts = list_manuscripts(db, user)
+    return templates.TemplateResponse(
+        request,
+        "workspace/_sidebar_left.html",
+        {
+            "manuscript_groups": group_manuscripts_by_date(manuscripts),
+            "active_manuscript": None,
+        },
+    )
+
+
+@router.get("/workspace/sidebar/{manuscript_id}", response_class=HTMLResponse)
+async def workspace_sidebar_active(
+    request: Request,
+    manuscript_id: uuid.UUID,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_database_session),
+):
+    manuscripts = list_manuscripts(db, user)
+    active = get_manuscript(db, user, manuscript_id)
+    return templates.TemplateResponse(
+        request,
+        "workspace/_sidebar_left.html",
+        {
+            "manuscript_groups": group_manuscripts_by_date(manuscripts),
+            "active_manuscript": active,
+        },
+    )
+
+
 @router.get("/workspace/{manuscript_id}", response_class=HTMLResponse)
 async def workspace_detail(
     request: Request,

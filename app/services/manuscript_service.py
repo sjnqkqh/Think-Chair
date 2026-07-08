@@ -69,6 +69,12 @@ def get_version_file(
     return filename, content
 
 
+def delete_manuscript(db: Session, user: User, manuscript_id: uuid.UUID):
+    manuscript = get_manuscript(db, user, manuscript_id)
+    manuscript_repo.soft_delete(db, manuscript)
+    logger.info("manuscript soft-deleted: manuscript_id=%s user_id=%s", manuscript_id, user.id)
+
+
 def finalize_manuscript(
     db: Session, user: User, manuscript_id: uuid.UUID, version_id: uuid.UUID
 ):

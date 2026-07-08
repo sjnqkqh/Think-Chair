@@ -22,7 +22,7 @@ def create(db: Session, user: User, topic: str, concept, audience_level: str | N
 def list_by_user(db: Session, user: User) -> list[Manuscript]:
     return (
         db.query(Manuscript)
-        .filter(Manuscript.user_id == user.id)
+        .filter(Manuscript.user_id == user.id, Manuscript.is_deleted == False)
         .order_by(Manuscript.created_at.desc())
         .all()
     )
@@ -31,7 +31,11 @@ def list_by_user(db: Session, user: User) -> list[Manuscript]:
 def get_owned(db: Session, user: User, manuscript_id: uuid.UUID) -> Manuscript | None:
     return (
         db.query(Manuscript)
-        .filter(Manuscript.id == manuscript_id, Manuscript.user_id == user.id)
+        .filter(
+            Manuscript.id == manuscript_id,
+            Manuscript.user_id == user.id,
+            Manuscript.is_deleted == False,
+        )
         .first()
     )
 
@@ -70,5 +74,11 @@ def finalize(db: Session, manuscript: Manuscript, version: ManuscriptVersion) ->
     version.is_finalized = True
     manuscript.status = ManuscriptStatus.FINALIZED
     db.add(version)
+    db.add(manuscript)
+    db.commit()
+
+
+def soft_delete(db: Session, manuscript: Manuscript) -> None:
+    manuscript.is_deleted = True
     db.add(manuscript)
     db.commit()

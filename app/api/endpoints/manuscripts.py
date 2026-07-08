@@ -9,6 +9,7 @@ from app.models.user import User
 from app.schemas.manuscript import ManuscriptCreateRequest, ManuscriptResponse
 from app.services.manuscript_service import (
     create_manuscript,
+    delete_manuscript,
     finalize_manuscript,
     get_manuscript,
     get_version_file,
@@ -68,6 +69,17 @@ def get(
         status=manuscript.status,
         audience_level=manuscript.audience_level,
     )
+
+
+@router.delete("/{manuscript_id}", status_code=204)
+def delete(
+    manuscript_id: uuid.UUID,
+    response: Response,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_database_session),
+):
+    delete_manuscript(db, user, manuscript_id)
+    response.headers["HX-Trigger"] = "manuscript-deleted"
 
 
 @router.get("/{manuscript_id}/versions/{version_id}/download")

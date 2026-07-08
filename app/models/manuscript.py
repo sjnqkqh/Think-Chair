@@ -35,6 +35,7 @@ class Manuscript(Base):
         SAEnum(ManuscriptStatus), default=ManuscriptStatus.DRAFTING
     )
     audience_level: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(default=False)
     last_active_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=datetime.datetime.utcnow
     )
