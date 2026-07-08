@@ -1,13 +1,10 @@
-import os
 import uuid
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.core.auth_deps import require_user
-from app.core.config import settings
 from app.core.database import get_database_session
 from app.models.manuscript import ConceptType
 from app.models.user import User
@@ -17,10 +14,11 @@ from app.services.manuscript_service import (
     list_manuscript_versions,
     list_manuscripts,
 )
+from app.templates.jinja import make_templates
 
 router = APIRouter()
 
-templates = Jinja2Templates(directory=os.path.join(settings.BASE_DIR, "app", "templates"))
+templates = make_templates()
 
 
 @router.get("/workspace", response_class=HTMLResponse)

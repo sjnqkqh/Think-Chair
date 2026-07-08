@@ -1,9 +1,12 @@
 {% if pending_version %}
 <div id="version-list" hx-swap-oob="beforeend">
-  <div class="flex justify-between items-center py-1 text-sm">
-    <span>{{ pending_version.kind }} v{{ pending_version.revision }}</span>
+  <div class="flex justify-between items-baseline py-1">
+    <span class="text-lg">
+      버전 {{ pending_version.revision }}
+      <span class="text-sm text-[#787671]">({{ pending_version.created_at | kst_time }})</span>
+    </span>
     <a href="/api/manuscripts/{{ manuscript_id }}/versions/{{ pending_version.version_id }}/download"
-       class="text-[#4b5563] hover:underline">다운로드</a>
+       class="text-[#4b5563] hover:underline">[다운로드]</a>
   </div>
 </div>
 {% endif %}

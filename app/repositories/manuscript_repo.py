@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.models.manuscript import Manuscript, ManuscriptStatus, ManuscriptVersion
+from app.models.manuscript import Manuscript, ManuscriptVersion
 from app.models.user import User
 
 
@@ -68,14 +68,6 @@ def get_version_owned(
         )
         .first()
     )
-
-
-def finalize(db: Session, manuscript: Manuscript, version: ManuscriptVersion) -> None:
-    version.is_finalized = True
-    manuscript.status = ManuscriptStatus.FINALIZED
-    db.add(version)
-    db.add(manuscript)
-    db.commit()
 
 
 def soft_delete(db: Session, manuscript: Manuscript) -> None:

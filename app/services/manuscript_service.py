@@ -1,4 +1,5 @@
 import logging
+import re
 import uuid
 
 from sqlalchemy.orm import Session
@@ -61,11 +62,13 @@ def list_manuscript_versions(db: Session, user: User, manuscript_id: uuid.UUID):
 def get_version_file(
     db: Session, user: User, manuscript_id: uuid.UUID, version_id: uuid.UUID, storage
 ):
+    manuscript = get_manuscript(db, user, manuscript_id)
     version = manuscript_repo.get_version_owned(db, user, manuscript_id, version_id)
     if not version:
         raise NotFoundError("버전을 찾을 수 없습니다.")
     content = storage.read(version.storage_key)
-    filename = f"{version.kind}_v{version.revision}.md"
+    safe_topic = re.sub(r'[\\/:*?"<>|]', "_", manuscript.topic).strip() or "원고"
+    filename = f"{safe_topic}_원고_{version.revision:02d}.md"
     return filename, content
 
 
@@ -75,15 +78,3 @@ def delete_manuscript(db: Session, user: User, manuscript_id: uuid.UUID):
     logger.info("manuscript soft-deleted: manuscript_id=%s user_id=%s", manuscript_id, user.id)
 
 
-def finalize_manuscript(
-    db: Session, user: User, manuscript_id: uuid.UUID, version_id: uuid.UUID
-):
-    manuscript = get_manuscript(db, user, manuscript_id)
-    version = manuscript_repo.get_version_owned(db, user, manuscript_id, version_id)
-    if not version:
-        raise NotFoundError("버전을 찾을 수 없습니다.")
-    manuscript_repo.finalize(db, manuscript, version)
-    logger.info(
-        "manuscript finalized: manuscript_id=%s version_id=%s", manuscript_id, version_id
-    )
-    return manuscript

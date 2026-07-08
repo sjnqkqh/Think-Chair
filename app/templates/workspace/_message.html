@@ -1,9 +1,9 @@
 {% if message.type == "human" %}
 <div class="message message-human flex justify-start">
-  <p class="prose-writing bg-[#F6F5F4] rounded-[8px] px-4 py-3 text-base max-w-[88%] whitespace-pre-wrap leading-7">{{ message.content }}</p>
+  <p class="prose-writing bg-[#F6F5F4] rounded-[8px] px-4 py-3 text-base max-w-[75%] whitespace-pre-wrap leading-7">{{ message.content }}</p>
 </div>
 {% else %}
 <div class="message message-ai flex justify-end">
-  <p class="prose-writing bg-[#e5e7eb] text-[#1f1f1f] rounded-[8px] px-4 py-3 text-base max-w-[88%] whitespace-pre-wrap leading-7">{{ message.content }}</p>
+  <p class="prose-writing bg-[#e5e7eb] text-[#1f1f1f] rounded-[8px] px-4 py-3 text-base max-w-[75%] whitespace-pre-wrap leading-7">{{ message.content }}</p>
 </div>
 {% endif %}

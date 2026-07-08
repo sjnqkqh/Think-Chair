@@ -1,21 +1,19 @@
-import os
 import uuid
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.templating import Jinja2Templates
 from langchain_core.messages import AIMessage, HumanMessage
 from sqlalchemy.orm import Session
 
 from app.core.auth_deps import require_user
-from app.core.config import settings
 from app.core.database import get_database_session
 from app.models.user import User
 from app.services.chat_service import ChatService
 from app.services.manuscript_service import get_manuscript
+from app.templates.jinja import make_templates
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
-templates = Jinja2Templates(directory=os.path.join(settings.BASE_DIR, "app", "templates"))
+templates = make_templates()
 
 
 def get_chat_service(request: Request) -> ChatService:

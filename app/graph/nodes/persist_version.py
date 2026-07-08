@@ -1,5 +1,7 @@
-from langchain_core.runnables import RunnableConfig
+import datetime
 import uuid
+
+from langchain_core.runnables import RunnableConfig
 
 from app.graph.state import DraftsmithState
 from app.models.manuscript import ManuscriptVersion
@@ -22,6 +24,7 @@ def persist_version_node(state: DraftsmithState, config: RunnableConfig) -> dict
     pending_version = state["pending_version"]
     storage = config["configurable"]["storage"]
     db = config["configurable"]["db_session"]
+    created_at = datetime.datetime.utcnow()
 
     key = f"{pending_version['kind']}s/{uuid.uuid4()}.md"
     storage.save(key, pending_version["content"].encode("utf-8"))
@@ -31,6 +34,7 @@ def persist_version_node(state: DraftsmithState, config: RunnableConfig) -> dict
         kind=pending_version["kind"],
         revision=_next_revision(db, state["manuscript_id"], pending_version["kind"]),
         storage_key=key,
+        created_at=created_at,
     )
     db.add(row)
     db.commit()
@@ -41,5 +45,6 @@ def persist_version_node(state: DraftsmithState, config: RunnableConfig) -> dict
             "storage_key": key,
             "version_id": str(row.id),
             "revision": row.revision,
+            "created_at": created_at,
         }
     }

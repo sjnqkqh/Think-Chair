@@ -54,7 +54,6 @@ class ManuscriptVersion(Base):
     kind: Mapped[str] = mapped_column(String(16))
     revision: Mapped[int]
     storage_key: Mapped[str] = mapped_column(String(255))
-    is_finalized: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=datetime.datetime.utcnow
     )

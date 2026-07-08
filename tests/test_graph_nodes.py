@@ -71,6 +71,7 @@ def test_persist_version_node_saves_to_storage_and_db():
     db.commit.assert_called_once()
     assert result["pending_version"]["storage_key"] == saved_key
     assert result["pending_version"]["version_id"]
+    assert result["pending_version"]["created_at"]
 
 
 @pytest.mark.asyncio
