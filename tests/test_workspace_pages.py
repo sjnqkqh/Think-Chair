@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 
@@ -5,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.graph.builder import build_graph
 from app.graph.checkpointer import make_checkpointer
+from app.models.manuscript import ManuscriptVersion
 from app.pages.chat_pages import get_chat_service
 from app.services.chat_service import ChatService
 from main import app as fastapi_app
@@ -32,18 +34,26 @@ def test_workspace_root_renders_new_manuscript_button(client):
     response = client.get("/workspace")
     assert response.status_code == 200
     assert "Think Chair" in response.text
+    assert "/static/common/think_chair_icon.jpg" in response.text
+    assert '<strong class="font-bold">주도성 상실</strong>' in response.text
+    assert '<strong class="font-bold">끊임없이 질문을 던지며 사용자의 생각을 끌어내는 AI</strong>' in response.text
+    assert '<strong class="font-bold">사용자가 안다고 생각했던 개념과 아직 설명하지 못하는 개념을 구분</strong>' in response.text
+    assert '<strong class="font-bold">지식의 밑바닥</strong>' in response.text
+    assert "답을 대신 내놓는 AI가 아니라" in response.text
+    assert "논리적 빈틈과 불명확한 지점" in response.text
     assert "로그아웃" in response.text
-    assert "grid-cols-[16rem_minmax(0,1fr)_20rem]" in response.text
+    assert "grid-cols-[16rem_minmax(0,1fr)_14rem]" in response.text
     assert "새 원고" in response.text
     assert 'aria-label="모달 닫기"' in response.text
     assert '@click.self="open = false"' in response.text
     assert '@keydown.escape.window="open = false"' in response.text
+    assert "::selection { background-color: #bfdbfe; color: #111827; }" in response.text
 
 
 def test_workspace_detail_does_not_render_draft_prompt_button(client):
     _signup_and_login(client, login_id=f"workspacetester-{uuid.uuid4()}")
     create_response = client.post(
-        "/api/manuscripts", json={"topic": "워크스페이스", "concept": "til"}
+        "/api/manuscripts", json={"topic": "워크스페이스", "concept": "TIL"}
     )
     manuscript_id = create_response.json()["id"]
 
@@ -53,10 +63,51 @@ def test_workspace_detail_does_not_render_draft_prompt_button(client):
     try:
         response = client.get(f"/workspace/{manuscript_id}")
         assert response.status_code == 200
+        assert "!event.isComposing" in response.text
+        assert "event.keyCode !== 229" in response.text
+        assert "this.reset()" not in response.text
+        assert "document.addEventListener('DOMContentLoaded', sendInitialGreeting" in response.text
+        assert "requestAnimationFrame(() => submitChatForm(form))" in response.text
+        assert "htmx.process(targetForm)" in response.text
+        assert "htmx.trigger(targetForm, 'submit')" in response.text
         assert "초고 작성" not in response.text
         assert "점검 요청" not in response.text
         assert "개요 생성" in response.text
         assert "탈고" in response.text
+        assert "hx-confirm" not in response.text
+        assert "data-confirm-message" in response.text
+        assert "event.preventDefault(); return false;" in response.text
+    finally:
+        del fastapi_app.state.chat_service
+
+
+def test_workspace_detail_renders_version_download_label(client, db_session):
+    _signup_and_login(client, login_id=f"workspaceversion-{uuid.uuid4()}")
+    create_response = client.post(
+        "/api/manuscripts", json={"topic": "버전 표시", "concept": "TIL"}
+    )
+    manuscript_id = uuid.UUID(create_response.json()["id"])
+    db_session.add(
+        ManuscriptVersion(
+            manuscript_id=manuscript_id,
+            kind="polish",
+            revision=1,
+            storage_key="polishs/test.md",
+            created_at=datetime.datetime(2026, 7, 8, 0, 7),
+        )
+    )
+    db_session.commit()
+
+    chat_service = MagicMock()
+    chat_service.graph.aget_state = AsyncMock(return_value=MagicMock(values={}))
+    fastapi_app.state.chat_service = chat_service
+    try:
+        response = client.get(f"/workspace/{manuscript_id}")
+        assert response.status_code == 200
+        assert "버전 1" in response.text
+        assert 'class="text-sm text-[#787671]">(09:07)</span>' in response.text
+        assert "[다운로드]" in response.text
+        assert "polish v1" not in response.text
     finally:
         del fastapi_app.state.chat_service
 
@@ -88,7 +139,7 @@ async def test_workspace_detail_reload_with_history_renders_messages(fake_llm, d
                     },
                 )
                 create_res = await client.post(
-                    "/api/manuscripts", json={"topic": "재현", "concept": "til"}
+                    "/api/manuscripts", json={"topic": "재현", "concept": "TIL"}
                 )
                 manuscript_id = create_res.json()["id"]
 

@@ -1,4 +1,30 @@
 <div id="chat-log" class="flex-1 overflow-y-auto p-8 space-y-4">
+  {% if not active_manuscript and not messages %}
+  <section class="mx-auto flex min-h-full max-w-3xl flex-col items-center justify-center px-4 py-12 text-center">
+    <img
+      src="/static/common/think_chair_icon.jpg"
+      alt="Think Chair"
+      class="mb-8 h-56 w-56 rounded-[8px] object-cover shadow-sm"
+    />
+    <h1 class="mb-5 text-3xl font-bold tracking-normal text-[#1f1f1f]">Think Chair</h1>
+    <div class="prose-writing space-y-4 text-left text-base leading-8 text-[#37352f]">
+      <p>
+        LLM에 의존하던 시절, 우리는 편리함과 함께 <strong class="font-bold">주도성 상실</strong>을 경험했습니다.
+
+        <br>우리는 개발자임에도, 스스로 무언가를 만들고 있다는 감각은 점점 흐려졌습니다.
+      </p>
+      <p>
+        Think Chair는 그 반대 방향으로 움직이는 프로그램입니다. 답을 대신 내놓는 AI가 아니라,<br> <strong class="font-bold">끊임없이 질문을 던지며 사용자의 생각을 끌어내는 AI</strong>를 지향합니다.
+      </p>
+      <p>
+        사용자가 글감이나 주제를 제시하면 AI는 관련 질문을 만들고, 사용자의 답변에서 논리적 빈틈과 불명확한 지점을 찾아 더 깊은 질문으로 이어갑니다. 이 과정은 <strong class="font-bold">사용자가 안다고 생각했던 개념과 아직 설명하지 못하는 개념을 구분</strong>할 때까지 반복됩니다.
+      </p>
+      <p>
+        Think Chair는 개발자가 자신이 가진 <strong class="font-bold">지식의 밑바닥</strong>을 직접 마주하고, AI의 질문에 최대한의 근거를 갖춘 의견을 내며, 피드백 루프를 거쳐 더 깊은 수준의 지식을 습득하도록 돕기 위해 만들어졌습니다.
+      </p>
+    </div>
+  </section>
+  {% endif %}
   {% for message in messages %}
     {% include "workspace/_message.html" with context %}
   {% endfor %}
@@ -11,14 +37,13 @@
   hx-swap="beforeend"
   hx-indicator="#chat-spinner"
   hx-disabled-elt="find button, find textarea"
-  hx-on::after-request="if(event.detail.successful) { this.reset(); const t = this.querySelector('textarea'); t.style.height = 'auto'; }"
   class="border-t border-[#e5e3df] p-5 flex gap-3 items-end bg-white"
 >
   <textarea
     name="content" placeholder="메시지 입력…" required rows="1"
     class="flex-1 rounded-[8px] border border-[#c8c4be] px-4 py-3 text-base resize-none overflow-y-auto max-h-52 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#d1d5db]"
     oninput="this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 160) + 'px'"
-    onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); if (this.value.trim()) htmx.trigger(this.closest('form'), 'submit'); }"
+    onkeydown="if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) { event.preventDefault(); if (this.value.trim()) htmx.trigger(this.closest('form'), 'submit'); }"
   ></textarea>
   <span id="chat-spinner" class="htmx-indicator text-xs text-[#787671]">전송 중…</span>
   <button type="submit" class="rounded-[8px] bg-[#e5e7eb] text-[#1f1f1f] px-5 py-3 text-base disabled:opacity-50 hover:bg-[#d1d5db]">→</button>
@@ -26,6 +51,13 @@
 <script>
 (function () {
   const log = document.getElementById('chat-log');
+  const form = document.getElementById('chat-form');
+
+  function submitChatForm(targetForm) {
+    if (!targetForm || !window.htmx) return;
+    htmx.process(targetForm);
+    htmx.trigger(targetForm, 'submit');
+  }
 
   document.body.addEventListener('htmx:beforeRequest', (evt) => {
     const form = evt.detail.elt;
@@ -38,14 +70,14 @@
     const human = document.createElement('div');
     human.id = 'optimistic-human-message';
     human.className = 'message message-human flex justify-start';
-    human.innerHTML = '<p class="bg-[#F6F5F4] rounded-[8px] px-4 py-3 text-base max-w-[88%] whitespace-pre-wrap leading-7"></p>';
+    human.innerHTML = '<p class="prose-writing bg-[#F6F5F4] rounded-[8px] px-4 py-3 text-base max-w-[75%] whitespace-pre-wrap leading-7"></p>';
     human.querySelector('p').textContent = content;
     log.appendChild(human);
 
     const pending = document.createElement('div');
     pending.id = 'optimistic-pending-ai';
     pending.className = 'message message-ai flex justify-end';
-    pending.innerHTML = '<p class="bg-[#e5e7eb] text-[#1f1f1f] rounded-[8px] px-4 py-3 text-base max-w-[88%] flex items-center"><span class="w-3.5 h-3.5 border-2 border-[#1f1f1f] border-t-transparent rounded-full animate-spin"></span></p>';
+    pending.innerHTML = '<p class="bg-[#e5e7eb] text-[#1f1f1f] rounded-[8px] px-4 py-3 text-base max-w-[75%] flex items-center"><span class="w-3.5 h-3.5 border-2 border-[#1f1f1f] border-t-transparent rounded-full animate-spin"></span></p>';
     log.appendChild(pending);
 
     log.scrollTop = log.scrollHeight;
@@ -69,6 +101,22 @@
     if (evt.detail.elt?.id !== 'chat-form') return;
     document.getElementById('optimistic-pending-ai')?.remove();
   });
+
+  {% if not messages %}
+  function sendInitialGreeting() {
+    const textarea = form?.querySelector('textarea[name="content"]');
+    if (!textarea || textarea.value.trim()) return;
+
+    textarea.value = '안녕하세요, 교수님';
+    requestAnimationFrame(() => submitChatForm(form));
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', sendInitialGreeting, { once: true });
+  } else {
+    sendInitialGreeting();
+  }
+  {% endif %}
 })();
 </script>
 {% endif %}

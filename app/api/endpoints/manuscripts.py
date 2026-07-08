@@ -1,4 +1,5 @@
 import uuid
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
@@ -9,7 +10,7 @@ from app.models.user import User
 from app.schemas.manuscript import ManuscriptCreateRequest, ManuscriptResponse
 from app.services.manuscript_service import (
     create_manuscript,
-    finalize_manuscript,
+    delete_manuscript,
     get_manuscript,
     get_version_file,
     list_manuscripts,
@@ -70,6 +71,17 @@ def get(
     )
 
 
+@router.delete("/{manuscript_id}", status_code=204)
+def delete(
+    manuscript_id: uuid.UUID,
+    response: Response,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_database_session),
+):
+    delete_manuscript(db, user, manuscript_id)
+    response.headers["HX-Trigger"] = "manuscript-deleted"
+
+
 @router.get("/{manuscript_id}/versions/{version_id}/download")
 def download_version(
     manuscript_id: uuid.UUID,
@@ -80,25 +92,14 @@ def download_version(
 ):
     storage = request.app.state.chat_service.storage
     filename, content = get_version_file(db, user, manuscript_id, version_id, storage)
+    encoded_filename = quote(filename)
     return Response(
         content=content,
         media_type="text/markdown",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-@router.post("/{manuscript_id}/finalize", response_model=ManuscriptResponse)
-def finalize(
-    manuscript_id: uuid.UUID,
-    version_id: uuid.UUID,
-    user: User = Depends(require_user),
-    db: Session = Depends(get_database_session),
-):
-    manuscript = finalize_manuscript(db, user, manuscript_id, version_id)
-    return ManuscriptResponse(
-        id=str(manuscript.id),
-        topic=manuscript.topic,
-        concept=manuscript.concept,
-        status=manuscript.status,
-        audience_level=manuscript.audience_level,
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename=\"{encoded_filename}\"; "
+                f"filename*=UTF-8''{encoded_filename}"
+            )
+        },
     )

@@ -1,4 +1,5 @@
 import logging
+import re
 import uuid
 
 from sqlalchemy.orm import Session
@@ -28,6 +29,19 @@ def list_manuscripts(db: Session, user: User):
     return manuscript_repo.list_by_user(db, user)
 
 
+def group_manuscripts_by_date(manuscripts):
+    """created_at 내림차순으로 정렬된 목록을 날짜(YYYY-MM-DD) 단위로 그룹핑한다."""
+    groups = []
+    current_date = None
+    for manuscript in manuscripts:
+        date_str = manuscript.created_at.strftime("%Y-%m-%d")
+        if date_str != current_date:
+            current_date = date_str
+            groups.append({"date": current_date, "manuscripts": []})
+        groups[-1]["manuscripts"].append(manuscript)
+    return groups
+
+
 def get_manuscript(db: Session, user: User, manuscript_id: uuid.UUID):
     manuscript = manuscript_repo.get_owned(db, user, manuscript_id)
     if not manuscript:
@@ -48,23 +62,19 @@ def list_manuscript_versions(db: Session, user: User, manuscript_id: uuid.UUID):
 def get_version_file(
     db: Session, user: User, manuscript_id: uuid.UUID, version_id: uuid.UUID, storage
 ):
-    version = manuscript_repo.get_version_owned(db, user, manuscript_id, version_id)
-    if not version:
-        raise NotFoundError("버전을 찾을 수 없습니다.")
-    content = storage.read(version.storage_key)
-    filename = f"{version.kind}_v{version.revision}.md"
-    return filename, content
-
-
-def finalize_manuscript(
-    db: Session, user: User, manuscript_id: uuid.UUID, version_id: uuid.UUID
-):
     manuscript = get_manuscript(db, user, manuscript_id)
     version = manuscript_repo.get_version_owned(db, user, manuscript_id, version_id)
     if not version:
         raise NotFoundError("버전을 찾을 수 없습니다.")
-    manuscript_repo.finalize(db, manuscript, version)
-    logger.info(
-        "manuscript finalized: manuscript_id=%s version_id=%s", manuscript_id, version_id
-    )
-    return manuscript
+    content = storage.read(version.storage_key)
+    safe_topic = re.sub(r'[\\/:*?"<>|]', "_", manuscript.topic).strip() or "원고"
+    filename = f"{safe_topic}_원고_{version.revision:02d}.md"
+    return filename, content
+
+
+def delete_manuscript(db: Session, user: User, manuscript_id: uuid.UUID):
+    manuscript = get_manuscript(db, user, manuscript_id)
+    manuscript_repo.soft_delete(db, manuscript)
+    logger.info("manuscript soft-deleted: manuscript_id=%s user_id=%s", manuscript_id, user.id)
+
+

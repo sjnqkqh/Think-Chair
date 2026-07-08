@@ -8,7 +8,7 @@ _DIR = Path(__file__).parent
 
 
 def _load_concept(concept: ConceptType) -> dict[str, PromptTemplate]:
-    concept_dir = _DIR / concept.value
+    concept_dir = _DIR / concept.name.lower()
     generate_md = (concept_dir / "generate.md").read_text(encoding="utf-8")
     checkpoint_md = (concept_dir / "checkpoint.md").read_text(encoding="utf-8")
 

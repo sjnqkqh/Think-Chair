@@ -3,9 +3,7 @@ from typing import Annotated, Literal, TypedDict
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
-UserAction = Literal[
-    "say", "feedback", "outline", "polish", "finalize"
-]
+UserAction = Literal["opening", "say", "feedback", "outline", "polish", "finalize"]
 
 
 class PendingVersion(TypedDict, total=False):
@@ -16,11 +14,13 @@ class PendingVersion(TypedDict, total=False):
     revision: int
 
 
-class DraftsmithState(TypedDict):
+class GraphState(TypedDict):
     manuscript_id: str
     concept: str
     topic: str
+    user_nickname: str | None
     audience_level: str | None
     user_action: UserAction | None
+    current_message_id: str | None
     messages: Annotated[list[BaseMessage], add_messages]
     pending_version: PendingVersion | None

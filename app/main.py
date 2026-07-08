@@ -2,8 +2,9 @@ import logging
 import os
 from contextlib import AsyncExitStack, asynccontextmanager
 
-import app.models.user
+import app.models
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api.endpoints import router as api_router
 from app.core.config import settings
@@ -33,7 +34,9 @@ async def lifespan(app: FastAPI):
     # LangGraph 체크포인터는 앱 생명주기 동안 열려있어야 하므로 AsyncExitStack으로 관리한다.
     async with AsyncExitStack() as stack:
         checkpoint_path = os.path.join(settings.BASE_DIR, "draftsmith_checkpoint.db")
-        checkpointer = await stack.enter_async_context(make_checkpointer(checkpoint_path))
+        checkpointer = await stack.enter_async_context(
+            make_checkpointer(checkpoint_path)
+        )
         graph = build_graph(checkpointer)
         app.state.chat_service = ChatService(
             graph=graph, storage=LocalFileStorage(), db_factory=SessionLocal
@@ -49,6 +52,14 @@ app = FastAPI(
 )
 
 register_exception_handlers(app)
+
+app.mount(
+    "/static/common",
+    StaticFiles(
+        directory=os.path.join(settings.BASE_DIR, "app", "templates", "common")
+    ),
+    name="static-common",
+)
 
 # Register API routes
 app.include_router(api_router)

@@ -38,7 +38,7 @@ def test_send_message_requires_auth(client, chat_service_override):
 def test_send_message_returns_ai_response(client, chat_service_override):
     _signup_and_login(client)
     create_response = client.post(
-        "/api/manuscripts", json={"topic": "FastAPI 학습", "concept": "til"}
+        "/api/manuscripts", json={"topic": "FastAPI 학습", "concept": "TIL"}
     )
     manuscript_id = create_response.json()["id"]
 

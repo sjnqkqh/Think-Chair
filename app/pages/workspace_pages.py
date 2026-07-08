@@ -1,25 +1,24 @@
-import os
 import uuid
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.core.auth_deps import require_user
-from app.core.config import settings
 from app.core.database import get_database_session
 from app.models.manuscript import ConceptType
 from app.models.user import User
 from app.services.manuscript_service import (
     get_manuscript,
+    group_manuscripts_by_date,
     list_manuscript_versions,
     list_manuscripts,
 )
+from app.templates.jinja import make_templates
 
 router = APIRouter()
 
-templates = Jinja2Templates(directory=os.path.join(settings.BASE_DIR, "app", "templates"))
+templates = make_templates()
 
 
 @router.get("/workspace", response_class=HTMLResponse)
@@ -33,12 +32,48 @@ async def workspace_root(
         request,
         "workspace/index.html",
         {
-            "manuscripts": manuscripts,
+            "manuscript_groups": group_manuscripts_by_date(manuscripts),
             "user": user,
             "concepts": list(ConceptType),
             "active_manuscript": None,
             "messages": [],
             "versions": [],
+        },
+    )
+
+
+@router.get("/workspace/sidebar", response_class=HTMLResponse)
+async def workspace_sidebar(
+    request: Request,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_database_session),
+):
+    manuscripts = list_manuscripts(db, user)
+    return templates.TemplateResponse(
+        request,
+        "workspace/_sidebar_left.html",
+        {
+            "manuscript_groups": group_manuscripts_by_date(manuscripts),
+            "active_manuscript": None,
+        },
+    )
+
+
+@router.get("/workspace/sidebar/{manuscript_id}", response_class=HTMLResponse)
+async def workspace_sidebar_active(
+    request: Request,
+    manuscript_id: uuid.UUID,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_database_session),
+):
+    manuscripts = list_manuscripts(db, user)
+    active = get_manuscript(db, user, manuscript_id)
+    return templates.TemplateResponse(
+        request,
+        "workspace/_sidebar_left.html",
+        {
+            "manuscript_groups": group_manuscripts_by_date(manuscripts),
+            "active_manuscript": active,
         },
     )
 
@@ -56,7 +91,7 @@ async def workspace_detail(
         request,
         "workspace/index.html",
         {
-            "manuscripts": manuscripts,
+            "manuscript_groups": group_manuscripts_by_date(manuscripts),
             "user": user,
             "concepts": list(ConceptType),
             "active_manuscript": active,
@@ -67,7 +102,7 @@ async def workspace_detail(
 
 
 async def _load_messages(request: Request, manuscript) -> list:
-    # ChatMessage 테이블이 없으므로 그래프 체크포인터가 대화 이력의 유일한 출처다.
+    # 화면 복원은 LangGraph 상태를 기준으로 한다. ChatMessage는 감사/분석용 원본 로그다.
     svc = request.app.state.chat_service
     config = {"configurable": {"thread_id": str(manuscript.id)}}
     snapshot = await svc.graph.aget_state(config)

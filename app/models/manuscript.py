@@ -10,11 +10,11 @@ from app.core.database import Base
 
 
 class ConceptType(str, enum.Enum):
-    TECH_DEEPDIVE = "tech_deepdive"
-    RETROSPECTIVE = "retrospective"
-    ESSAY = "essay"
-    TIL = "til"
-    TEACHING = "teaching"
+    TECH_DEEPDIVE = "딥다이브"
+    RETROSPECTIVE = "회고"
+    ESSAY = "에세이"
+    TIL = "TIL"
+    TEACHING = "수업 자료"
 
 
 class ManuscriptStatus(str, enum.Enum):
@@ -35,6 +35,7 @@ class Manuscript(Base):
         SAEnum(ManuscriptStatus), default=ManuscriptStatus.DRAFTING
     )
     audience_level: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(default=False)
     last_active_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=datetime.datetime.utcnow
     )
@@ -53,7 +54,6 @@ class ManuscriptVersion(Base):
     kind: Mapped[str] = mapped_column(String(16))
     revision: Mapped[int]
     storage_key: Mapped[str] = mapped_column(String(255))
-    is_finalized: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=datetime.datetime.utcnow
     )
