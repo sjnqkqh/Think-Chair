@@ -41,7 +41,7 @@ def test_purpose_is_nonempty(concept):
 
 def test_prompt_prohibits_chinese_characters():
     # 모든 프롬프트는 한자 사용 금지 문구를 포함해야 한다.
-    prompt = build_system_prompt("tech_deepdive", "polish", topic="테스트 주제")
+    prompt = build_system_prompt("딥다이브", "polish", topic="테스트 주제")
 
     assert "한자" in prompt
 
@@ -49,7 +49,7 @@ def test_prompt_prohibits_chinese_characters():
 def test_prompt_includes_audience_when_provided():
     # audience가 주어지면 독자 수준 컨텍스트가 프롬프트에 포함되어야 한다.
     prompt = build_system_prompt(
-        "teaching", "outline", topic="파이썬 기초", audience="초급"
+        "수업 자료", "outline", topic="파이썬 기초", audience="초급"
     )
 
     assert "초급" in prompt
@@ -57,14 +57,24 @@ def test_prompt_includes_audience_when_provided():
 
 def test_prompt_omits_audience_context_when_not_provided():
     # audience가 없으면 독자 수준 컨텍스트 라인이 프롬프트에 나타나지 않아야 한다.
-    prompt = build_system_prompt("essay", "polish", topic="여행 이야기")
+    prompt = build_system_prompt("에세이", "polish", topic="여행 이야기")
 
     assert "[독자 수준]" not in prompt
 
 
+def test_opening_prompt_starts_with_topic_understanding_check():
+    prompt = build_system_prompt("TIL", "opening", topic="FastAPI 학습")
+
+    assert "대화 시작 단계" in prompt
+    assert "단순한 인사" in prompt
+    assert "얼마나 알고 있는지" in prompt
+    assert "짧게 설명" in prompt
+    assert "[주제] FastAPI 학습" in prompt
+
+
 def test_prompt_prohibits_emoji():
     # 이모지 금지 제약도 항상 포함되어야 한다.
-    prompt = build_system_prompt("essay", "polish", topic="여행 이야기")
+    prompt = build_system_prompt("에세이", "polish", topic="여행 이야기")
 
     assert "이모지" in prompt
 

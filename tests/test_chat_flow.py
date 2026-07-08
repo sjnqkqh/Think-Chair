@@ -40,7 +40,7 @@ async def test_full_manuscript_flow(e2e_chat_service):
 
         # 2) 원고 생성
         create_res = await client.post(
-            "/api/manuscripts", json={"topic": "RSC 회고", "concept": "tech_deepdive"}
+            "/api/manuscripts", json={"topic": "RSC 회고", "concept": "딥다이브"}
         )
         assert create_res.status_code == 201
         manuscript_id = create_res.json()["id"]
@@ -77,7 +77,7 @@ async def test_full_manuscript_flow(e2e_chat_service):
 
         # 5) 다른 원고의 thread_id 격리 확인
         create_res2 = await client.post(
-            "/api/manuscripts", json={"topic": "다른 글", "concept": "til"}
+            "/api/manuscripts", json={"topic": "다른 글", "concept": "TIL"}
         )
         manuscript_id2 = create_res2.json()["id"]
         config2 = {"configurable": {"thread_id": manuscript_id2}}

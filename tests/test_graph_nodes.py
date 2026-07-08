@@ -17,7 +17,7 @@ from app.graph.prompts.phases.polish import POLISH_FINAL_GUARD
 def _base_state(**overrides):
     state = {
         "manuscript_id": "11111111-1111-1111-1111-111111111111",
-        "concept": "til",
+        "concept": "TIL",
         "topic": "테스트 주제",
         "audience_level": None,
         "user_action": "polish",
@@ -76,7 +76,14 @@ async def test_router_node_classifies_action_from_llm_response():
     original = llm_registry._registry.get("default")
     llm_registry.register("default", FakeListChatModel(responses=["polish"]))
     try:
-        state = _base_state(user_action=None, messages=[HumanMessage(content="원고 작성해주세요")])
+        state = _base_state(
+            user_action=None,
+            messages=[
+                HumanMessage(content="안녕하세요"),
+                AIMessage(content="설명해보세요."),
+                HumanMessage(content="원고 작성해주세요"),
+            ],
+        )
         result = await router_node(state, {"configurable": {"model": "default"}})
         assert result["user_action"] == "polish"
     finally:
@@ -85,8 +92,28 @@ async def test_router_node_classifies_action_from_llm_response():
 
 
 @pytest.mark.asyncio
+async def test_router_node_routes_first_message_to_opening_without_classifier():
+    original = llm_registry._registry.get("default")
+    llm_registry.register("default", FakeListChatModel(responses=["polish"]))
+    try:
+        state = _base_state(user_action=None, messages=[HumanMessage(content="안녕하세요")])
+        result = await router_node(state, {"configurable": {"model": "default"}})
+        assert result["user_action"] == "opening"
+    finally:
+        if original is not None:
+            llm_registry.register("default", original)
+
+
+@pytest.mark.asyncio
 async def test_router_node_falls_back_to_say_on_unrecognized_response(fake_llm):
-    state = _base_state(user_action=None, messages=[HumanMessage(content="안녕하세요")])
+    state = _base_state(
+        user_action=None,
+        messages=[
+            HumanMessage(content="안녕하세요"),
+            AIMessage(content="설명해보세요."),
+            HumanMessage(content="이건 애매합니다."),
+        ],
+    )
 
     result = await router_node(state, {"configurable": {"model": "default"}})
 

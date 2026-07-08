@@ -32,6 +32,13 @@ def test_workspace_root_renders_new_manuscript_button(client):
     response = client.get("/workspace")
     assert response.status_code == 200
     assert "Think Chair" in response.text
+    assert "/static/common/think_chair_icon.jpg" in response.text
+    assert '<strong class="font-bold">주도성 상실</strong>' in response.text
+    assert '<strong class="font-bold">끊임없이 질문을 던지며 사용자의 생각을 끌어내는 AI</strong>' in response.text
+    assert '<strong class="font-bold">사용자가 안다고 생각했던 개념과 아직 설명하지 못하는 개념을 구분</strong>' in response.text
+    assert '<strong class="font-bold">지식의 밑바닥</strong>' in response.text
+    assert "답을 대신 내놓는 AI가 아니라" in response.text
+    assert "논리적 빈틈과 불명확한 지점" in response.text
     assert "로그아웃" in response.text
     assert "grid-cols-[16rem_minmax(0,1fr)_20rem]" in response.text
     assert "새 원고" in response.text
@@ -44,7 +51,7 @@ def test_workspace_root_renders_new_manuscript_button(client):
 def test_workspace_detail_does_not_render_draft_prompt_button(client):
     _signup_and_login(client, login_id=f"workspacetester-{uuid.uuid4()}")
     create_response = client.post(
-        "/api/manuscripts", json={"topic": "워크스페이스", "concept": "til"}
+        "/api/manuscripts", json={"topic": "워크스페이스", "concept": "TIL"}
     )
     manuscript_id = create_response.json()["id"]
 
@@ -89,7 +96,7 @@ async def test_workspace_detail_reload_with_history_renders_messages(fake_llm, d
                     },
                 )
                 create_res = await client.post(
-                    "/api/manuscripts", json={"topic": "재현", "concept": "til"}
+                    "/api/manuscripts", json={"topic": "재현", "concept": "TIL"}
                 )
                 manuscript_id = create_res.json()["id"]
 

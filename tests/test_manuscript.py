@@ -13,7 +13,7 @@ def _signup_and_login(client, login_id="mstester"):
 def test_create_manuscript_requires_auth(client):
     # 로그인 쿠키 없이 원고 생성을 시도하면 401을 반환해야 한다.
     response = client.post(
-        "/api/manuscripts", json={"topic": "FastAPI 학습", "concept": "til"}
+        "/api/manuscripts", json={"topic": "FastAPI 학습", "concept": "TIL"}
     )
     assert response.status_code == 401
 
@@ -23,12 +23,12 @@ def test_create_and_get_manuscript(client):
     # 생성된 id로 다시 조회했을 때 동일한 원고를 돌려받아야 한다.
     _signup_and_login(client)
     response = client.post(
-        "/api/manuscripts", json={"topic": "FastAPI 학습", "concept": "til"}
+        "/api/manuscripts", json={"topic": "FastAPI 학습", "concept": "TIL"}
     )
     assert response.status_code == 201
     body = response.json()
     assert body["topic"] == "FastAPI 학습"
-    assert body["concept"] == "til"
+    assert body["concept"] == "TIL"
     assert body["status"] == "drafting"
 
     manuscript_id = body["id"]
@@ -62,7 +62,7 @@ def _create_version(db_session, manuscript_id: str, kind="draft", revision=1) ->
 def test_finalize_manuscript_marks_version_and_status(client, db_session):
     _signup_and_login(client, login_id="finalizetester")
     create_response = client.post(
-        "/api/manuscripts", json={"topic": "탈고 대상", "concept": "til"}
+        "/api/manuscripts", json={"topic": "탈고 대상", "concept": "TIL"}
     )
     manuscript_id = create_response.json()["id"]
     version_id = _create_version(db_session, manuscript_id)
@@ -80,7 +80,7 @@ def test_finalize_manuscript_marks_version_and_status(client, db_session):
 def test_finalize_manuscript_unknown_version_returns_404(client):
     _signup_and_login(client, login_id="finalizetester2")
     create_response = client.post(
-        "/api/manuscripts", json={"topic": "탈고 대상2", "concept": "til"}
+        "/api/manuscripts", json={"topic": "탈고 대상2", "concept": "TIL"}
     )
     manuscript_id = create_response.json()["id"]
 
@@ -94,7 +94,7 @@ def test_finalize_manuscript_unknown_version_returns_404(client):
 def test_finalize_manuscript_other_users_version_returns_404(client, db_session):
     _signup_and_login(client, login_id="owner_user")
     create_response = client.post(
-        "/api/manuscripts", json={"topic": "소유자 원고", "concept": "til"}
+        "/api/manuscripts", json={"topic": "소유자 원고", "concept": "TIL"}
     )
     manuscript_id = create_response.json()["id"]
     version_id = _create_version(db_session, manuscript_id)
