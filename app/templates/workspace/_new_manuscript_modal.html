@@ -19,11 +19,12 @@
       >
         X
       </button>
+      <p class="text-sm text-[#787671]">어떤 글을 쓰고 싶은지 한 줄로 적어주세요.</p>
       <input name="topic" placeholder="주제" required class="w-full border border-[#c8c4be] rounded-[8px] px-3 py-2 text-sm" />
       <select name="concept" x-data x-model="concept" required class="w-full border border-[#c8c4be] rounded-[8px] px-3 py-2 text-sm">
         {% for c in concepts %}<option value="{{ c.value }}">{{ c.value }}</option>{% endfor %}
       </select>
-      <input x-show="concept === 'teaching'" name="audience_level" placeholder="독자 수준 (예: 초급)"
+      <input x-show="concept === '수업 자료'" name="audience_level" placeholder="독자 수준 (예: 초급)"
              class="w-full border border-[#c8c4be] rounded-[8px] px-3 py-2 text-sm" style="display:none" />
       <button type="submit" class="w-full bg-[#e5e7eb] text-[#1f1f1f] rounded-[8px] py-2.5 text-sm hover:bg-[#d1d5db]">만들기</button>
     </form>
