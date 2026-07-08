@@ -102,7 +102,7 @@ async def workspace_detail(
 
 
 async def _load_messages(request: Request, manuscript) -> list:
-    # ChatMessage 테이블이 없으므로 그래프 체크포인터가 대화 이력의 유일한 출처다.
+    # 화면 복원은 LangGraph 상태를 기준으로 한다. ChatMessage는 감사/분석용 원본 로그다.
     svc = request.app.state.chat_service
     config = {"configurable": {"thread_id": str(manuscript.id)}}
     snapshot = await svc.graph.aget_state(config)
