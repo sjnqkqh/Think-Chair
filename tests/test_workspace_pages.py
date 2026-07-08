@@ -66,10 +66,17 @@ def test_workspace_detail_does_not_render_draft_prompt_button(client):
         assert "!event.isComposing" in response.text
         assert "event.keyCode !== 229" in response.text
         assert "this.reset()" not in response.text
+        assert "document.addEventListener('DOMContentLoaded', sendInitialGreeting" in response.text
+        assert "requestAnimationFrame(() => submitChatForm(form))" in response.text
+        assert "htmx.process(targetForm)" in response.text
+        assert "htmx.trigger(targetForm, 'submit')" in response.text
         assert "초고 작성" not in response.text
         assert "점검 요청" not in response.text
         assert "개요 생성" in response.text
         assert "탈고" in response.text
+        assert "hx-confirm" not in response.text
+        assert "data-confirm-message" in response.text
+        assert "event.preventDefault(); return false;" in response.text
     finally:
         del fastapi_app.state.chat_service
 

@@ -51,6 +51,13 @@
 <script>
 (function () {
   const log = document.getElementById('chat-log');
+  const form = document.getElementById('chat-form');
+
+  function submitChatForm(targetForm) {
+    if (!targetForm || !window.htmx) return;
+    htmx.process(targetForm);
+    htmx.trigger(targetForm, 'submit');
+  }
 
   document.body.addEventListener('htmx:beforeRequest', (evt) => {
     const form = evt.detail.elt;
@@ -94,6 +101,22 @@
     if (evt.detail.elt?.id !== 'chat-form') return;
     document.getElementById('optimistic-pending-ai')?.remove();
   });
+
+  {% if not messages %}
+  function sendInitialGreeting() {
+    const textarea = form?.querySelector('textarea[name="content"]');
+    if (!textarea || textarea.value.trim()) return;
+
+    textarea.value = '안녕하세요, 교수님';
+    requestAnimationFrame(() => submitChatForm(form));
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', sendInitialGreeting, { once: true });
+  } else {
+    sendInitialGreeting();
+  }
+  {% endif %}
 })();
 </script>
 {% endif %}
