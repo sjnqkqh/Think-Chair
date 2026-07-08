@@ -10,11 +10,11 @@ from app.core.database import Base
 
 
 class ConceptType(str, enum.Enum):
-    TECH_DEEPDIVE = "tech_deepdive"
-    RETROSPECTIVE = "retrospective"
-    ESSAY = "essay"
-    TIL = "til"
-    TEACHING = "teaching"
+    TECH_DEEPDIVE = "딥다이브"
+    RETROSPECTIVE = "회고"
+    ESSAY = "에세이"
+    TIL = "TIL"
+    TEACHING = "수업 자료"
 
 
 class ManuscriptStatus(str, enum.Enum):
