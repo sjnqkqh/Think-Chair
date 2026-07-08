@@ -10,7 +10,7 @@ from app.graph.nodes.opening import opening_node
 from app.graph.nodes.outline import outline_node
 from app.graph.nodes.persist_version import persist_version_node
 from app.graph.nodes.polish import polish_node
-from app.graph.nodes.router import router_node
+from app.graph.router.intent_router import router_node
 from app.graph.prompts.phases.outline import OUTLINE_FINAL_GUARD
 from app.graph.prompts.phases.polish import POLISH_FINAL_GUARD
 

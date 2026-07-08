@@ -8,7 +8,7 @@ from app.graph.nodes.opening import opening_node
 from app.graph.nodes.outline import outline_node
 from app.graph.nodes.persist_version import persist_version_node
 from app.graph.nodes.polish import polish_node
-from app.graph.nodes.router import route_by_action, router_node
+from app.graph.router.intent_router import route_by_action, router_node
 from app.graph.state import GraphState
 
 

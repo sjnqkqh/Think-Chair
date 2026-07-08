@@ -65,6 +65,7 @@ def test_workspace_detail_does_not_render_draft_prompt_button(client):
         assert response.status_code == 200
         assert "!event.isComposing" in response.text
         assert "event.keyCode !== 229" in response.text
+        assert "this.reset()" not in response.text
         assert "초고 작성" not in response.text
         assert "점검 요청" not in response.text
         assert "개요 생성" in response.text
