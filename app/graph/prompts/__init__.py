@@ -5,12 +5,15 @@ from app.graph.prompts.constraints.emoji_ban import EMOJI_BAN
 from app.graph.prompts.constraints.prompt_leak_ban import PROMPT_LEAK_BAN
 from app.graph.prompts.constraints.table_ban import TABLE_BAN
 from app.graph.prompts.persona.base_persona import BASE_PERSONA
+from app.graph.prompts.persona.listening_persona import LISTENING_PERSONA
 from app.graph.prompts.phases.feedback import FEEDBACK
 from app.graph.prompts.phases.opening import OPENING, build_opening_prompt
 from app.graph.prompts.phases.outline import OUTLINE
 from app.graph.prompts.phases.polish import POLISH
-from app.graph.prompts.phases.say import SAY
+from app.graph.prompts.phases.say import SAY, SAY_LISTENING
 from app.graph.prompts.types import PromptTemplate
+
+LISTENING_CONCEPTS = {"TIL", "회고"}
 
 PHASE_ROLES = {
     "opening": "purpose",
@@ -38,9 +41,19 @@ def get_concept_content(concept: str, phase: str) -> PromptTemplate:
 
 
 def get_phase_instruction(concept: str, phase: str) -> PromptTemplate:
+    concept_key = concept.value if hasattr(concept, "value") else concept
     if phase == "opening":
         return build_opening_prompt(concept)
+    if phase == "say" and concept_key in LISTENING_CONCEPTS:
+        return SAY_LISTENING
     return PHASE_INSTRUCTIONS[phase]
+
+
+def get_persona(concept: str) -> PromptTemplate:
+    concept_key = concept.value if hasattr(concept, "value") else concept
+    if concept_key in LISTENING_CONCEPTS:
+        return LISTENING_PERSONA
+    return BASE_PERSONA
 
 
 def build_system_prompt(
@@ -51,6 +64,7 @@ def build_system_prompt(
     user_nickname: str | None = None,
     audience: str | None = None,
 ) -> str:
+    persona = get_persona(concept)
     concept_content = get_concept_content(concept, phase)
     phase_template = get_phase_instruction(concept, phase)
 
@@ -61,7 +75,7 @@ def build_system_prompt(
         context += f"\n[독자 수준] {audience}"
 
     parts = [
-        BASE_PERSONA.text,
+        persona.text,
         *(constraint.text for constraint in GLOBAL_CONSTRAINTS),
         concept_content.text,
         phase_template.text,

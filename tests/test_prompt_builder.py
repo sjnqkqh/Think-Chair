@@ -8,20 +8,23 @@ from app.graph.prompts import (
     build_system_prompt,
     get_concept_content,
     get_phase_instruction,
+    get_persona,
 )
 from app.graph.prompts.persona.base_persona import BASE_PERSONA
+from app.graph.prompts.persona.listening_persona import LISTENING_PERSONA
 from app.graph.prompts.phases.outline import OUTLINE_FINAL_GUARD
 from app.graph.prompts.phases.polish import POLISH_FINAL_GUARD
-from app.graph.prompts.phases.say import SAY_DOCUMENT_GUARD
+from app.graph.prompts.phases.say import SAY_DOCUMENT_GUARD, SAY_LISTENING
 
 
 @pytest.mark.parametrize("concept", list(CONCEPT_TEMPLATES.keys()))
 @pytest.mark.parametrize("phase", list(PHASE_INSTRUCTIONS.keys()))
 def test_prompt_includes_persona_concept_and_phase(concept, phase):
-    # 모든 컨셉 x 페이즈 조합에서 base_persona + concept 콘텐츠(역할별) + phase 지시문이 모두 포함되어야 한다.
+    # 모든 컨셉 x 페이즈 조합에서 컨셉별 persona + concept 콘텐츠(역할별) + phase 지시문이 모두 포함되어야 한다.
     prompt = build_system_prompt(concept, phase, topic="테스트 주제")
 
     assert "존댓말" in prompt
+    assert get_persona(concept).text in prompt
     assert get_concept_content(concept, phase).text in prompt
     assert get_phase_instruction(concept, phase).text in prompt
 
@@ -63,6 +66,41 @@ def test_prompt_omits_audience_context_when_not_provided():
     assert "[독자 수준]" not in prompt
 
 
+@pytest.mark.parametrize("concept", ["회고", "TIL"])
+def test_listening_concepts_use_listening_persona(concept):
+    prompt = build_system_prompt(concept, "say", topic="테스트 주제")
+
+    assert LISTENING_PERSONA.text in prompt
+    assert BASE_PERSONA.text not in prompt
+    assert "학생이 겪은 기술적 경험, 시행착오, 감정, 배운 점" in prompt
+    assert "빈틈을 찾아 질문한다" not in prompt
+    assert "내용이 충분히 쌓인 후" not in prompt
+
+
+@pytest.mark.parametrize("concept", ["딥다이브", "수업 자료"])
+def test_technical_exploration_concepts_keep_base_persona(concept):
+    prompt = build_system_prompt(concept, "say", topic="테스트 주제")
+
+    assert BASE_PERSONA.text in prompt
+    assert LISTENING_PERSONA.text not in prompt
+    assert "빈틈을 찾아 질문한다" in prompt
+
+
+@pytest.mark.parametrize("concept", ["회고", "TIL"])
+def test_listening_concepts_use_listening_say_phase(concept):
+    prompt = build_system_prompt(concept, "say", topic="테스트 주제")
+
+    assert SAY_LISTENING.text in prompt
+    assert "매 응답마다 질문하지 마십시오" in prompt
+
+
+def test_deepdive_keeps_question_oriented_say_phase():
+    prompt = build_system_prompt("딥다이브", "say", topic="테스트 주제")
+
+    assert SAY_LISTENING.text not in prompt
+    assert "자연스럽게 질문을 이어가십시오" in prompt
+
+
 @pytest.mark.parametrize(
     ("concept", "expected", "unexpected"),
     [
@@ -98,6 +136,7 @@ def test_prompt_prohibits_emoji():
 def _all_templates():
     templates = [
         BASE_PERSONA,
+        LISTENING_PERSONA,
         SAY_DOCUMENT_GUARD,
         OUTLINE_FINAL_GUARD,
         POLISH_FINAL_GUARD,
