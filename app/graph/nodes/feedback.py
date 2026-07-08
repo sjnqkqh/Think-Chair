@@ -12,6 +12,7 @@ async def feedback_node(state: DraftsmithState, config: RunnableConfig) -> dict:
         state["concept"],
         phase="feedback",
         topic=state["topic"],
+        user_nickname=state.get("user_nickname"),
         audience=state.get("audience_level"),
     )
     resp = await llm.ainvoke([SystemMessage(content=system), *state["messages"]])

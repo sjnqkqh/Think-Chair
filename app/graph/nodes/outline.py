@@ -13,6 +13,7 @@ async def outline_node(state: DraftsmithState, config: RunnableConfig) -> dict:
         state["concept"],
         phase="outline",
         topic=state["topic"],
+        user_nickname=state.get("user_nickname"),
         audience=state.get("audience_level"),
     )
     resp = await llm.ainvoke(

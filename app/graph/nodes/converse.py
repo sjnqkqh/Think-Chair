@@ -13,6 +13,7 @@ async def converse_node(state: DraftsmithState, config: RunnableConfig) -> dict:
         state["concept"],
         phase=state["user_action"],
         topic=state["topic"],
+        user_nickname=state.get("user_nickname"),
         audience=state.get("audience_level"),
     )
     resp = await llm.ainvoke(

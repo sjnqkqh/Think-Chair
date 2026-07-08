@@ -13,6 +13,7 @@ async def polish_node(state: DraftsmithState, config: RunnableConfig) -> dict:
         state["concept"],
         phase="polish",
         topic=state["topic"],
+        user_nickname=state.get("user_nickname"),
         audience=state.get("audience_level"),
     )
 

@@ -4,7 +4,7 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
 UserAction = Literal[
-    "say", "feedback", "outline", "polish", "finalize"
+    "opening", "say", "feedback", "outline", "polish", "finalize"
 ]
 
 
@@ -20,6 +20,7 @@ class DraftsmithState(TypedDict):
     manuscript_id: str
     concept: str
     topic: str
+    user_nickname: str | None
     audience_level: str | None
     user_action: UserAction | None
     messages: Annotated[list[BaseMessage], add_messages]

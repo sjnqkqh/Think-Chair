@@ -7,6 +7,7 @@ from app.graph.prompts import (
     PHASE_ROLES,
     build_system_prompt,
     get_concept_content,
+    get_phase_instruction,
 )
 from app.graph.prompts.persona.base_persona import BASE_PERSONA
 from app.graph.prompts.phases.outline import OUTLINE_FINAL_GUARD
@@ -22,7 +23,7 @@ def test_prompt_includes_persona_concept_and_phase(concept, phase):
 
     assert "존댓말" in prompt
     assert get_concept_content(concept, phase).text in prompt
-    assert PHASE_INSTRUCTIONS[phase].text in prompt
+    assert get_phase_instruction(concept, phase).text in prompt
 
 
 @pytest.mark.parametrize("concept", list(CONCEPT_TEMPLATES.keys()))
@@ -62,14 +63,29 @@ def test_prompt_omits_audience_context_when_not_provided():
     assert "[독자 수준]" not in prompt
 
 
-def test_opening_prompt_starts_with_topic_understanding_check():
-    prompt = build_system_prompt("TIL", "opening", topic="FastAPI 학습")
+@pytest.mark.parametrize(
+    ("concept", "expected", "unexpected"),
+    [
+        ("딥다이브", "얼마나 이해하고 있나요? 간단하게라도 설명해주세요", "어떤 것을 배웠나요"),
+        ("수업 자료", "얼마나 이해하고 있나요? 간단하게라도 설명해주세요", "어떤 경험이었나요"),
+        ("TIL", "어떤 것을 배웠나요? 가볍게 설명해주세요", "얼마나 이해하고 있나요"),
+        ("회고", "어떤 경험이었나요? 가볍게 들려주세요", "어떤 것을 배웠나요"),
+        ("에세이", "어떤 경험이었나요? 가볍게 들려주세요", "얼마나 이해하고 있나요"),
+    ],
+)
+def test_opening_prompt_uses_concept_specific_question(concept, expected, unexpected):
+    prompt = build_system_prompt(
+        concept, "opening", topic="FastAPI 학습", user_nickname="테스터"
+    )
 
     assert "대화 시작 단계" in prompt
-    assert "단순한 인사" in prompt
-    assert "얼마나 알고 있는지" in prompt
-    assert "짧게 설명" in prompt
+    assert "안녕하세요, [사용자 닉네임]" in prompt
+    assert "오늘 [사용자 닉네임]과 함께 이야기할 주제는 '[주제]' 입니다" in prompt
+    assert expected in prompt
+    assert unexpected not in prompt
+    assert "반갑습니다" not in prompt
     assert "[주제] FastAPI 학습" in prompt
+    assert "[사용자 닉네임] 테스터" in prompt
 
 
 def test_prompt_prohibits_emoji():
