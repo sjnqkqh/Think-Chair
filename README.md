@@ -1,115 +1,141 @@
-# Draftsmith
+# Think Chair
 
-FastAPI 기반 **Draftsmith (AI 글쓰기 협업 워크스페이스)** 서버입니다. 로그인한 사용자가 원고(기술 딥다이브, 회고, 에세이, TIL, 강의자료)를 주제로 개설하고, 채팅으로 AI와 대화하며 개요 → 초고 → 탈고 단계를 거쳐 마크다운 원고를 생성·확정하는 LangGraph 기반 워크스페이스입니다.
+LLM에 의존하던 시절, 우리는 편리함과 함께 주도성 상실을 경험했습니다. 우리는 개발자임에도, 스스로 무언가를 만들고 있다는 감각은 점점 흐려졌습니다.
+
+**Think Chair**는 그 반대 방향으로 움직이는 프로그램입니다. 답을 대신 내놓는 AI가 아니라, 끊임없이 질문을 던지며 사용자의 생각을 끌어내는 AI를 지향합니다.
+
+사용자가 글감이나 주제를 제시하면 AI는 관련 질문을 만들고, 사용자의 답변에서 논리적 빈틈과 불명확한 지점을 찾아 더 깊은 질문으로 이어갑니다. 이 과정은 사용자가 안다고 생각했던 개념과 아직 설명하지 못하는 개념을 구분할 때까지 반복됩니다.
+
+Think Chair는 개발자가 자신이 가진 지식의 밑바닥을 직접 마주하고, AI의 질문에 최대한의 근거를 갖춘 의견을 내며, 피드백 루프를 거쳐 더 깊은 수준의 지식을 습득하도록 돕기 위해 만들어졌습니다.
+
+## 무엇을 하는가
+
+Think Chair는 FastAPI 기반 **AI 사고 훈련 및 글쓰기 협업 워크스페이스**입니다. 로그인한 사용자가 주제와 글의 유형을 정하면, AI가 교수처럼 질문하고 피드백하며 사용자의 생각을 구조화합니다. 충분한 대화가 쌓이면 사용자는 개요를 만들거나, 지금까지의 대화를 바탕으로 마크다운 원고를 생성하고 버전으로 저장할 수 있습니다.
+
+핵심은 "AI가 바로 써주는 글"이 아니라 "사용자가 설명할 수 있을 때까지 AI가 되묻는 과정"입니다.
+
+## 주요 기능
+
+- 주제 기반 워크스페이스 생성
+- 딥다이브, 회고, 에세이, TIL, 수업 자료 컨셉 지원
+- LangGraph 기반 대화 흐름 제어
+- 질문, 피드백, 개요 생성, 탈고 요청을 의도별 노드로 라우팅
+- 대화 히스토리를 바탕으로 마크다운 개요와 최종 원고 생성
+- 생성된 원고 버전 저장 및 다운로드
+- JWT 쿠키 기반 로그인/회원가입
+- LangSmith 추적 연동
+
+## 사용 흐름
+
+1. 사용자가 워크스페이스에서 주제와 컨셉을 선택해 원고를 생성합니다.
+2. AI가 주제에 대한 첫 질문을 던집니다.
+3. 사용자는 자신의 경험, 이해, 주장, 근거를 답변합니다.
+4. AI는 답변의 비약, 모호한 표현, 근거 부족을 짚고 더 구체적인 질문을 이어갑니다.
+5. 사용자는 필요할 때 피드백을 요청해 현재까지의 논리와 재료를 점검합니다.
+6. 충분한 대화가 쌓이면 개요를 생성합니다.
+7. 최종적으로 지금까지의 대화와 개요를 바탕으로 마크다운 원고를 탈고하고 버전으로 저장합니다.
 
 ## 기술 스택
 
 | 영역 | 기술 |
-|------|------|
-| 서버 | FastAPI, Jinja2 + htmx, SQLAlchemy (SQLite) |
-| LLM | LangGraph `StateGraph`, `llm_registry`를 통한 모델 선택(기본 DeepSeek) |
-| 인증 | JWT 쿠키 기반 (`app/core/security.py`, `app/core/auth_deps.py`) |
-| 대화 상태 저장 | LangGraph SQLite Checkpointer (`draftsmith_checkpoint.db`) |
+| --- | --- |
+| 서버 | FastAPI, Jinja2, htmx, Alpine.js |
+| 데이터 | SQLAlchemy, SQLite |
+| LLM 흐름 | LangGraph `StateGraph`, LangGraph SQLite Checkpointer |
+| LLM 연동 | `langchain-openai` 호환 DeepSeek 설정 |
+| 인증 | JWT 쿠키 |
+| 저장소 | 로컬 파일 스토리지 기반 마크다운 버전 저장 |
 | 추적 | LangSmith |
+| 테스트 | pytest, pytest-asyncio |
 
 ## 프로젝트 구조
 
-```
+```text
 app/
-├── main.py                  # FastAPI 앱 조립, lifespan에서 LangGraph 체크포인터/그래프 초기화
-├── api/endpoints/           # API: auth, manuscripts
-├── pages/                   # HTML 페이지 라우터 (Jinja2 + htmx)
-│   ├── auth_pages.py         # 로그인/회원가입 화면
-│   ├── workspace_pages.py    # 워크스페이스 화면
-│   └── chat_pages.py         # 채팅 메시지 처리 (htmx partial 응답)
-├── graph/                   # LangGraph 정의
-│   ├── builder.py            # StateGraph 노드/엣지 구성
-│   ├── state.py              # DraftsmithState, UserAction, PendingVersion 타입
-│   ├── checkpointer.py       # SQLite AsyncSqliteSaver 팩토리
-│   ├── llm_registry.py       # 모델 이름 → LLM 인스턴스 매핑
-│   ├── nodes/                # router, converse, feedback, outline, draft, polish,
-│   │                          # chinese_prevent, persist_version, finalize
-│   └── prompts/              # phase/concept/persona/constraint 조합으로 시스템 프롬프트 생성
-├── models/                  # SQLAlchemy 모델 (User, Manuscript, ManuscriptVersion)
-├── repositories/            # DB 접근 계층 (manuscript_repo)
-├── schemas/                 # Pydantic 요청/응답 스키마
-├── services/                # 비즈니스 로직 (얇은 엔드포인트 원칙: 로직은 전부 여기)
-│   ├── auth_service.py, manuscript_service.py, chat_service.py
-│   └── storage/              # 원고 마크다운 파일 저장 추상화 (local 구현)
-├── core/                    # 설정, DB 세션, 예외 처리, JWT, 한자 필터 등 공통 유틸
-└── templates/               # Jinja2 템플릿 (auth/, workspace/)
+├── main.py                  # FastAPI 앱 조립, LangGraph 체크포인터/그래프 초기화
+├── api/endpoints/           # API 라우터: auth, manuscripts
+├── pages/                   # HTML 페이지 라우터: auth, workspace, chat
+├── templates/               # Jinja2 템플릿
+├── graph/                   # LangGraph 상태 머신, 노드, 라우터, 프롬프트
+│   ├── builder.py            # opening/say/feedback/outline/polish/finalize 흐름 구성
+│   ├── state.py              # GraphState, UserAction, PendingVersion 타입
+│   ├── nodes/                # 대화, 피드백, 개요, 탈고, 저장 노드
+│   └── prompts/              # persona/phase/concept/constraint 프롬프트 조합
+├── models/                  # SQLAlchemy 모델
+├── repositories/            # DB 접근 계층
+├── schemas/                 # Pydantic 스키마
+├── services/                # 인증, 채팅, 원고, 저장소 비즈니스 로직
+└── core/                    # 설정, DB 세션, 보안, 예외 처리, 필터 등 공통 유틸
+
 tests/                       # pytest 테스트
-prompt-sample/               # 원고 컨셉별 프롬프트 마크다운 원본(체크리스트/품질기준 등)
+pr-docs/                     # 변경 이력과 PR 문서
 ```
+
+## LangGraph 흐름
+
+Think Chair의 대화는 `app/graph/builder.py`의 상태 머신으로 실행됩니다.
+
+- `opening`: 새 원고의 첫 대화에서 주제별 오프닝 질문 생성
+- `say`: 일반 대화와 사고 확장 질문
+- `feedback`: 지금까지의 내용에 대한 논리 점검과 보완 질문
+- `outline`: 대화를 바탕으로 목차와 핵심 문장 생성
+- `polish`: 대화를 바탕으로 저장 가능한 마크다운 원고 생성
+- `chinese_prevent`: 한자/중국어 혼입 정제
+- `persist_version`: 생성된 개요 또는 원고를 버전으로 저장
+- `finalize`: 선택한 버전 확정
+
+사용자 메시지는 먼저 라우터 프롬프트에서 `say / feedback / outline / polish` 중 하나로 분류되고, 각 노드의 결과는 LangGraph SQLite Checkpointer에 대화 상태로 누적됩니다.
 
 ## 환경 설정
 
-`.env.example`을 참고해 프로젝트 루트에 `.env` 파일을 생성합니다.
+프로젝트 루트에 `.env` 파일을 생성합니다.
 
 ```env
-# 사용하는 LLM — 기본값이 비어 있으면 실제 호출 시 인증 실패
 DEEPSEEK_API_KEY=your_deepseek_api_key
 DEEPSEEK_API_BASE=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
 
-# 인증 — 운영 배포 전 반드시 교체
-JWT_SECRET=dev-secret-change-me
+JWT_SECRET=change-this-in-production
+JWT_TTL_HOURS=24
+STORAGE_ROOT=./storage
 
-# 선택 — LangSmith 추적
+# 선택: LangSmith 추적
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_API_KEY=your_langsmith_api_key
-LANGCHAIN_PROJECT=your_project_name
+LANGCHAIN_PROJECT=think-chair
 ```
 
 ## 실행
 
 ```bash
-# 의존성 설치 (uv 권장)
 uv sync
-
-# 서버 실행
 uvicorn app.main:app --reload
 ```
 
-- 워크스페이스: `http://localhost:8000/workspace` (로그인 필요, 없으면 회원가입 유도)
+- 워크스페이스: `http://localhost:8000/workspace`
 - API 문서: `http://localhost:8000/docs`
-
-## 흐름 개요
-
-1. 사용자가 워크스페이스에서 원고(주제 + 컨셉 + 독자 수준)를 생성하면 `/workspace/{manuscript_id}`로 이동한다.
-2. 사이드바 버튼 또는 자유 채팅 입력이 `POST /api/chat/{manuscript_id}/message`로 전송된다.
-3. `ChatService.run()`이 LangGraph(`build_graph`)를 `thread_id=manuscript_id`로 실행한다. 대화 이력은 별도 테이블 없이 LangGraph SQLite 체크포인터가 유일한 소스다.
-4. `router_node`가 분류 프롬프트(`CLASSIFIER`)로 사용자 의도를 `say / inspect / feedback / outline / draft / polish / finalize` 중 하나로 분류하고, 조건부 엣지로 해당 노드로 라우팅한다.
-5. `outline_node` / `draft_node` / `polish_node`는 컨셉·단계·독자 수준에 맞는 시스템 프롬프트(`build_system_prompt`)로 LLM을 호출해 마크다운 콘텐츠를 만들고, 채팅 메시지에는 완료 안내만 남긴 채 `pending_version`에 결과를 담는다.
-6. 모든 생성/대화 노드는 공통으로 `chinese_prevent_node`를 거쳐 한자(중국어) 혼입을 정제한 뒤, `pending_version`이 있으면 `persist_version_node`로 이어진다.
-7. `persist_version_node`가 마크다운을 파일 스토리지에 저장하고 `ManuscriptVersion` row(kind, revision, storage_key)를 커밋한다.
-8. 응답 htmx partial(`_chat_turn.html`)이 채팅 메시지 2개와 함께 `_version_update.html`을 포함하는데, 여기서 `hx-swap-oob`로 우측 사이드바의 버전 목록(`#version-list`)에 새 버전을 out-of-band로 추가한다.
-9. 사용자는 버전별로 다운로드하거나(`GET /api/manuscripts/{id}/versions/{version_id}/download`), 하나를 확정(`POST /api/manuscripts/{id}/finalize?version_id=...`)할 수 있다.
-
-## 원고 컨셉(ConceptType)
-
-`tech_deepdive`(기술 딥다이브), `retrospective`(회고), `essay`(에세이), `til`(TIL), `teaching`(강의자료) — 각 컨셉의 프롬프트 원본은 `prompt-sample/`에 있으며, `app/graph/prompts/concepts/`에서 로드해 시스템 프롬프트를 조합한다.
 
 ## API
 
-```
-POST   /api/auth/signup                                  # 회원가입, JWT 쿠키 발급
-POST   /api/auth/login                                   # 로그인
-POST   /api/auth/logout                                   # 로그아웃
+```text
+POST   /api/auth/signup
+POST   /api/auth/login
+POST   /api/auth/logout
 
-POST   /api/manuscripts                                   # 원고 생성 (topic, concept, audience_level)
-GET    /api/manuscripts                                   # 내 원고 목록
-GET    /api/manuscripts/{manuscript_id}                   # 원고 상세
-GET    /api/manuscripts/{manuscript_id}/versions/{version_id}/download   # 버전 마크다운 다운로드
-POST   /api/manuscripts/{manuscript_id}/finalize?version_id=...          # 버전 확정
+POST   /api/manuscripts
+GET    /api/manuscripts
+GET    /api/manuscripts/{manuscript_id}
+GET    /api/manuscripts/{manuscript_id}/versions/{version_id}/download
+POST   /api/manuscripts/{manuscript_id}/finalize?version_id=...
 
-POST   /api/chat/{manuscript_id}/message                  # 채팅 메시지 전송 (htmx partial 응답)
+POST   /api/chat/{manuscript_id}/message
 ```
 
 ## 테스트
 
 ```bash
-pytest
+uv run pytest
+uv run ruff check app tests
 ```
 
-`tests/`는 인증, 원고 서비스, LangGraph 노드·빌드, 채팅 API, 워크스페이스 페이지, 한자 필터, 스토리지를 커버합니다.
+`tests/`는 인증, 원고 서비스, LangGraph 노드와 빌드, 채팅 API, 워크스페이스 페이지, 한자/중국어 필터, 로컬 스토리지를 검증합니다.
