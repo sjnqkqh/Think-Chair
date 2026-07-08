@@ -14,7 +14,7 @@ class PendingVersion(TypedDict, total=False):
     revision: int
 
 
-class DraftsmithState(TypedDict):
+class GraphState(TypedDict):
     manuscript_id: str
     concept: str
     topic: str

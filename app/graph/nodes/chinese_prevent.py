@@ -1,10 +1,10 @@
 from langchain_core.messages import AIMessage
 
 from app.core.chinese_filter import sanitize_chinese
-from app.graph.state import DraftsmithState
+from app.graph.state import GraphState
 
 
-def chinese_prevent_node(state: DraftsmithState) -> dict:
+def chinese_prevent_node(state: GraphState) -> dict:
     patch: dict = {}
     last = state["messages"][-1] if state["messages"] else None
     if isinstance(last, AIMessage) and last.content:

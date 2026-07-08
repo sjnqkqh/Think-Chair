@@ -4,10 +4,10 @@ from langchain_core.runnables import RunnableConfig
 from app.graph.llm_registry import get as get_llm
 from app.graph.prompts import build_system_prompt
 from app.graph.prompts.phases.say import SAY_DOCUMENT_GUARD
-from app.graph.state import DraftsmithState
+from app.graph.state import GraphState
 
 
-async def converse_node(state: DraftsmithState, config: RunnableConfig) -> dict:
+async def converse_node(state: GraphState, config: RunnableConfig) -> dict:
     llm = get_llm(config["configurable"].get("model", "default"))
     system = build_system_prompt(
         state["concept"],

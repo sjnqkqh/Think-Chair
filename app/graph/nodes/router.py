@@ -6,7 +6,7 @@ from langchain_core.runnables import RunnableConfig
 
 from app.graph.llm_registry import get as get_language_model
 from app.graph.prompts.classifier import CLASSIFIER
-from app.graph.state import DraftsmithState
+from app.graph.state import GraphState
 from app.models.chat import RoutingDecision
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 CLASSIFIABLE_ACTIONS = {"say", "feedback", "outline", "polish"}
 
 
-def _last_human_message(state: DraftsmithState) -> HumanMessage | None:
+def _last_human_message(state: GraphState) -> HumanMessage | None:
     return next(
         (
             message
@@ -25,7 +25,7 @@ def _last_human_message(state: DraftsmithState) -> HumanMessage | None:
     )
 
 
-def _is_opening_turn(state: DraftsmithState) -> bool:
+def _is_opening_turn(state: GraphState) -> bool:
     human_messages = [
         message for message in state["messages"] if isinstance(message, HumanMessage)
     ]
@@ -71,7 +71,7 @@ def _parse_classification(
 
 
 def _record_routing_decision(
-    state: DraftsmithState,
+    state: GraphState,
     config: RunnableConfig,
     decision: str,
     reason: str,
@@ -94,7 +94,7 @@ def _record_routing_decision(
     )
 
 
-async def router_node(state: DraftsmithState, config: RunnableConfig) -> dict:
+async def router_node(state: GraphState, config: RunnableConfig) -> dict:
     configuration = config
     last_human_message = _last_human_message(state)
     message_preview = _message_preview(last_human_message)
@@ -131,5 +131,5 @@ async def router_node(state: DraftsmithState, config: RunnableConfig) -> dict:
     return {"user_action": action}
 
 
-def route_by_action(state: DraftsmithState) -> str:
+def route_by_action(state: GraphState) -> str:
     return state.get("user_action") or "say"

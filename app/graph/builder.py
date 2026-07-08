@@ -9,11 +9,11 @@ from app.graph.nodes.outline import outline_node
 from app.graph.nodes.persist_version import persist_version_node
 from app.graph.nodes.polish import polish_node
 from app.graph.nodes.router import route_by_action, router_node
-from app.graph.state import DraftsmithState
+from app.graph.state import GraphState
 
 
 def build_graph(checkpointer):
-    graph = StateGraph(DraftsmithState)
+    graph = StateGraph(GraphState)
     graph.add_node("router", router_node)
     graph.add_node("opening", opening_node)
     graph.add_node("converse", converse_node)

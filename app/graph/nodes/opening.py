@@ -3,10 +3,10 @@ from langchain_core.runnables import RunnableConfig
 
 from app.graph.llm_registry import get as get_language_model
 from app.graph.prompts import build_system_prompt
-from app.graph.state import DraftsmithState
+from app.graph.state import GraphState
 
 
-async def opening_node(state: DraftsmithState, config: RunnableConfig) -> dict:
+async def opening_node(state: GraphState, config: RunnableConfig) -> dict:
     configuration = config
     language_model = get_language_model(
         configuration["configurable"].get("model", "default")

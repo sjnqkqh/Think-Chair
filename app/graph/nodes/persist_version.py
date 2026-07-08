@@ -3,7 +3,7 @@ import uuid
 
 from langchain_core.runnables import RunnableConfig
 
-from app.graph.state import DraftsmithState
+from app.graph.state import GraphState
 from app.models.manuscript import ManuscriptVersion
 
 
@@ -20,7 +20,7 @@ def _next_revision(db, manuscript_id: str, kind: str) -> int:
     return (last_manuscript.revision + 1) if last_manuscript else 1
 
 
-def persist_version_node(state: DraftsmithState, config: RunnableConfig) -> dict:
+def persist_version_node(state: GraphState, config: RunnableConfig) -> dict:
     pending_version = state["pending_version"]
     storage = config["configurable"]["storage"]
     db = config["configurable"]["db_session"]

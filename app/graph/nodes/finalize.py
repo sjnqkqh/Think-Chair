@@ -1,5 +1,5 @@
-from app.graph.state import DraftsmithState
+from app.graph.state import GraphState
 
 
-def finalize_node(state: DraftsmithState) -> dict:
+def finalize_node(state: GraphState) -> dict:
     return {}
