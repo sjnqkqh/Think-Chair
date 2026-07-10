@@ -1,11 +1,17 @@
+import logging
+import uuid
+
 from langchain_core.messages import HumanMessage
 from langchain_core.messages import AIMessage
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.models.chat import ChatMessage
 from app.models.manuscript import Manuscript
 from app.models.user import User
 from app.services.storage.base import FileStorage
+
+logger = logging.getLogger(__name__)
 
 
 class ChatService:
@@ -29,7 +35,6 @@ class ChatService:
                 content=user_message,
                 phase=None,
             )
-            db.flush()
             config = {
                 "configurable": {
                     "thread_id": str(manuscript.id),
@@ -62,7 +67,6 @@ class ChatService:
                 content=str(ai_message.content),
                 phase=state.get("user_action"),
             )
-            db.commit()
             return state
 
     @staticmethod
@@ -73,17 +77,27 @@ class ChatService:
         content: str,
         phase: str | None,
     ) -> ChatMessage:
-        last_sequence = (
-            db.query(func.max(ChatMessage.sequence))
-            .filter(ChatMessage.manuscript_id == manuscript.id)
-            .scalar()
-        )
+        """채팅 기록 저장. 저장에 실패해도 예외를 삼키고 in-memory 메시지를 반환한다."""
         message = ChatMessage(
+            id=uuid.uuid4(),
             manuscript_id=manuscript.id,
             role=role,
             content=content,
             phase=phase,
-            sequence=(last_sequence or 0) + 1,
+            sequence=1,
         )
-        db.add(message)
+        try:
+            last_sequence = (
+                db.query(func.max(ChatMessage.sequence))
+                .filter(ChatMessage.manuscript_id == manuscript.id)
+                .scalar()
+            )
+            message.sequence = (last_sequence or 0) + 1
+            db.add(message)
+            db.commit()
+        except SQLAlchemyError:
+            logger.exception(
+                "채팅 기록 저장 실패 (manuscript_id=%s, role=%s)", manuscript.id, role
+            )
+            db.rollback()
         return message
