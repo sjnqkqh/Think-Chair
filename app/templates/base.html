@@ -24,5 +24,14 @@
 </head>
 <body class="min-h-screen">
   {% block content %}{% endblock %}
+  <script>
+    document.body.addEventListener('htmx:confirm', function (evt) {
+      if (!evt.target.hasAttribute('hx-confirm')) return;
+      evt.preventDefault();
+      if (window.confirm(evt.detail.question)) {
+        evt.detail.issueRequest(true);
+      }
+    });
+  </script>
 </body>
 </html>

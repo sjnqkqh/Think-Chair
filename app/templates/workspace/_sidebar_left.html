@@ -18,8 +18,8 @@
         title="삭제"
         hx-delete="/api/manuscripts/{{ m.id }}"
         hx-swap="none"
-        data-confirm-message="'{{ m.topic }}' 원고를 삭제하시겠습니까?"
-        onclick="event.stopPropagation(); if (!window.confirm(this.dataset.confirmMessage)) { event.preventDefault(); return false; }"
+        hx-confirm="'{{ m.topic }}' 원고를 삭제하시겠습니까?"
+        onclick="event.stopPropagation();"
         hx-on::after-request="if(event.detail.successful && {{ 'true' if active_manuscript and active_manuscript.id == m.id else 'false' }}) window.location.href = '/workspace'"
         class="shrink-0 mr-1 px-1.5 py-1 text-xs text-[#9b9891] opacity-0 group-hover:opacity-100 hover:text-red-600"
       >✕</button>
