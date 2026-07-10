@@ -69,14 +69,14 @@
 
     const human = document.createElement('div');
     human.id = 'optimistic-human-message';
-    human.className = 'message message-human flex justify-start';
+    human.className = 'message message-human flex justify-end';
     human.innerHTML = '<p class="prose-writing bg-[#F6F5F4] rounded-[8px] px-4 py-3 text-base max-w-[75%] whitespace-pre-wrap leading-7"></p>';
     human.querySelector('p').textContent = content;
     log.appendChild(human);
 
     const pending = document.createElement('div');
     pending.id = 'optimistic-pending-ai';
-    pending.className = 'message message-ai flex justify-end';
+    pending.className = 'message message-ai flex justify-start';
     pending.innerHTML = '<p class="bg-[#e5e7eb] text-[#1f1f1f] rounded-[8px] px-4 py-3 text-base max-w-[75%] flex items-center"><span class="w-3.5 h-3.5 border-2 border-[#1f1f1f] border-t-transparent rounded-full animate-spin"></span></p>';
     log.appendChild(pending);
 
