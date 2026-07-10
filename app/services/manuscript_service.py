@@ -67,7 +67,7 @@ def get_version_file(
     if not version:
         raise NotFoundError("버전을 찾을 수 없습니다.")
     content = storage.read(version.storage_key)
-    safe_topic = re.sub(r'[\\/:*?"<>|]', "_", manuscript.topic).strip() or "원고"
+    safe_topic = re.sub(r'[\\/:*?"<>|\s]+', "_", manuscript.topic).strip("_") or "원고"
     filename = f"{safe_topic}_원고_{version.revision:02d}.md"
     return filename, content
 
