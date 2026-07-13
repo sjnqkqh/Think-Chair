@@ -11,6 +11,11 @@ from app.schemas.manuscript import ManuscriptCreateRequest
 
 logger = logging.getLogger(__name__)
 
+VERSION_KIND_LABELS = {
+    "outline": "개요",
+    "polish": "문서",
+}
+
 
 def create_manuscript(db: Session, user: User, payload: ManuscriptCreateRequest):
     manuscript = manuscript_repo.create(
@@ -68,7 +73,8 @@ def get_version_file(
         raise NotFoundError("버전을 찾을 수 없습니다.")
     content = storage.read(version.storage_key)
     safe_topic = re.sub(r'[\\/:*?"<>|\s]+', "_", manuscript.topic).strip("_") or "원고"
-    filename = f"{safe_topic}_원고_{version.revision:02d}.md"
+    kind_label = VERSION_KIND_LABELS.get(version.kind, "문서")
+    filename = f"{safe_topic}_{kind_label}_{version.revision:02d}.md"
     return filename, content
 
 
@@ -76,5 +82,4 @@ def delete_manuscript(db: Session, user: User, manuscript_id: uuid.UUID):
     manuscript = get_manuscript(db, user, manuscript_id)
     manuscript_repo.soft_delete(db, manuscript)
     logger.info("manuscript soft-deleted: manuscript_id=%s user_id=%s", manuscript_id, user.id)
-
 

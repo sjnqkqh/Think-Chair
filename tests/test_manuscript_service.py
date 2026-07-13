@@ -1,7 +1,10 @@
+import datetime
+from unittest.mock import MagicMock
+
 import pytest
 
 from app.core.exceptions import NotFoundError
-from app.models.manuscript import ConceptType
+from app.models.manuscript import ConceptType, ManuscriptVersion
 from app.models.user import User
 from app.schemas.manuscript import ManuscriptCreateRequest
 from app.services import manuscript_service
@@ -51,3 +54,40 @@ def test_get_manuscript_not_found_is_logged(db_session, caplog):
             manuscript_service.get_manuscript(db_session, stranger, manuscript.id)
 
     assert any("not found or not owned" in record.message for record in caplog.records)
+
+
+def test_get_version_file_uses_kind_specific_filename(db_session):
+    owner = _create_user(db_session, "svc_version_owner")
+    manuscript = manuscript_service.create_manuscript(
+        db_session,
+        owner,
+        ManuscriptCreateRequest(topic="버전 표시 테스트", concept=ConceptType.TIL),
+    )
+    outline = ManuscriptVersion(
+        manuscript_id=manuscript.id,
+        kind="outline",
+        revision=1,
+        storage_key="outlines/test.md",
+        created_at=datetime.datetime(2026, 7, 8, 0, 6),
+    )
+    document = ManuscriptVersion(
+        manuscript_id=manuscript.id,
+        kind="polish",
+        revision=1,
+        storage_key="polishs/test.md",
+        created_at=datetime.datetime(2026, 7, 8, 0, 7),
+    )
+    db_session.add_all([outline, document])
+    db_session.commit()
+    storage = MagicMock()
+    storage.read.return_value = b"content"
+
+    outline_filename, _ = manuscript_service.get_version_file(
+        db_session, owner, manuscript.id, outline.id, storage
+    )
+    document_filename, _ = manuscript_service.get_version_file(
+        db_session, owner, manuscript.id, document.id, storage
+    )
+
+    assert outline_filename == "버전_표시_테스트_개요_01.md"
+    assert document_filename == "버전_표시_테스트_문서_01.md"

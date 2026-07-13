@@ -87,14 +87,23 @@ def test_workspace_detail_renders_version_download_label(client, db_session):
         "/api/manuscripts", json={"topic": "버전 표시", "concept": "TIL"}
     )
     manuscript_id = uuid.UUID(create_response.json()["id"])
-    db_session.add(
-        ManuscriptVersion(
-            manuscript_id=manuscript_id,
-            kind="polish",
-            revision=1,
-            storage_key="polishs/test.md",
-            created_at=datetime.datetime(2026, 7, 8, 0, 7),
-        )
+    db_session.add_all(
+        [
+            ManuscriptVersion(
+                manuscript_id=manuscript_id,
+                kind="outline",
+                revision=1,
+                storage_key="outlines/test.md",
+                created_at=datetime.datetime(2026, 7, 8, 0, 6),
+            ),
+            ManuscriptVersion(
+                manuscript_id=manuscript_id,
+                kind="polish",
+                revision=1,
+                storage_key="polishs/test.md",
+                created_at=datetime.datetime(2026, 7, 8, 0, 7),
+            ),
+        ]
     )
     db_session.commit()
 
@@ -104,7 +113,9 @@ def test_workspace_detail_renders_version_download_label(client, db_session):
     try:
         response = client.get(f"/workspace/{manuscript_id}")
         assert response.status_code == 200
-        assert "버전 1" in response.text
+        assert "개요 1" in response.text
+        assert "문서 1" in response.text
+        assert "버전 1" not in response.text
         assert 'class="text-sm text-[#787671]">(09:07)</span>' in response.text
         assert "[다운로드]" in response.text
         assert "polish v1" not in response.text
