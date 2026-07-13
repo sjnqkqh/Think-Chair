@@ -26,21 +26,21 @@ class ChatService:
         user_message: str,
         model: str = "default",
     ) -> dict:
-        with self.db_factory() as db:
-            user = db.get(User, manuscript.user_id)
+        with self.db_factory() as database_session:
+            user = database_session.get(User, manuscript.user_id)
             user_chat_message = self._add_chat_message(
-                db,
+                database_session,
                 manuscript=manuscript,
                 role="user",
                 content=user_message,
                 phase=None,
             )
-            config = {
+            graph_configuration = {
                 "configurable": {
                     "thread_id": str(manuscript.id),
                     "model": model,
                     "storage": self.storage,
-                    "db_session": db,
+                    "db_session": database_session,
                 }
             }
 
@@ -53,25 +53,31 @@ class ChatService:
                 "user_action": None,
                 "current_message_id": str(user_chat_message.id),
                 "messages": [HumanMessage(content=user_message)],
+                "client_message": None,
                 "new_paper": None,
             }
 
-            state = await self.graph.ainvoke(input_state, config=config)
-            ai_message = next(
-                msg for msg in reversed(state["messages"]) if isinstance(msg, AIMessage)
-            )
+            state = await self.graph.ainvoke(input_state, config=graph_configuration)
+            assistant_content = state.get("client_message")
+            if assistant_content is None:
+                ai_message = next(
+                    message
+                    for message in reversed(state["messages"])
+                    if isinstance(message, AIMessage)
+                )
+                assistant_content = str(ai_message.content)
             self._add_chat_message(
-                db,
+                database_session,
                 manuscript=manuscript,
                 role="assistant",
-                content=str(ai_message.content),
+                content=assistant_content,
                 phase=state.get("user_action"),
             )
             return state
 
     @staticmethod
     def _add_chat_message(
-        db,
+        database_session,
         manuscript: Manuscript,
         role: str,
         content: str,
@@ -88,16 +94,16 @@ class ChatService:
         )
         try:
             last_sequence = (
-                db.query(func.max(ChatMessage.sequence))
+                database_session.query(func.max(ChatMessage.sequence))
                 .filter(ChatMessage.manuscript_id == manuscript.id)
                 .scalar()
             )
             message.sequence = (last_sequence or 0) + 1
-            db.add(message)
-            db.commit()
+            database_session.add(message)
+            database_session.commit()
         except SQLAlchemyError:
             logger.exception(
                 "채팅 기록 저장 실패 (manuscript_id=%s, role=%s)", manuscript.id, role
             )
-            db.rollback()
+            database_session.rollback()
         return message

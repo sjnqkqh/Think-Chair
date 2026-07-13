@@ -24,4 +24,7 @@ async def opening_node(state: GraphState, config: RunnableConfig) -> dict:
             *state["messages"],
         ]
     )
-    return {"messages": [AIMessage(content=response.content)]}
+    return {
+        "messages": [AIMessage(content=response.content)],
+        "client_message": response.content,
+    }

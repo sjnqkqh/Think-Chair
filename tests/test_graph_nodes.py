@@ -6,6 +6,8 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.graph import llm_registry as language_model_registry
 from app.graph.nodes.chinese_prevent import chinese_prevent_node
+from app.graph.nodes.converse import converse_node
+from app.graph.nodes.feedback import feedback_node
 from app.graph.nodes.opening import opening_node
 from app.graph.nodes.outline import outline_node
 from app.graph.nodes.make_new_paper import make_new_paper_node
@@ -24,6 +26,7 @@ def _base_state(**overrides):
         "audience_level": None,
         "user_action": "polish",
         "messages": [HumanMessage(content="원고를 작성해줘")],
+        "client_message": None,
         "new_paper": None,
     }
     state.update(overrides)
@@ -42,6 +45,7 @@ class RecordingLanguageModel:
 def test_chinese_prevent_node_removes_chinese_from_message_and_new_paper():
     state = _base_state(
         messages=[AIMessage(content="漢字テスト 결과", id="message-1")],
+        client_message="漢字테스트 안내",
         new_paper={"kind": "polish", "content": "漢字テスト 본문"},
     )
 
@@ -49,28 +53,31 @@ def test_chinese_prevent_node_removes_chinese_from_message_and_new_paper():
 
     assert "漢字" not in result["messages"][0].content
     assert result["messages"][0].id == "message-1"
+    assert "漢字" not in result["client_message"]
     assert "漢字" not in result["new_paper"]["content"]
 
 
-def test_make_new_paper_node_saves_to_storage_and_db():
+def test_make_new_paper_node_saves_to_storage_and_database():
     storage = MagicMock()
-    db = MagicMock()
-    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+    database_session = MagicMock()
+    database_session.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
         None
     )
 
     state = _base_state(new_paper={"kind": "polish", "content": "저장할 본문"})
-    config = {"configurable": {"storage": storage, "db_session": db}}
+    configuration = {
+        "configurable": {"storage": storage, "db_session": database_session}
+    }
 
-    result = make_new_paper_node(state, config)
+    result = make_new_paper_node(state, configuration)
 
     storage.save.assert_called_once()
     saved_key, saved_bytes = storage.save.call_args[0]
     assert saved_key.startswith("polishs/")
     assert saved_bytes == "저장할 본문".encode("utf-8")
 
-    db.add.assert_called_once()
-    db.commit.assert_called_once()
+    database_session.add.assert_called_once()
+    database_session.commit.assert_called_once()
     assert result["new_paper"]["storage_key"] == saved_key
     assert result["new_paper"]["version_id"]
     assert result["new_paper"]["created_at"]
@@ -139,6 +146,7 @@ async def test_opening_node_uses_opening_phase_without_extra_guard():
         result = await opening_node(state, {"configurable": {"model": "default"}})
 
         assert result["messages"][0].content == "생성된 원고 본문"
+        assert result["client_message"] == "생성된 원고 본문"
         assert "대화 시작 단계" in recording_model.messages[0].content
         assert "안녕하세요, [사용자 닉네임]" in recording_model.messages[0].content
         assert (
@@ -147,6 +155,35 @@ async def test_opening_node_uses_opening_phase_without_extra_guard():
         )
         assert "[사용자 닉네임] 테스터" in recording_model.messages[0].content
         assert recording_model.messages[-1] is human_message
+    finally:
+        if original is not None:
+            language_model_registry.register("default", original)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("node", "user_action"),
+    [(converse_node, "say"), (feedback_node, "feedback")],
+)
+async def test_response_nodes_return_context_message_and_client_message(
+    node, user_action
+):
+    original = language_model_registry._registry.get("default")
+    recording_model = RecordingLanguageModel()
+    language_model_registry.register("default", recording_model)
+    try:
+        human_message = HumanMessage(content="답변해주세요.")
+        state = _base_state(user_action=user_action, messages=[human_message])
+
+        result = await node(state, {"configurable": {"model": "default"}})
+
+        assert result["messages"][0].content == "생성된 원고 본문"
+        assert result["client_message"] == "생성된 원고 본문"
+        if user_action == "say":
+            assert recording_model.messages[-2] is human_message
+            assert isinstance(recording_model.messages[-1], SystemMessage)
+        else:
+            assert recording_model.messages[-1] is human_message
     finally:
         if original is not None:
             language_model_registry.register("default", original)
@@ -171,6 +208,8 @@ async def test_generation_nodes_append_final_output_rules_after_history(node, ki
         result = await node(state, {"configurable": {"model": "default"}})
 
         assert result["new_paper"]["kind"] == kind
+        assert result["client_message"]
+        assert "messages" not in result
         assert recording_model.messages[-2] is human_message
         assert isinstance(recording_model.messages[-1], SystemMessage)
         assert recording_model.messages[-1].content == expected_guard.text

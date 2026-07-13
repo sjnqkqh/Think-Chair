@@ -26,18 +26,24 @@ async def send_message(
     manuscript_id: uuid.UUID,
     content: str = Form(...),
     user: User = Depends(require_user),
-    svc: ChatService = Depends(get_chat_service),
-    db: Session = Depends(get_database_session),
+    chat_service: ChatService = Depends(get_chat_service),
+    database_session: Session = Depends(get_database_session),
 ):
-    manuscript = get_manuscript(db, user, manuscript_id)
-    state = await svc.run(manuscript, user_message=content)
+    manuscript = get_manuscript(database_session, user, manuscript_id)
+    state = await chat_service.run(manuscript, user_message=content)
     new_paper = state.get("new_paper")
-    ai_message = next(
-        msg for msg in reversed(state["messages"]) if isinstance(msg, AIMessage)
-    )
+    client_message = state.get("client_message")
+    if client_message is None:
+        ai_message = next(
+            message
+            for message in reversed(state["messages"])
+            if isinstance(message, AIMessage)
+        )
+    else:
+        ai_message = AIMessage(content=client_message)
     return templates.TemplateResponse(
         request,
-        "workspace/_chat_turn.html",
+            "workspace/_chat_turn.html",
         {
             "human_message": HumanMessage(content=content),
             "ai_message": ai_message,

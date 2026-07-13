@@ -23,4 +23,5 @@ class GraphState(TypedDict):
     user_action: UserAction | None
     current_message_id: str | None
     messages: Annotated[list[BaseMessage], add_messages]
+    client_message: str | None
     new_paper: NewPaper | None
