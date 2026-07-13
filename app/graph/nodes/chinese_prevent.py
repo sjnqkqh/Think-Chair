@@ -12,8 +12,8 @@ def chinese_prevent_node(state: GraphState) -> dict:
         if clean != last.content:
             patch["messages"] = [AIMessage(content=clean, id=last.id)]
 
-    pending_version = state.get("pending_version")
-    if pending_version and pending_version.get("content"):
-        patch["pending_version"] = {**pending_version, "content": sanitize_chinese(pending_version["content"])}
+    new_paper = state.get("new_paper")
+    if new_paper and new_paper.get("content"):
+        patch["new_paper"] = {**new_paper, "content": sanitize_chinese(new_paper["content"])}
 
     return patch

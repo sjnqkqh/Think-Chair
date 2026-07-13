@@ -26,5 +26,5 @@ async def polish_node(state: GraphState, config: RunnableConfig) -> dict:
     )
     return {
         "messages": [AIMessage(content="작성 완료되었습니다. 내용 확인 후 수정 필요하시면 말씀해주세요.")],
-        "pending_version": {"kind": "polish", "content": resp.content},
+        "new_paper": {"kind": "polish", "content": resp.content},
     }

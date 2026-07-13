@@ -6,10 +6,14 @@ from app.graph.nodes.finalize import finalize_node
 from app.graph.nodes.chinese_prevent import chinese_prevent_node
 from app.graph.nodes.opening import opening_node
 from app.graph.nodes.outline import outline_node
-from app.graph.nodes.persist_version import persist_version_node
+from app.graph.nodes.make_new_paper import make_new_paper_node
 from app.graph.nodes.polish import polish_node
 from app.graph.router.intent_router import route_by_action, router_node
 from app.graph.state import GraphState
+
+
+def route_after_chinese_prevent(state: GraphState) -> str:
+    return "make_new_paper" if state.get("new_paper") else END
 
 
 def build_graph(checkpointer):
@@ -22,10 +26,9 @@ def build_graph(checkpointer):
     graph.add_node("polish", polish_node)
     graph.add_node("finalize", finalize_node)
     graph.add_node("chinese_prevent", chinese_prevent_node)
-    graph.add_node("persist_version", persist_version_node)
+    graph.add_node("make_new_paper", make_new_paper_node)
 
     graph.add_edge(START, "router")
-
 
     graph.add_conditional_edges(
         "router",
@@ -45,10 +48,10 @@ def build_graph(checkpointer):
 
     graph.add_conditional_edges(
         "chinese_prevent",
-        lambda status: "persist_version" if status.get("pending_version") else END,
-        {"persist_version": "persist_version", END: END},
+        route_after_chinese_prevent,
+        {"make_new_paper": "make_new_paper", END: END},
     )
-    graph.add_edge("persist_version", END)
+    graph.add_edge("make_new_paper", END)
     graph.add_edge("finalize", END)
 
     return graph.compile(checkpointer=checkpointer)

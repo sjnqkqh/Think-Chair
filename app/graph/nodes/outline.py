@@ -25,5 +25,5 @@ async def outline_node(state: GraphState, config: RunnableConfig) -> dict:
     )
     return {
         "messages": [AIMessage(content="개요 작성 완료되었습니다. 확인해보세요.")],
-        "pending_version": {"kind": "outline", "content": resp.content},
+        "new_paper": {"kind": "outline", "content": resp.content},
     }

@@ -6,7 +6,7 @@ from langgraph.graph.message import add_messages
 UserAction = Literal["opening", "say", "feedback", "outline", "polish", "finalize"]
 
 
-class PendingVersion(TypedDict, total=False):
+class NewPaper(TypedDict, total=False):
     kind: Literal["outline", "polish"]
     content: str
     storage_key: str
@@ -23,4 +23,4 @@ class GraphState(TypedDict):
     user_action: UserAction | None
     current_message_id: str | None
     messages: Annotated[list[BaseMessage], add_messages]
-    pending_version: PendingVersion | None
+    new_paper: NewPaper | None

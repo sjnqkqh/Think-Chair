@@ -31,7 +31,7 @@ async def send_message(
 ):
     manuscript = get_manuscript(db, user, manuscript_id)
     state = await svc.run(manuscript, user_message=content)
-    pending_version = state.get("pending_version")
+    new_paper = state.get("new_paper")
     ai_message = next(
         msg for msg in reversed(state["messages"]) if isinstance(msg, AIMessage)
     )
@@ -41,7 +41,7 @@ async def send_message(
         {
             "human_message": HumanMessage(content=content),
             "ai_message": ai_message,
-            "pending_version": pending_version,
+            "new_paper": new_paper,
             "manuscript_id": manuscript_id,
         },
     )

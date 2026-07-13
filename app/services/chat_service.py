@@ -53,7 +53,7 @@ class ChatService:
                 "user_action": None,
                 "current_message_id": str(user_chat_message.id),
                 "messages": [HumanMessage(content=user_message)],
-                "pending_version": None,
+                "new_paper": None,
             }
 
             state = await self.graph.ainvoke(input_state, config=config)
