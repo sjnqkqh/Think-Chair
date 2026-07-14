@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_database_session
 from app.core.auth_deps import require_user
+from app.core.storage import get_file_storage
 from app.models.user import User
 from app.schemas.manuscript import ManuscriptCreateRequest, ManuscriptResponse
 from app.services.manuscript_service import (
@@ -17,6 +18,7 @@ from app.services.manuscript_service import (
     list_manuscript_versions_after,
     list_manuscripts,
 )
+from app.services.storage.base import FileStorage
 from app.templates.jinja import make_templates
 
 router = APIRouter(prefix="/api/manuscripts", tags=["manuscripts"])
@@ -108,11 +110,10 @@ def delete(
 def download_version(
     manuscript_id: uuid.UUID,
     version_id: uuid.UUID,
-    request: Request,
     user: User = Depends(require_user),
     db: Session = Depends(get_database_session),
+    storage: FileStorage = Depends(get_file_storage),
 ):
-    storage = request.app.state.chat_service.storage
     filename, content = get_version_file(db, user, manuscript_id, version_id, storage)
     encoded_filename = quote(filename)
     return Response(
