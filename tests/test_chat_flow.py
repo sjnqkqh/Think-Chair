@@ -1,3 +1,5 @@
+import asyncio
+import json
 import uuid
 from unittest.mock import MagicMock
 
@@ -9,9 +11,30 @@ from app.graph import llm_registry
 from app.graph.builder import build_graph
 from app.graph.checkpointer import make_checkpointer
 from app.models.chat import ChatMessage, RoutingDecision
-from app.pages.chat_pages import get_chat_service
 from app.services.chat_service import ChatService
 from main import app as fastapi_app
+
+
+def _joined_sse_chunks(body: str) -> str:
+    chunks = []
+    for event in body.strip().split("\n\n"):
+        if "\nevent: chunk\n" not in f"\n{event}\n":
+            continue
+        data = event.split("data: ", 1)[1]
+        chunks.append(json.loads(data)["content"])
+    return "".join(chunks)
+
+
+async def _wait_until(assertion, timeout: float = 1.0):
+    deadline = asyncio.get_running_loop().time() + timeout
+    while True:
+        try:
+            assertion()
+            return
+        except AssertionError:
+            if asyncio.get_running_loop().time() >= deadline:
+                raise
+            await asyncio.sleep(0.02)
 
 
 @pytest.fixture
@@ -20,9 +43,16 @@ async def e2e_chat_service(fake_llm, db_session):
     async with make_checkpointer(":memory:") as checkpointer:
         graph = build_graph(checkpointer)
         svc = ChatService(graph=graph, storage=storage, db_factory=lambda: db_session)
-        fastapi_app.dependency_overrides[get_chat_service] = lambda: svc
-        yield svc, storage
-        fastapi_app.dependency_overrides.pop(get_chat_service, None)
+        previous = getattr(fastapi_app.state, "chat_service", None)
+        had_previous = hasattr(fastapi_app.state, "chat_service")
+        fastapi_app.state.chat_service = svc
+        try:
+            yield svc, storage
+        finally:
+            if had_previous:
+                fastapi_app.state.chat_service = previous
+            else:
+                del fastapi_app.state.chat_service
 
 
 async def test_full_manuscript_flow(e2e_chat_service):
@@ -110,13 +140,15 @@ async def test_full_manuscript_flow(e2e_chat_service):
                 data={"content": "원고 작성해주세요"},
             )
             assert polish_res.status_code == 200
-            # 파일 생성 시 본문 전체 대신 완료 안내만 채팅에 노출된다.
-            assert "작성 완료되었습니다" in polish_res.text
+            # 파일 생성은 분리되어 즉시 시작 안내만 채팅에 노출된다.
+            assert _joined_sse_chunks(polish_res.text) == (
+                "문서 작성을 시작했습니다. 완료되면 오른쪽 문서 목록에 표시됩니다."
+            )
             assert "원고 본문입니다" not in polish_res.text
+            await _wait_until(lambda: storage.save.assert_called_once())
         finally:
             if original_llm is not None:
                 llm_registry.register("default", original_llm)
-        storage.save.assert_called_once()
         chat_messages_after_polish = (
             svc.db_factory()
             .query(ChatMessage)

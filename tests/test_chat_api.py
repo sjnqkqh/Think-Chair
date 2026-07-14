@@ -1,12 +1,22 @@
+import json
 from unittest.mock import MagicMock
 
 import pytest
 
-from app.pages.chat_pages import get_chat_service
 from app.graph.builder import build_graph
 from app.graph.checkpointer import make_checkpointer
 from app.services.chat_service import ChatService
 from main import app as fastapi_app
+
+
+def _joined_sse_chunks(body: str) -> str:
+    chunks = []
+    for event in body.strip().split("\n\n"):
+        if "\nevent: chunk\n" not in f"\n{event}\n":
+            continue
+        data = event.split("data: ", 1)[1]
+        chunks.append(json.loads(data)["content"])
+    return "".join(chunks)
 
 
 def _signup_and_login(client, login_id="chattester"):
@@ -22,9 +32,16 @@ async def chat_service_override(fake_llm, db_session):
     async with make_checkpointer(":memory:") as checkpointer:
         graph = build_graph(checkpointer)
         svc = ChatService(graph=graph, storage=storage, db_factory=lambda: db_session)
-        fastapi_app.dependency_overrides[get_chat_service] = lambda: svc
-        yield svc
-        fastapi_app.dependency_overrides.pop(get_chat_service, None)
+        previous = getattr(fastapi_app.state, "chat_service", None)
+        had_previous = hasattr(fastapi_app.state, "chat_service")
+        fastapi_app.state.chat_service = svc
+        try:
+            yield svc
+        finally:
+            if had_previous:
+                fastapi_app.state.chat_service = previous
+            else:
+                del fastapi_app.state.chat_service
 
 
 def test_send_message_requires_auth(client, chat_service_override):
@@ -47,4 +64,5 @@ def test_send_message_returns_ai_response(client, chat_service_override):
     )
 
     assert response.status_code == 200
-    assert "테스트 응답입니다" in response.text
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert _joined_sse_chunks(response.text) == "테스트 응답입니다."

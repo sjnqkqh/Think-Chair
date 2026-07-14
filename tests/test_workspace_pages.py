@@ -7,7 +7,6 @@ from httpx import ASGITransport, AsyncClient
 from app.graph.builder import build_graph
 from app.graph.checkpointer import make_checkpointer
 from app.models.manuscript import ManuscriptVersion
-from app.pages.chat_pages import get_chat_service
 from app.services.chat_service import ChatService
 from main import app as fastapi_app
 
@@ -105,7 +104,8 @@ async def test_workspace_detail_reload_with_history_renders_messages(fake_llm, d
     async with make_checkpointer(":memory:") as checkpointer:
         graph = build_graph(checkpointer)
         svc = ChatService(graph=graph, storage=storage, db_factory=lambda: db_session)
-        fastapi_app.dependency_overrides[get_chat_service] = lambda: svc
+        previous = getattr(fastapi_app.state, "chat_service", None)
+        had_previous = hasattr(fastapi_app.state, "chat_service")
         fastapi_app.state.chat_service = svc
         try:
             transport = ASGITransport(app=fastapi_app)
@@ -133,5 +133,7 @@ async def test_workspace_detail_reload_with_history_renders_messages(fake_llm, d
                 assert "안녕하세요" in reload_res.text
                 assert "테스트 응답입니다" in reload_res.text
         finally:
-            fastapi_app.dependency_overrides.pop(get_chat_service, None)
-            del fastapi_app.state.chat_service
+            if had_previous:
+                fastapi_app.state.chat_service = previous
+            else:
+                del fastapi_app.state.chat_service

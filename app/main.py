@@ -14,7 +14,6 @@ from app.graph import llm_registry
 from app.graph.builder import build_graph
 from app.graph.checkpointer import make_checkpointer
 from app.pages.auth_pages import router as auth_pages_router
-from app.pages.chat_pages import router as chat_pages_router
 from app.pages.workspace_pages import router as workspace_pages_router
 from app.services.chat_service import ChatService
 from app.services.storage.local import LocalFileStorage
@@ -64,5 +63,4 @@ app.mount(
 # Register API routes
 app.include_router(api_router)
 app.include_router(auth_pages_router)
-app.include_router(chat_pages_router)
 app.include_router(workspace_pages_router)
