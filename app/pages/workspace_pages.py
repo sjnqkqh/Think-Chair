@@ -87,6 +87,7 @@ async def workspace_detail(
 ):
     manuscripts = list_manuscripts(db, user)
     active = get_manuscript(db, user, manuscript_id)
+    messages = await request.app.state.conversation_state.load_messages(active.id)
     return templates.TemplateResponse(
         request,
         "workspace/index.html",
@@ -95,15 +96,7 @@ async def workspace_detail(
             "user": user,
             "concepts": list(ConceptType),
             "active_manuscript": active,
-            "messages": await _load_messages(request, active),
+            "messages": messages,
             "versions": list_manuscript_versions(db, user, manuscript_id),
         },
     )
-
-
-async def _load_messages(request: Request, manuscript) -> list:
-    # 화면 복원은 LangGraph 상태를 기준으로 한다. ChatMessage는 감사/분석용 원본 로그다.
-    svc = request.app.state.chat_service
-    config = {"configurable": {"thread_id": str(manuscript.id)}}
-    snapshot = await svc.graph.aget_state(config)
-    return snapshot.values.get("messages", []) if snapshot and snapshot.values else []

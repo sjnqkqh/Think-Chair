@@ -9,6 +9,7 @@ from app.core.auth_deps import require_user
 from app.core.database import get_database_session
 from app.models.user import User
 from app.services.manuscript_service import get_manuscript
+from app.utils.sse import SseEvent
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -35,6 +36,6 @@ async def send_message(
                     "data": json.dumps(payload, ensure_ascii=False),
                 }
         except Exception as exc:
-            yield {"event": "error", "data": json.dumps({"message": str(exc)})}
+            yield {"event": SseEvent.ERROR, "data": json.dumps({"message": str(exc)})}
 
     return EventSourceResponse(sse_events(), sep="\n")

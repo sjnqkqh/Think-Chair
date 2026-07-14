@@ -9,8 +9,10 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from app.graph import llm_registry
 from app.graph.builder import build_graph
+from app.graph.chat_graph_runner import ChatGraphRunner
 from app.graph.checkpointer import make_checkpointer
 from app.models.chat import ChatMessage, RoutingDecision
+from app.services.background_tasks import BackgroundTaskRegistry
 from app.services.chat_service import ChatService
 from main import app as fastapi_app
 
@@ -38,25 +40,32 @@ async def _wait_until(assertion, timeout: float = 1.0):
 
 
 @pytest.fixture
-async def e2e_chat_service(fake_llm, db_session):
+async def fake_chat_runtime(fake_llm, db_session):
     storage = MagicMock()
     async with make_checkpointer(":memory:") as checkpointer:
         graph = build_graph(checkpointer)
-        svc = ChatService(graph=graph, storage=storage, db_factory=lambda: db_session)
-        previous = getattr(fastapi_app.state, "chat_service", None)
-        had_previous = hasattr(fastapi_app.state, "chat_service")
-        fastapi_app.state.chat_service = svc
+        graph_runner = ChatGraphRunner(
+            graph=graph, storage=storage, db_factory=lambda: db_session
+        )
+        chat_service = ChatService(
+            graph_runner=graph_runner,
+            db_factory=lambda: db_session,
+            background_tasks=BackgroundTaskRegistry(),
+        )
+        previous_chat_service = getattr(fastapi_app.state, "chat_service", None)
+        had_previous_chat_service = hasattr(fastapi_app.state, "chat_service")
+        fastapi_app.state.chat_service = chat_service
         try:
-            yield svc, storage
+            yield graph, storage, db_session
         finally:
-            if had_previous:
-                fastapi_app.state.chat_service = previous
+            if had_previous_chat_service:
+                fastapi_app.state.chat_service = previous_chat_service
             else:
                 del fastapi_app.state.chat_service
 
 
-async def test_full_manuscript_flow(e2e_chat_service):
-    svc, storage = e2e_chat_service
+async def test_full_manuscript_flow(fake_chat_runtime):
+    graph, storage, db_session = fake_chat_runtime
 
     # httpx.TestClient(동기 래퍼)는 요청마다 새 이벤트 루프를 띄우기 때문에,
     # AsyncSqliteSaver 내부 asyncio.Lock이 루프마다 재바인딩되며 깨진다.
@@ -87,11 +96,11 @@ async def test_full_manuscript_flow(e2e_chat_service):
             assert r.status_code == 200
 
         config = {"configurable": {"thread_id": manuscript_id}}
-        snapshot = await svc.graph.aget_state(config)
+        snapshot = await graph.aget_state(config)
         # HumanMessage 3 + AIMessage 3 = 6개 (fake_llm 고정 응답이므로 매번 동일 텍스트)
         assert len(snapshot.values["messages"]) == 6
         chat_messages = (
-            svc.db_factory()
+            db_session
             .query(ChatMessage)
             .filter(ChatMessage.manuscript_id == manuscript_uuid)
             .order_by(ChatMessage.sequence.asc())
@@ -110,7 +119,7 @@ async def test_full_manuscript_flow(e2e_chat_service):
         assert chat_messages[1].phase == "opening"
 
         routing_decisions = (
-            svc.db_factory()
+            db_session
             .query(RoutingDecision)
             .filter(RoutingDecision.manuscript_id == manuscript_uuid)
             .order_by(RoutingDecision.created_at.asc())
@@ -150,7 +159,7 @@ async def test_full_manuscript_flow(e2e_chat_service):
             if original_llm is not None:
                 llm_registry.register("default", original_llm)
         chat_messages_after_polish = (
-            svc.db_factory()
+            db_session
             .query(ChatMessage)
             .filter(ChatMessage.manuscript_id == manuscript_uuid)
             .order_by(ChatMessage.sequence.asc())
@@ -162,7 +171,7 @@ async def test_full_manuscript_flow(e2e_chat_service):
         assert chat_messages_after_polish[-1].phase == "polish"
 
         routing_decisions_after_polish = (
-            svc.db_factory()
+            db_session
             .query(RoutingDecision)
             .filter(RoutingDecision.manuscript_id == manuscript_uuid)
             .order_by(RoutingDecision.created_at.asc())
@@ -178,5 +187,5 @@ async def test_full_manuscript_flow(e2e_chat_service):
         )
         manuscript_id2 = create_res2.json()["id"]
         config2 = {"configurable": {"thread_id": manuscript_id2}}
-        snapshot2 = await svc.graph.aget_state(config2)
+        snapshot2 = await graph.aget_state(config2)
         assert not snapshot2.values or not snapshot2.values.get("messages")
