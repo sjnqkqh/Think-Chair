@@ -1,0 +1,13 @@
+{% set version_kind_labels = {"outline": "개요", "polish": "문서"} %}
+{% for version in versions %}
+<div class="flex justify-between items-baseline py-1">
+  <span class="text-lg">
+    {{ version_kind_labels.get(version.kind, "문서") }} {{ version.revision }}
+    <span class="text-sm text-[#787671]">({{ version.created_at | kst_time }})</span>
+  </span>
+  <div class="flex items-center gap-2">
+    <a href="/api/manuscripts/{{ manuscript_id }}/versions/{{ version.id }}/download"
+       class="text-[#4b5563] hover:underline">[다운로드]</a>
+  </div>
+</div>
+{% endfor %}

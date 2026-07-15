@@ -32,74 +32,169 @@
 {% if active_manuscript %}
 <form
   id="chat-form"
-  hx-post="/api/chat/{{ active_manuscript.id }}/message"
-  hx-target="#chat-log"
-  hx-swap="beforeend"
-  hx-indicator="#chat-spinner"
-  hx-disabled-elt="find button, find textarea"
+  action="/api/chat/{{ active_manuscript.id }}/message"
+  method="post"
   class="border-t border-[#e5e3df] p-5 flex gap-3 items-end bg-white"
 >
   <textarea
     name="content" placeholder="메시지 입력…" required rows="1"
     class="flex-1 rounded-[8px] border border-[#c8c4be] px-4 py-3 text-base resize-none overflow-y-auto max-h-52 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#d1d5db]"
     oninput="this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 160) + 'px'"
-    onkeydown="if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) { event.preventDefault(); if (this.value.trim()) htmx.trigger(this.closest('form'), 'submit'); }"
+    onkeydown="if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) { event.preventDefault(); if (this.value.trim()) this.closest('form').requestSubmit(); }"
   ></textarea>
-  <span id="chat-spinner" class="htmx-indicator text-xs text-[#787671]">전송 중…</span>
+  <span id="chat-spinner" class="hidden text-xs text-[#787671]">전송 중…</span>
   <button type="submit" class="rounded-[8px] bg-[#e5e7eb] text-[#1f1f1f] px-5 py-3 text-base disabled:opacity-50 hover:bg-[#d1d5db]">→</button>
 </form>
 <script>
 (function () {
   const log = document.getElementById('chat-log');
   const form = document.getElementById('chat-form');
+  const spinner = document.getElementById('chat-spinner');
+  let isSubmitting = false;
+  let versionPollTimer = null;
+  let versionPollStopAfterCount = null;
 
-  function submitChatForm(targetForm) {
-    if (!targetForm || !window.htmx) return;
-    htmx.process(targetForm);
-    htmx.trigger(targetForm, 'submit');
+  function setFormDisabled(disabled) {
+    form?.querySelectorAll('button, textarea').forEach((element) => {
+      element.disabled = disabled;
+    });
+    spinner?.classList.toggle('hidden', !disabled);
   }
 
-  document.body.addEventListener('htmx:beforeRequest', (evt) => {
-    const form = evt.detail.elt;
-    if (!form || form.id !== 'chat-form') return;
-
-    const textarea = form.querySelector('textarea[name="content"]');
-    const content = textarea.value.trim();
-    if (!content) return;
-
+  function appendHumanMessage(content) {
     const human = document.createElement('div');
-    human.id = 'optimistic-human-message';
     human.className = 'message message-human flex justify-end';
     human.innerHTML = '<p class="prose-writing bg-[#F6F5F4] rounded-[8px] px-4 py-3 text-base max-w-[75%] whitespace-pre-wrap leading-7"></p>';
     human.querySelector('p').textContent = content;
     log.appendChild(human);
+  }
 
+  function appendPendingAiMessage() {
     const pending = document.createElement('div');
-    pending.id = 'optimistic-pending-ai';
     pending.className = 'message message-ai flex justify-start';
-    pending.innerHTML = '<p class="bg-[#e5e7eb] text-[#1f1f1f] rounded-[8px] px-4 py-3 text-base max-w-[75%] flex items-center"><span class="w-3.5 h-3.5 border-2 border-[#1f1f1f] border-t-transparent rounded-full animate-spin"></span></p>';
+    pending.innerHTML = '<p class="prose-writing bg-[#e5e7eb] text-[#1f1f1f] rounded-[8px] px-4 py-3 text-base max-w-[75%] whitespace-pre-wrap leading-7"><span class="inline-block w-3.5 h-3.5 border-2 border-[#1f1f1f] border-t-transparent rounded-full animate-spin"></span></p>';
     log.appendChild(pending);
+    return pending.querySelector('p');
+  }
 
+  function scrollChatToBottom() {
     log.scrollTop = log.scrollHeight;
+  }
+
+  function startVersionPolling() {
+    const versionList = document.getElementById('version-list');
+    if (!versionList?.dataset.pollUrl || versionPollTimer) return;
+
+    versionPollTimer = window.setInterval(async () => {
+      const count = Number(versionList.dataset.versionCount || '0');
+      const response = await fetch(`${versionList.dataset.pollUrl}?after=${count}`, {
+        headers: { 'Accept': 'text/html' },
+      });
+      if (!response.ok) return;
+
+      const html = await response.text();
+      const nextCount = response.headers.get('X-Version-Count');
+      if (html.trim()) {
+        versionList.insertAdjacentHTML('beforeend', html);
+      }
+      if (nextCount) {
+        versionList.dataset.versionCount = nextCount;
+      }
+      if (
+        versionPollStopAfterCount !== null &&
+        Number(versionList.dataset.versionCount || '0') > versionPollStopAfterCount
+      ) {
+        stopVersionPolling();
+      }
+    }, 1500);
+  }
+
+  function stopVersionPolling() {
+    if (!versionPollTimer) return;
+    window.clearInterval(versionPollTimer);
+    versionPollTimer = null;
+    versionPollStopAfterCount = null;
+  }
+
+  function stopVersionPollingAfterNewVersion(previousCount) {
+    versionPollStopAfterCount = previousCount;
+  }
+
+  async function streamChat(content, aiBubble) {
+    const response = await fetch(form.action, {
+      method: 'POST',
+      body: new URLSearchParams({ content }),
+      headers: { 'Accept': 'text/event-stream' },
+    });
+    if (!response.ok || !response.body) {
+      throw new Error('메시지 전송에 실패했습니다.');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let aiText = '';
+    let documentGeneration = false;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || '';
+      for (const rawEvent of events) {
+        const eventName = rawEvent.match(/^event: (.+)$/m)?.[1];
+        const dataLine = rawEvent.match(/^data: (.*)$/m)?.[1] || '{}';
+        const payload = JSON.parse(dataLine);
+
+        if (eventName === 'chunk') {
+          aiText += payload.content || '';
+          aiBubble.textContent = aiText;
+          scrollChatToBottom();
+        }
+        if (eventName === 'error') {
+          throw new Error(payload.message || '메시지 전송에 실패했습니다.');
+        }
+        if (eventName === 'done') {
+          documentGeneration = Boolean(payload.document_generation);
+        }
+      }
+    }
+    return { documentGeneration };
+  }
+
+  form?.addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    if (isSubmitting) return;
+    const textarea = form.querySelector('textarea[name="content"]');
+    const content = textarea.value.trim();
+    if (!content) return;
 
     textarea.value = '';
     textarea.style.height = 'auto';
-  });
+    appendHumanMessage(content);
+    const aiBubble = appendPendingAiMessage();
+    scrollChatToBottom();
+    const versionList = document.getElementById('version-list');
+    const versionCountBefore = Number(versionList?.dataset.versionCount || '0');
 
-  document.body.addEventListener('htmx:beforeSwap', (evt) => {
-    if (evt.detail.target !== log) return;
-    document.getElementById('optimistic-human-message')?.remove();
-    document.getElementById('optimistic-pending-ai')?.remove();
-  });
-
-  document.body.addEventListener('htmx:responseError', (evt) => {
-    if (evt.detail.elt?.id !== 'chat-form') return;
-    document.getElementById('optimistic-pending-ai')?.remove();
-  });
-
-  document.body.addEventListener('htmx:sendError', (evt) => {
-    if (evt.detail.elt?.id !== 'chat-form') return;
-    document.getElementById('optimistic-pending-ai')?.remove();
+    isSubmitting = true;
+    setFormDisabled(true);
+    let streamResult = { documentGeneration: false };
+    try {
+      streamResult = await streamChat(content, aiBubble);
+    } catch (error) {
+      aiBubble.textContent = error.message || '메시지 전송에 실패했습니다.';
+    } finally {
+      isSubmitting = false;
+      setFormDisabled(false);
+      if (streamResult.documentGeneration) {
+        startVersionPolling();
+        stopVersionPollingAfterNewVersion(versionCountBefore);
+      }
+      textarea.focus();
+    }
   });
 
   {% if not messages %}
@@ -108,7 +203,7 @@
     if (!textarea || textarea.value.trim()) return;
 
     textarea.value = '안녕하세요, 교수님';
-    requestAnimationFrame(() => submitChatForm(form));
+    requestAnimationFrame(() => form.requestSubmit());
   }
 
   if (document.readyState === 'loading') {

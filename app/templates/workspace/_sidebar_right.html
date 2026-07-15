@@ -8,25 +8,19 @@
   <button
     type="button"
     data-prompt="{{ prompt_text }}"
-    onclick="const f = document.getElementById('chat-form'); const t = f.querySelector('textarea[name=content]'); t.value = this.dataset.prompt; htmx.trigger(f, 'submit');"
+    onclick="const f = document.getElementById('chat-form'); const t = f.querySelector('textarea[name=content]'); t.value = this.dataset.prompt; f.requestSubmit();"
     class="w-full rounded-[8px] border border-[#c8c4be] bg-white py-2.5 text-base hover:bg-[#f3f4f6]"
   >{{ label }}</button>
   {% endfor %}
 </div>
-<div id="version-list" class="space-y-1 text-base">
-  {% set version_kind_labels = {"outline": "개요", "polish": "문서"} %}
-  {% for version in versions %}
-  <div class="flex justify-between items-baseline py-1">
-    <span class="text-lg">
-      {{ version_kind_labels.get(version.kind, "문서") }} {{ version.revision }}
-      <span class="text-sm text-[#787671]">({{ version.created_at | kst_time }})</span>
-    </span>
-    <div class="flex items-center gap-2">
-      <a href="/api/manuscripts/{{ active_manuscript.id }}/versions/{{ version.id }}/download"
-         class="text-[#4b5563] hover:underline">[다운로드]</a>
-    </div>
-  </div>
-  {% endfor %}
+<div
+  id="version-list"
+  class="space-y-1 text-base"
+  data-version-count="{{ versions | length }}"
+  data-poll-url="/api/manuscripts/{{ active_manuscript.id }}/versions/poll"
+>
+  {% set manuscript_id = active_manuscript.id %}
+  {% include "workspace/_version_items.html" %}
 </div>
 {% else %}
 <p class="text-base text-[#787671]">원고를 선택하세요.</p>

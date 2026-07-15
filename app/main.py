@@ -10,14 +10,16 @@ from app.api.endpoints import router as api_router
 from app.core.config import settings
 from app.core.database import Base, SessionLocal, engine
 from app.core.error_handlers import register_exception_handlers
+from app.core.storage import get_file_storage
 from app.graph import llm_registry
 from app.graph.builder import build_graph
+from app.graph.chat_graph_runner import ChatGraphRunner
 from app.graph.checkpointer import make_checkpointer
+from app.graph.conversation_state import ConversationStateReader
 from app.pages.auth_pages import router as auth_pages_router
-from app.pages.chat_pages import router as chat_pages_router
 from app.pages.workspace_pages import router as workspace_pages_router
+from app.services.background_tasks import BackgroundTaskRegistry
 from app.services.chat_service import ChatService
-from app.services.storage.local import LocalFileStorage
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
@@ -38,9 +40,16 @@ async def lifespan(app: FastAPI):
             make_checkpointer(checkpoint_path)
         )
         graph = build_graph(checkpointer)
-        app.state.chat_service = ChatService(
-            graph=graph, storage=LocalFileStorage(), db_factory=SessionLocal
+        graph_runner = ChatGraphRunner(
+            graph=graph, storage=get_file_storage(), db_factory=SessionLocal
         )
+        chat_service = ChatService(
+            graph_runner=graph_runner,
+            db_factory=SessionLocal,
+            background_tasks=BackgroundTaskRegistry(),
+        )
+        app.state.chat_service = chat_service
+        app.state.conversation_state = ConversationStateReader(graph)
         yield
 
 
@@ -64,5 +73,4 @@ app.mount(
 # Register API routes
 app.include_router(api_router)
 app.include_router(auth_pages_router)
-app.include_router(chat_pages_router)
 app.include_router(workspace_pages_router)

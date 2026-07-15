@@ -24,6 +24,7 @@ def bootstrap(settings) -> None:
             openai_api_base=settings.DEEPSEEK_API_BASE,
             model_name=settings.DEEPSEEK_MODEL,
             temperature=0.3,
+            streaming=True,
         ),
     )
     logger.info("llm registry bootstrapped: model=%s", settings.DEEPSEEK_MODEL)

@@ -64,6 +64,13 @@ def list_manuscript_versions(db: Session, user: User, manuscript_id: uuid.UUID):
     return manuscript_repo.list_versions_by_manuscript(db, user, manuscript_id)
 
 
+def list_manuscript_versions_after(
+    db: Session, user: User, manuscript_id: uuid.UUID, offset: int
+):
+    versions = list_manuscript_versions(db, user, manuscript_id)
+    return versions[max(offset, 0) :]
+
+
 def get_version_file(
     db: Session, user: User, manuscript_id: uuid.UUID, version_id: uuid.UUID, storage
 ):
@@ -82,4 +89,3 @@ def delete_manuscript(db: Session, user: User, manuscript_id: uuid.UUID):
     manuscript = get_manuscript(db, user, manuscript_id)
     manuscript_repo.soft_delete(db, manuscript)
     logger.info("manuscript soft-deleted: manuscript_id=%s user_id=%s", manuscript_id, user.id)
-

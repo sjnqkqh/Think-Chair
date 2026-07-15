@@ -1,6 +1,7 @@
 import pytest
+from langgraph.graph import END
 
-from app.graph.builder import build_graph
+from app.graph.builder import build_graph, route_after_chinese_prevent
 from app.graph.checkpointer import make_checkpointer
 
 
@@ -19,6 +20,11 @@ async def test_build_graph_compiles_with_nine_nodes():
             "polish",
             "finalize",
             "chinese_prevent",
-            "persist_version",
+            "make_new_paper",
         ):
             assert name in nodes
+
+
+def test_route_after_chinese_prevent_routes_when_new_paper_exists():
+    assert route_after_chinese_prevent({"new_paper": {"kind": "polish"}}) == "make_new_paper"
+    assert route_after_chinese_prevent({"new_paper": None}) == END

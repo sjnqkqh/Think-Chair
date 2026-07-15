@@ -20,19 +20,15 @@ def _next_revision(db, manuscript_id: str, kind: str) -> int:
     return (last_manuscript.revision + 1) if last_manuscript else 1
 
 
-def persist_version_node(state: GraphState, config: RunnableConfig) -> dict:
-    pending_version = state["pending_version"]
-    storage = config["configurable"]["storage"]
-    db = config["configurable"]["db_session"]
-    created_at = datetime.datetime.utcnow()
-
-    key = f"{pending_version['kind']}s/{uuid.uuid4()}.md"
-    storage.save(key, pending_version["content"].encode("utf-8"))
+def _save_new_paper(state: GraphState, storage, db, created_at: datetime.datetime):
+    new_paper = state["new_paper"]
+    key = f"{new_paper['kind']}s/{uuid.uuid4()}.md"
+    storage.save(key, new_paper["content"].encode("utf-8"))
 
     row = ManuscriptVersion(
         manuscript_id=uuid.UUID(state["manuscript_id"]),
-        kind=pending_version["kind"],
-        revision=_next_revision(db, state["manuscript_id"], pending_version["kind"]),
+        kind=new_paper["kind"],
+        revision=_next_revision(db, state["manuscript_id"], new_paper["kind"]),
         storage_key=key,
         created_at=created_at,
     )
@@ -40,11 +36,24 @@ def persist_version_node(state: GraphState, config: RunnableConfig) -> dict:
     db.commit()
 
     return {
-        "pending_version": {
-            **pending_version,
+        "new_paper": {
+            **new_paper,
             "storage_key": key,
             "version_id": str(row.id),
             "revision": row.revision,
             "created_at": created_at,
         }
     }
+
+
+def make_new_paper_node(state: GraphState, config: RunnableConfig) -> dict:
+    storage = config["configurable"]["storage"]
+    db = config["configurable"].get("db_session")
+    created_at = datetime.datetime.utcnow()
+
+    if db is not None:
+        return _save_new_paper(state, storage, db, created_at)
+
+    db_factory = config["configurable"]["db_factory"]
+    with db_factory() as database_session:
+        return _save_new_paper(state, storage, database_session, created_at)

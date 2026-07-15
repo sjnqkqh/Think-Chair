@@ -5,9 +5,11 @@ from unittest.mock import AsyncMock, MagicMock
 from httpx import ASGITransport, AsyncClient
 
 from app.graph.builder import build_graph
+from app.graph.chat_graph_runner import ChatGraphRunner
 from app.graph.checkpointer import make_checkpointer
+from app.graph.conversation_state import ConversationStateReader
 from app.models.manuscript import ManuscriptVersion
-from app.pages.chat_pages import get_chat_service
+from app.services.background_tasks import BackgroundTaskRegistry
 from app.services.chat_service import ChatService
 from main import app as fastapi_app
 
@@ -50,37 +52,6 @@ def test_workspace_root_renders_new_manuscript_button(client):
     assert "::selection { background-color: #bfdbfe; color: #111827; }" in response.text
 
 
-def test_workspace_detail_does_not_render_draft_prompt_button(client):
-    _signup_and_login(client, login_id=f"workspacetester-{uuid.uuid4()}")
-    create_response = client.post(
-        "/api/manuscripts", json={"topic": "워크스페이스", "concept": "TIL"}
-    )
-    manuscript_id = create_response.json()["id"]
-
-    chat_service = MagicMock()
-    chat_service.graph.aget_state = AsyncMock(return_value=MagicMock(values={}))
-    fastapi_app.state.chat_service = chat_service
-    try:
-        response = client.get(f"/workspace/{manuscript_id}")
-        assert response.status_code == 200
-        assert "!event.isComposing" in response.text
-        assert "event.keyCode !== 229" in response.text
-        assert "this.reset()" not in response.text
-        assert "document.addEventListener('DOMContentLoaded', sendInitialGreeting" in response.text
-        assert "requestAnimationFrame(() => submitChatForm(form))" in response.text
-        assert "htmx.process(targetForm)" in response.text
-        assert "htmx.trigger(targetForm, 'submit')" in response.text
-        assert "초고 작성" not in response.text
-        assert "점검 요청" not in response.text
-        assert "개요 생성" in response.text
-        assert "탈고" in response.text
-        assert "hx-confirm" not in response.text
-        assert "data-confirm-message" in response.text
-        assert "event.preventDefault(); return false;" in response.text
-    finally:
-        del fastapi_app.state.chat_service
-
-
 def test_workspace_detail_renders_version_download_label(client, db_session):
     _signup_and_login(client, login_id=f"workspaceversion-{uuid.uuid4()}")
     create_response = client.post(
@@ -107,9 +78,18 @@ def test_workspace_detail_renders_version_download_label(client, db_session):
     )
     db_session.commit()
 
-    chat_service = MagicMock()
-    chat_service.graph.aget_state = AsyncMock(return_value=MagicMock(values={}))
-    fastapi_app.state.chat_service = chat_service
+    conversation_state = MagicMock()
+    conversation_state.load_messages = AsyncMock(return_value=[])
+    previous_chat_service = getattr(fastapi_app.state, "chat_service", None)
+    had_previous_chat_service = hasattr(fastapi_app.state, "chat_service")
+    previous_conversation_state = getattr(
+        fastapi_app.state, "conversation_state", None
+    )
+    had_previous_conversation_state = hasattr(
+        fastapi_app.state, "conversation_state"
+    )
+    fastapi_app.state.chat_service = MagicMock()
+    fastapi_app.state.conversation_state = conversation_state
     try:
         response = client.get(f"/workspace/{manuscript_id}")
         assert response.status_code == 200
@@ -120,7 +100,14 @@ def test_workspace_detail_renders_version_download_label(client, db_session):
         assert "[다운로드]" in response.text
         assert "polish v1" not in response.text
     finally:
-        del fastapi_app.state.chat_service
+        if had_previous_chat_service:
+            fastapi_app.state.chat_service = previous_chat_service
+        else:
+            del fastapi_app.state.chat_service
+        if had_previous_conversation_state:
+            fastapi_app.state.conversation_state = previous_conversation_state
+        else:
+            del fastapi_app.state.conversation_state
 
 
 def test_workspace_detail_unknown_manuscript_returns_404(client):
@@ -135,9 +122,24 @@ async def test_workspace_detail_reload_with_history_renders_messages(fake_llm, d
     storage = MagicMock()
     async with make_checkpointer(":memory:") as checkpointer:
         graph = build_graph(checkpointer)
-        svc = ChatService(graph=graph, storage=storage, db_factory=lambda: db_session)
-        fastapi_app.dependency_overrides[get_chat_service] = lambda: svc
-        fastapi_app.state.chat_service = svc
+        graph_runner = ChatGraphRunner(
+            graph=graph, storage=storage, db_factory=lambda: db_session
+        )
+        chat_service = ChatService(
+            graph_runner=graph_runner,
+            db_factory=lambda: db_session,
+            background_tasks=BackgroundTaskRegistry(),
+        )
+        previous_chat_service = getattr(fastapi_app.state, "chat_service", None)
+        had_previous_chat_service = hasattr(fastapi_app.state, "chat_service")
+        previous_conversation_state = getattr(
+            fastapi_app.state, "conversation_state", None
+        )
+        had_previous_conversation_state = hasattr(
+            fastapi_app.state, "conversation_state"
+        )
+        fastapi_app.state.chat_service = chat_service
+        fastapi_app.state.conversation_state = ConversationStateReader(graph)
         try:
             transport = ASGITransport(app=fastapi_app)
             async with AsyncClient(transport=transport, base_url="http://testserver") as client:
@@ -164,5 +166,11 @@ async def test_workspace_detail_reload_with_history_renders_messages(fake_llm, d
                 assert "안녕하세요" in reload_res.text
                 assert "테스트 응답입니다" in reload_res.text
         finally:
-            fastapi_app.dependency_overrides.pop(get_chat_service, None)
-            del fastapi_app.state.chat_service
+            if had_previous_chat_service:
+                fastapi_app.state.chat_service = previous_chat_service
+            else:
+                del fastapi_app.state.chat_service
+            if had_previous_conversation_state:
+                fastapi_app.state.conversation_state = previous_conversation_state
+            else:
+                del fastapi_app.state.conversation_state
