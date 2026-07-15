@@ -1,30 +1,16 @@
 import asyncio
-import json
 import uuid
-from unittest.mock import MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from app.graph import llm_registry
-from app.graph.builder import build_graph
-from app.graph.chat_graph_runner import ChatGraphRunner
-from app.graph.checkpointer import make_checkpointer
 from app.models.chat import ChatMessage, RoutingDecision
-from app.services.background_tasks import BackgroundTaskRegistry
-from app.services.chat_service import ChatService
 from main import app as fastapi_app
+from tests.helpers import join_sse_chunks, signup_async
 
-
-def _joined_sse_chunks(body: str) -> str:
-    chunks = []
-    for event in body.strip().split("\n\n"):
-        if "\nevent: chunk\n" not in f"\n{event}\n":
-            continue
-        data = event.split("data: ", 1)[1]
-        chunks.append(json.loads(data)["content"])
-    return "".join(chunks)
+pytestmark = pytest.mark.e2e
 
 
 async def _wait_until(assertion, timeout: float = 1.0):
@@ -39,33 +25,8 @@ async def _wait_until(assertion, timeout: float = 1.0):
             await asyncio.sleep(0.02)
 
 
-@pytest.fixture
-async def fake_chat_runtime(fake_llm, db_session):
-    storage = MagicMock()
-    async with make_checkpointer(":memory:") as checkpointer:
-        graph = build_graph(checkpointer)
-        graph_runner = ChatGraphRunner(
-            graph=graph, storage=storage, db_factory=lambda: db_session
-        )
-        chat_service = ChatService(
-            graph_runner=graph_runner,
-            db_factory=lambda: db_session,
-            background_tasks=BackgroundTaskRegistry(),
-        )
-        previous_chat_service = getattr(fastapi_app.state, "chat_service", None)
-        had_previous_chat_service = hasattr(fastapi_app.state, "chat_service")
-        fastapi_app.state.chat_service = chat_service
-        try:
-            yield graph, storage, db_session
-        finally:
-            if had_previous_chat_service:
-                fastapi_app.state.chat_service = previous_chat_service
-            else:
-                del fastapi_app.state.chat_service
-
-
-async def test_full_manuscript_flow(fake_chat_runtime):
-    graph, storage, db_session = fake_chat_runtime
+async def test_full_manuscript_flow(chat_app_state):
+    graph, storage, db_session, _ = chat_app_state
 
     # httpx.TestClient(동기 래퍼)는 요청마다 새 이벤트 루프를 띄우기 때문에,
     # AsyncSqliteSaver 내부 asyncio.Lock이 루프마다 재바인딩되며 깨진다.
@@ -73,10 +34,7 @@ async def test_full_manuscript_flow(fake_chat_runtime):
     transport = ASGITransport(app=fastapi_app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         # 1) 가입/로그인 (auth.py의 signup이 즉시 쿠키를 발급하므로 별도 로그인 호출 불필요)
-        signup_res = await client.post(
-            "/api/auth/signup",
-            json={"login_id": "e2euser", "password": "password123", "nickname": "E2E"},
-        )
+        signup_res = await signup_async(client, "e2euser", nickname="E2E")
         assert signup_res.status_code == 201
 
         # 2) 원고 생성
@@ -150,7 +108,7 @@ async def test_full_manuscript_flow(fake_chat_runtime):
             )
             assert polish_res.status_code == 200
             # 파일 생성은 분리되어 즉시 시작 안내만 채팅에 노출된다.
-            assert _joined_sse_chunks(polish_res.text) == (
+            assert join_sse_chunks(polish_res.text) == (
                 "문서 작성을 시작했습니다. 완료되면 오른쪽 문서 목록에 표시됩니다."
             )
             assert "원고 본문입니다" not in polish_res.text

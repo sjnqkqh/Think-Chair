@@ -1,3 +1,8 @@
+import pytest
+
+pytestmark = pytest.mark.integration
+
+
 def test_signup_success(client):
     # 회원가입 성공 시 201과 함께 access_token 쿠키가 발급되어야 한다.
     response = client.post(

@@ -1,4 +1,8 @@
+import pytest
+
 from app.core.chinese_filter import contains_chinese, sanitize_chinese
+
+pytestmark = pytest.mark.unit
 
 
 def test_contains_chinese_true():
