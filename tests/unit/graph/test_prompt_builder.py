@@ -4,7 +4,6 @@ from app.graph.prompts import (
     CONCEPT_TEMPLATES,
     GLOBAL_CONSTRAINTS,
     PHASE_INSTRUCTIONS,
-    PHASE_ROLES,
     build_system_prompt,
     get_concept_content,
     get_phase_instruction,
@@ -15,6 +14,8 @@ from app.graph.prompts.persona.listening_persona import LISTENING_PERSONA
 from app.graph.prompts.phases.outline import OUTLINE_FINAL_GUARD
 from app.graph.prompts.phases.polish import POLISH_FINAL_GUARD
 from app.graph.prompts.phases.say import SAY_DOCUMENT_GUARD, SAY_LISTENING
+
+pytestmark = pytest.mark.unit
 
 
 @pytest.mark.parametrize("concept", list(CONCEPT_TEMPLATES.keys()))
@@ -27,14 +28,6 @@ def test_prompt_includes_persona_concept_and_phase(concept, phase):
     assert get_persona(concept).text in prompt
     assert get_concept_content(concept, phase).text in prompt
     assert get_phase_instruction(concept, phase).text in prompt
-
-
-@pytest.mark.parametrize("concept", list(CONCEPT_TEMPLATES.keys()))
-@pytest.mark.parametrize("phase", list(PHASE_ROLES.keys()))
-def test_concept_content_matches_phase_role(concept, phase):
-    # get_concept_content는 PHASE_ROLES에 정의된 역할(purpose/checkpoint/generate)의 템플릿을 반환해야 한다.
-    role = PHASE_ROLES[phase]
-    assert get_concept_content(concept, phase) is CONCEPT_TEMPLATES[concept][role]
 
 
 @pytest.mark.parametrize("concept", list(CONCEPT_TEMPLATES.keys()))

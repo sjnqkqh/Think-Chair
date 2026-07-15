@@ -9,6 +9,8 @@ from app.models.user import User
 from app.schemas.manuscript import ManuscriptCreateRequest
 from app.services import manuscript_service
 
+pytestmark = pytest.mark.unit
+
 
 def _create_user(db_session, login_id):
     user = User(login_id=login_id, password_hash="x", nickname="n")
@@ -18,15 +20,19 @@ def _create_user(db_session, login_id):
     return user
 
 
-def test_create_manuscript_delegates_to_repo(db_session):
-    # create_manuscript()가 요청 payload를 그대로 repo.create()에 전달해 저장하는지 확인한다.
+def test_create_manuscript_delegates_payload_to_repo(monkeypatch, db_session):
+    # 서비스는 요청 payload의 각 필드를 풀어 repo.create()에 그대로 위임해야 한다.
     owner = _create_user(db_session, "svc_owner")
     payload = ManuscriptCreateRequest(topic="t", concept=ConceptType.TIL)
+    spy = MagicMock()  # 서비스가 반환 객체의 .id/.concept를 로깅하므로 목 객체를 돌려준다
+    monkeypatch.setattr(manuscript_service.manuscript_repo, "create", spy)
 
-    manuscript = manuscript_service.create_manuscript(db_session, owner, payload)
+    result = manuscript_service.create_manuscript(db_session, owner, payload)
 
-    assert manuscript.topic == "t"
-    assert manuscript.concept == ConceptType.TIL
+    assert result is spy.return_value
+    spy.assert_called_once_with(
+        db_session, owner, payload.topic, payload.concept, payload.audience_level
+    )
 
 
 def test_get_manuscript_raises_404_when_not_owned(db_session):

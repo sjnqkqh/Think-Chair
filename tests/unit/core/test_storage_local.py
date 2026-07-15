@@ -2,6 +2,8 @@ import pytest
 
 from app.services.storage.local import LocalFileStorage
 
+pytestmark = pytest.mark.unit
+
 
 def test_save_then_read_returns_same_content(tmp_path):
     # save()로 저장한 내용을 read()로 그대로 다시 읽을 수 있어야 한다.

@@ -1,6 +1,10 @@
+import pytest
+
 from app.models.manuscript import ConceptType
 from app.models.user import User
 from app.repositories import manuscript_repo
+
+pytestmark = pytest.mark.unit
 
 
 def _create_user(db_session, login_id):

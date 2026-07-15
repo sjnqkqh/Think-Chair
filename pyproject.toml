@@ -29,3 +29,8 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 pythonpath = ["."]
+markers = [
+    "unit: 순수 함수·DB 단위 테스트 (HTTP/그래프 미사용)",
+    "integration: TestClient 단건 요청 수준의 API·렌더링 테스트",
+    "e2e: AsyncClient 기반 다단계 전체 흐름 테스트",
+]

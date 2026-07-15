@@ -16,6 +16,8 @@ from app.graph.router.intent_router import router_node
 from app.graph.prompts.phases.outline import OUTLINE_FINAL_GUARD
 from app.graph.prompts.phases.polish import POLISH_FINAL_GUARD
 
+pytestmark = pytest.mark.unit
+
 
 def _base_state(**overrides):
     state = {
