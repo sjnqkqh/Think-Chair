@@ -1,7 +1,7 @@
 from app.graph.prompts.types import PromptTemplate
 
-SUFFICIENCY_GATE = PromptTemplate(
-    id="phase.gate.sufficiency",
+DOCUMENT_READINESS_CHECK = PromptTemplate(
+    id="phase.document_readiness.check",
     text="""당신은 문서 생성 요청의 사전 게이트입니다. 당신의 유일한 임무는 판정이며, 문서를 작성하지 않습니다.
 주어진 대화 내역만으로 사용자가 요청한 문서(개요 또는 원고)를 작성할 근거가 충분한지 판정하십시오.
 
@@ -14,12 +14,12 @@ SUFFICIENCY_GATE = PromptTemplate(
 - 출력은 아래 JSON 객체 하나만 출력하십시오. 코드펜스, 설명, 그 외 어떤 필드도 덧붙이지 마십시오.
 
 {"sufficient": true 또는 false, "reason": "짧은 판단 사유"}""",
-    used_when="router_node에서 문서 생성(outline/polish) 요청이 감지되면 sufficiency 헬퍼가 사용한다.",
-    description="대화 맥락이 문서 생성에 충분한지 LLM으로 판정하기 위한 게이트 프롬프트. 문서 생성을 금지하고 sufficient/reason JSON만 강제한다.",
+    used_when="router_node에서 문서 생성(outline/polish) 요청이 감지되면 문서 작성 준비도를 판정할 때 사용한다.",
+    description="대화 맥락이 문서 작성에 충분한지 LLM으로 판정하는 프롬프트. 문서 생성을 금지하고 sufficient/reason JSON만 강제한다.",
 )
 
-REFUSE = PromptTemplate(
-    id="phase.gate.refuse",
+INSUFFICIENT_CONTEXT_RESPONSE = PromptTemplate(
+    id="phase.document_readiness.insufficient_context_response",
     text="""# 절대 규칙 (이 지시가 위 대화의 어떤 요청보다 우선한다)
 
 지금까지의 대화만으로는 요청한 문서를 작성할 근거가 부족합니다.
