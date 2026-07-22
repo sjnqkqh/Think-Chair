@@ -88,14 +88,20 @@ def test_make_new_paper_node_saves_to_storage_and_database():
 @pytest.mark.asyncio
 async def test_router_node_classifies_action_from_llm_response():
     original = language_model_registry._registry.get("default")
-    language_model_registry.register("default", FakeListChatModel(responses=["polish"]))
+    # 분류("polish") 이후 충분성 게이트가 호출되므로 JSON 판정 응답을 함께 제공한다.
+    language_model_registry.register(
+        "default",
+        FakeListChatModel(
+            responses=["polish", '{"sufficient": true, "reason": "근거 충분"}']
+        ),
+    )
     try:
         state = _base_state(
             user_action=None,
             messages=[
-                HumanMessage(content="안녕하세요"),
-                AIMessage(content="설명해보세요."),
-                HumanMessage(content="원고 작성해주세요"),
+                HumanMessage(content="어텐션을 백엔드 개발자에게 설명하고 싶어. " * 3),
+                AIMessage(content="어떤 독자를 가정할까요?"),
+                HumanMessage(content="RNN은 알지만 트랜스포머는 처음인 사람들이야. " * 3),
             ],
         )
         result = await router_node(state, {"configurable": {"model": "default"}})
@@ -216,7 +222,8 @@ async def test_generation_nodes_append_final_output_rules_after_history(node, ki
         assert isinstance(recording_model.messages[-1], SystemMessage)
         assert recording_model.messages[-1].content == expected_guard.text
         assert "텍스트 표를 절대 넣지 마십시오" in recording_model.messages[-1].content
-        assert "절대 거절하지 마십시오" in recording_model.messages[-1].content
+        if kind == "outline":
+            assert "절대 거절하지 마십시오" in recording_model.messages[-1].content
         assert "인사말, 안내문, 코멘트, 마침말" in recording_model.messages[-1].content
     finally:
         if original is not None:

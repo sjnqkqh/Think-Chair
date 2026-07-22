@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessageChunk, HumanMessage
 from app.models.manuscript import Manuscript
 from app.models.user import User
 
-USER_VISIBLE_CHAT_NODES = {"opening", "converse", "feedback"}
+USER_VISIBLE_CHAT_NODES = {"opening", "converse", "feedback", "refuse"}
 
 
 class ChatGraphRunner:
@@ -92,4 +92,5 @@ def _initial_turn_state(
         "messages": [HumanMessage(content=user_message)],
         "client_message": None,
         "new_paper": None,
+        "polish_attempts": 0,
     }

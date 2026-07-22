@@ -6,12 +6,14 @@ from langchain_core.runnables import RunnableConfig
 
 from app.graph.llm_registry import get as get_language_model
 from app.graph.prompts.classifier import CLASSIFIER
+from app.graph.router.sufficiency import is_conversation_sufficient
 from app.graph.state import GraphState
 from app.models.chat import RoutingDecision
 
 logger = logging.getLogger(__name__)
 
 CLASSIFIABLE_ACTIONS = {"say", "feedback", "outline", "polish"}
+DOCUMENT_GENERATION_ACTIONS = {"outline", "polish"}
 
 
 def _last_human_message(state: GraphState) -> HumanMessage | None:
@@ -76,6 +78,7 @@ def _record_routing_decision(
     decision: str,
     reason: str,
     raw_output: str | None,
+    router_name: str = "intent",
 ) -> None:
     db = config["configurable"].get("db_session")
     if db is None:
@@ -86,7 +89,7 @@ def _record_routing_decision(
         RoutingDecision(
             manuscript_id=uuid.UUID(state["manuscript_id"]),
             message_id=uuid.UUID(message_id) if message_id else None,
-            router_name="intent",
+            router_name=router_name,
             decision=decision,
             reason=reason,
             raw_output=raw_output,
@@ -128,6 +131,35 @@ async def router_node(state: GraphState, config: RunnableConfig) -> dict:
     )
 
     _record_routing_decision(state, configuration, action, reason, classification_text)
+
+    if action in DOCUMENT_GENERATION_ACTIONS:
+        sufficient, gate_reason, raw_output, gate_source = (
+            await is_conversation_sufficient(state, configuration)
+        )
+        logger.info(
+            "router_node: message=%r sufficiency source=%s sufficient=%s reason=%s",
+            message_preview,
+            gate_source,
+            sufficient,
+            gate_reason,
+        )
+        if not sufficient:
+            logger.info(
+                "router_node: message=%r -> action=refuse (%s 판정) reason=%s",
+                message_preview,
+                gate_source,
+                gate_reason,
+            )
+            _record_routing_decision(
+                state,
+                configuration,
+                "refuse",
+                f"[{gate_source}] {gate_reason}",
+                raw_output,
+                router_name="sufficiency",
+            )
+            return {"user_action": "refuse"}
+
     return {"user_action": action}
 
 
