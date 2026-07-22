@@ -2,7 +2,7 @@ import datetime
 import enum
 import uuid
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -54,6 +54,27 @@ class ManuscriptVersion(Base):
     kind: Mapped[str] = mapped_column(String(16))
     revision: Mapped[int]
     storage_key: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=datetime.datetime.utcnow
+    )
+
+
+class DocumentEvaluation(Base):
+    __tablename__ = "document_evaluations"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    manuscript_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("manuscripts.id"), index=True
+    )
+    version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("manuscript_versions.id"), index=True
+    )
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    verdict: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    improvements: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checklist_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    raw_output: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=datetime.datetime.utcnow
     )
