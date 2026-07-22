@@ -1,8 +1,7 @@
-import logging
-
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
+from app.logging import get_logger
 from app.graph.llm_registry import get as get_language_model
 from app.graph.prompts.concepts import CONCEPT_TEMPLATES
 from app.graph.prompts.phases.evaluate import EVALUATE
@@ -11,22 +10,23 @@ from app.graph.transcript import render_transcript
 from app.services.document_evaluation_service import save_document_evaluation
 from app.services.evaluation_response_parser import parse_evaluation_response
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
 
 async def evaluate_polish_node(state: GraphState, config: RunnableConfig) -> dict:
     new_paper = state.get("new_paper")
     if not new_paper or new_paper.get("kind") != "polish":
         logger.info(
-            "evaluate_polish: skip (kind=%s)", new_paper.get("kind") if new_paper else None
+            "evaluate_polish.skip", kind=new_paper.get("kind") if new_paper else None
         )
         return {}
 
     version_id = new_paper.get("version_id")
     logger.info(
-        "evaluate_polish: start manuscript_id=%s version_id=%s concept=%s",
-        state["manuscript_id"],
-        version_id,
-        state["concept"],
+        "evaluate_polish.start",
+        manuscript_id=state["manuscript_id"],
+        version_id=version_id,
+        concept=state["concept"],
     )
     try:
         checklist = CONCEPT_TEMPLATES[state["concept"]]["checkpoint"]
@@ -48,10 +48,10 @@ async def evaluate_polish_node(state: GraphState, config: RunnableConfig) -> dic
         raw_output = (response.content or "").strip()
         parsed = parse_evaluation_response(raw_output)
         logger.info(
-            "evaluate_polish: version_id=%s score=%s verdict=%s",
-            version_id,
-            parsed["score"],
-            parsed["verdict"],
+            "evaluate_polish.result",
+            version_id=version_id,
+            score=parsed["score"],
+            verdict=parsed["verdict"],
         )
 
         db = config["configurable"].get("db_session")
@@ -75,10 +75,8 @@ async def evaluate_polish_node(state: GraphState, config: RunnableConfig) -> dic
                     checklist.id,
                     parsed,
                 )
-        logger.info("evaluate_polish: saved evaluation version_id=%s", version_id)
+        logger.info("evaluate_polish.saved", version_id=version_id)
     except Exception:
-        logger.exception(
-            "evaluate_polish: 평가 실패 version_id=%s", version_id
-        )
+        logger.exception("evaluate_polish.failed", version_id=version_id)
 
     return {}

@@ -1,15 +1,14 @@
-import logging
-
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
+from app.logging import get_logger
 from app.graph.llm_registry import get as get_language_model
 from app.graph.prompts.phases.document_readiness import DOCUMENT_READINESS_CHECK
 from app.graph.state import GraphState
 from app.graph.transcript import render_transcript
 from app.services.sufficiency_response_parser import parse_sufficiency_response
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 MIN_HUMAN_MESSAGES = 2
 MIN_USER_CHARS = 120
@@ -60,18 +59,23 @@ async def is_conversation_sufficient(
         last_raw = (response.content or "").strip()
         decision = parse_sufficiency_response(last_raw)
         if decision is not None:
-            logger.info("document readiness decision: %r", (attempt, decision))
+            logger.info(
+                "document_readiness.decision", attempt=attempt, decision=decision
+            )
             return (
                 decision.sufficient,
-                decision.reason or ("대화 맥락 충분" if decision.sufficient else "대화 맥락 불충분"),
+                decision.reason
+                or ("대화 맥락 충분" if decision.sufficient else "대화 맥락 불충분"),
                 last_raw,
                 "llm",
             )
         logger.warning(
-            "document readiness invalid (attempt=%d): %r", attempt, last_raw[:200]
+            "document_readiness.invalid", attempt=attempt, raw_output=last_raw[:200]
         )
 
-    logger.error("document readiness retry exhausted: %r", (last_raw or "")[:200])
+    logger.error(
+        "document_readiness.retry_exhausted", raw_output=(last_raw or "")[:200]
+    )
     return (
         True,
         "게이트 판정 실패(재시도 소진) - 생성으로 진행",

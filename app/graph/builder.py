@@ -1,7 +1,6 @@
-import logging
-
 from langgraph.graph import END, START, StateGraph
 
+from app.logging import get_logger
 from app.graph.nodes.converse import converse_node
 from app.graph.nodes.evaluate import evaluate_polish_node
 from app.graph.nodes.feedback import feedback_node
@@ -15,7 +14,7 @@ from app.graph.nodes.refuse import refuse_node
 from app.graph.router.intent_router import route_by_action, router_node
 from app.graph.state import GraphState
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 MAX_POLISH_ATTEMPTS = 3
 MIN_POLISH_RESULT_BYTES = 800
@@ -31,9 +30,9 @@ def route_after_polish(state: GraphState) -> str:
     too_small = len(content.encode("utf-8")) < MIN_POLISH_RESULT_BYTES
     if too_small and state.get("polish_attempts", 0) < MAX_POLISH_ATTEMPTS:
         logger.info(
-            "route_after_polish: 본문 부족(%d bytes) attempt=%d -> 재생성",
-            len(content.encode("utf-8")),
-            state.get("polish_attempts", 0),
+            "route_after_polish.retry",
+            content_bytes=len(content.encode("utf-8")),
+            attempt=state.get("polish_attempts", 0),
         )
         return "polish"
     return "chinese_prevent"

@@ -1,9 +1,10 @@
 import asyncio
-import logging
 from collections.abc import Coroutine
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from app.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class BackgroundTaskRegistry:
@@ -18,4 +19,4 @@ class BackgroundTaskRegistry:
     def _on_done(self, task: asyncio.Task) -> None:
         self._tasks.discard(task)
         if not task.cancelled() and (exc := task.exception()) is not None:
-            logger.error("백그라운드 태스크 실패", exc_info=exc)
+            logger.error("background_task.failed", exc_info=exc)

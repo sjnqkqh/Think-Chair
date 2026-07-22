@@ -1,10 +1,10 @@
-import logging
 import uuid
 from collections.abc import AsyncIterator
 
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.graph.chat_graph_runner import ChatGraphRunner
+from app.logging import get_logger
 from app.models.chat import ChatMessage
 from app.models.manuscript import Manuscript
 from app.models.user import User
@@ -12,7 +12,7 @@ from app.repositories import chat_repo
 from app.services.background_tasks import BackgroundTaskRegistry
 from app.utils.sse import SseEvent
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 DOCUMENT_GENERATION_ACTIONS = {"outline", "polish"}
 DOCUMENT_GENERATION_ACK = (
@@ -112,9 +112,7 @@ class ChatService:
     ) -> AsyncIterator[tuple[str, dict]]:
         """남은 그래프를 실행하며 LLM 토큰을 스트리밍하고, 완성된 응답을 채팅 기록에 저장한다."""
         assistant_content = ""
-        async for text in self.graph_runner.stream_reply_tokens(
-            manuscript_id, model
-        ):
+        async for text in self.graph_runner.stream_reply_tokens(manuscript_id, model):
             assistant_content += text
             yield SseEvent.CHUNK, {"content": text}
 
@@ -150,7 +148,7 @@ class ChatService:
             )
         except SQLAlchemyError:
             logger.exception(
-                "채팅 기록 저장 실패 (manuscript_id=%s, role=%s)", manuscript.id, role
+                "chat_message.save_failed", manuscript_id=manuscript.id, role=role
             )
             database_session.rollback()
             return ChatMessage(

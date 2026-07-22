@@ -107,4 +107,6 @@ def test_save_chat_message_returns_in_memory_on_db_error(monkeypatch, caplog):
     assert message.content == "내용"
     assert message.sequence == 1
     session.rollback.assert_called_once()
-    assert any("채팅 기록 저장 실패" in record.message for record in caplog.records)
+    assert any(
+        "chat_message.save_failed" in record.message for record in caplog.records
+    )

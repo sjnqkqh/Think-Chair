@@ -1,10 +1,10 @@
-import logging
 from pathlib import Path
 
 from app.core.config import settings
+from app.logging import get_logger
 from app.services.storage.base import FileStorage
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LocalFileStorage(FileStorage):
@@ -15,7 +15,7 @@ class LocalFileStorage(FileStorage):
         path = self.root / key
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
-        logger.info("file saved: key=%s bytes=%d", key, len(content))
+        logger.info("file.saved", key=key, content_bytes=len(content))
         return key
 
     def read(self, key: str) -> bytes:
@@ -23,4 +23,4 @@ class LocalFileStorage(FileStorage):
 
     def delete(self, key: str) -> None:
         (self.root / key).unlink(missing_ok=True)
-        logger.info("file deleted: key=%s", key)
+        logger.info("file.deleted", key=key)

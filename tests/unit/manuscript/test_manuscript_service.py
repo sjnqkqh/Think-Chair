@@ -24,7 +24,9 @@ def test_create_manuscript_delegates_payload_to_repo(monkeypatch, db_session):
     # 서비스는 요청 payload의 각 필드를 풀어 repo.create()에 그대로 위임해야 한다.
     owner = _create_user(db_session, "svc_owner")
     payload = ManuscriptCreateRequest(topic="t", concept=ConceptType.TIL)
-    spy = MagicMock()  # 서비스가 반환 객체의 .id/.concept를 로깅하므로 목 객체를 돌려준다
+    spy = (
+        MagicMock()
+    )  # 서비스가 반환 객체의 .id/.concept를 로깅하므로 목 객체를 돌려준다
     monkeypatch.setattr(manuscript_service.manuscript_repo, "create", spy)
 
     result = manuscript_service.create_manuscript(db_session, owner, payload)
@@ -59,7 +61,10 @@ def test_get_manuscript_not_found_is_logged(db_session, caplog):
         with pytest.raises(NotFoundError):
             manuscript_service.get_manuscript(db_session, stranger, manuscript.id)
 
-    assert any("not found or not owned" in record.message for record in caplog.records)
+    assert any(
+        "manuscript.not_found_or_not_owned" in record.message
+        for record in caplog.records
+    )
 
 
 def test_get_version_file_uses_kind_specific_filename(db_session):

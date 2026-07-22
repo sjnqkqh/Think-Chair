@@ -1,11 +1,13 @@
-import time
 import random
-import logging
+import time
 from typing import Callable, TypeVar, Any
 
-logger = logging.getLogger(__name__)
+from app.logging import get_logger
+
+logger = get_logger(__name__)
 
 T = TypeVar("T")
+
 
 def execute_with_retry(
     func: Callable[..., T],
@@ -22,16 +24,22 @@ def execute_with_retry(
         except exceptions as e:
             if attempt == max_retries - 1:
                 logger.error(
-                    f"Failed to execute {func.__name__ if hasattr(func, '__name__') else str(func)} "
-                    f"after {max_retries} attempts due to: {e}"
+                    "retry.exhausted",
+                    function=getattr(func, "__name__", str(func)),
+                    max_retries=max_retries,
+                    error=str(e),
                 )
                 raise e
-            
+
             # 지수 백오프 계산: base_delay * (2 ** attempt) + jitter
             delay = base_delay * (2**attempt) + random.uniform(0, 0.1)
             logger.warning(
-                f"Error executing {func.__name__ if hasattr(func, '__name__') else str(func)} ({e}). "
-                f"Retrying in {delay:.2f} seconds... (Attempt {attempt + 1}/{max_retries})"
+                "retry.scheduled",
+                function=getattr(func, "__name__", str(func)),
+                error=str(e),
+                delay_seconds=delay,
+                attempt=attempt + 1,
+                max_retries=max_retries,
             )
             time.sleep(delay)
     raise RuntimeError("Unexpected end of retry loop")
