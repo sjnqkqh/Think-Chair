@@ -65,7 +65,7 @@ def test_login_failure_is_logged(client, caplog):
             "/api/auth/login",
             json={"login_id": "logtarget", "password": "incorrect"},
         )
-    assert any("login failed" in record.message for record in caplog.records)
+    assert any("auth.login.failed" in record.message for record in caplog.records)
     assert any("logtarget" in record.message for record in caplog.records)
 
 

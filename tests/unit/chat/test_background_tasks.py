@@ -26,7 +26,7 @@ async def test_failing_task_is_logged_and_swallowed(caplog):
     with caplog.at_level(logging.ERROR, logger="app.services.background_tasks"):
         registry.start(boom())
         logged = await _wait_until(
-            lambda: any("백그라운드 태스크 실패" in r.message for r in caplog.records)
+            lambda: any("background_task.failed" in r.message for r in caplog.records)
         )
 
     assert logged

@@ -1,15 +1,15 @@
-import logging
 import re
 import uuid
 
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError
+from app.logging import get_logger
 from app.models.user import User
 from app.repositories import manuscript_repo
 from app.schemas.manuscript import ManuscriptCreateRequest
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 VERSION_KIND_LABELS = {
     "outline": "개요",
@@ -22,10 +22,10 @@ def create_manuscript(db: Session, user: User, payload: ManuscriptCreateRequest)
         db, user, payload.topic, payload.concept, payload.audience_level
     )
     logger.info(
-        "manuscript created: manuscript_id=%s user_id=%s concept=%s",
-        manuscript.id,
-        user.id,
-        manuscript.concept,
+        "manuscript.created",
+        manuscript_id=manuscript.id,
+        user_id=user.id,
+        concept=manuscript.concept,
     )
     return manuscript
 
@@ -51,9 +51,9 @@ def get_manuscript(db: Session, user: User, manuscript_id: uuid.UUID):
     manuscript = manuscript_repo.get_owned(db, user, manuscript_id)
     if not manuscript:
         logger.warning(
-            "manuscript not found or not owned: manuscript_id=%s user_id=%s",
-            manuscript_id,
-            user.id,
+            "manuscript.not_found_or_not_owned",
+            manuscript_id=manuscript_id,
+            user_id=user.id,
         )
         raise NotFoundError("원고를 찾을 수 없습니다.")
     return manuscript
@@ -88,4 +88,4 @@ def get_version_file(
 def delete_manuscript(db: Session, user: User, manuscript_id: uuid.UUID):
     manuscript = get_manuscript(db, user, manuscript_id)
     manuscript_repo.soft_delete(db, manuscript)
-    logger.info("manuscript soft-deleted: manuscript_id=%s user_id=%s", manuscript_id, user.id)
+    logger.info("manuscript.soft_deleted", manuscript_id=manuscript_id, user_id=user.id)

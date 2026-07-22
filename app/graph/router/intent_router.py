@@ -1,17 +1,19 @@
-import logging
 import uuid
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from app.graph.llm_registry import get as get_language_model
+from app.logging import get_logger
 from app.graph.prompts.classifier import CLASSIFIER
+from app.graph.router.sufficiency import is_conversation_sufficient
 from app.graph.state import GraphState
 from app.models.chat import RoutingDecision
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 CLASSIFIABLE_ACTIONS = {"say", "feedback", "outline", "polish"}
+DOCUMENT_GENERATION_ACTIONS = {"outline", "polish"}
 
 
 def _last_human_message(state: GraphState) -> HumanMessage | None:
@@ -63,9 +65,10 @@ def _parse_classification(
         return action, reason
 
     logger.warning(
-        "router_node: message=%r unrecognized classification %r, falling back to 'say'",
-        message_preview,
-        classification_text,
+        "router_node.classification_unrecognized",
+        message=message_preview,
+        classification=classification_text,
+        fallback_action="say",
     )
     return "say", "분류 실패로 기본값 적용"
 
@@ -76,6 +79,7 @@ def _record_routing_decision(
     decision: str,
     reason: str,
     raw_output: str | None,
+    router_name: str = "intent",
 ) -> None:
     db = config["configurable"].get("db_session")
     if db is None:
@@ -86,7 +90,7 @@ def _record_routing_decision(
         RoutingDecision(
             manuscript_id=uuid.UUID(state["manuscript_id"]),
             message_id=uuid.UUID(message_id) if message_id else None,
-            router_name="intent",
+            router_name=router_name,
             decision=decision,
             reason=reason,
             raw_output=raw_output,
@@ -101,16 +105,20 @@ async def router_node(state: GraphState, config: RunnableConfig) -> dict:
 
     if last_human_message is None or not last_human_message.content:
         logger.info(
-            "router_node: message=%r -> action=say reason=빈 메시지",
-            message_preview,
+            "router_node.routed",
+            message=message_preview,
+            action="say",
+            reason="빈 메시지",
         )
         _record_routing_decision(state, configuration, "say", "빈 메시지", None)
         return {"user_action": "say"}
 
     if _is_opening_turn(state):
         logger.info(
-            "router_node: message=%r -> action=opening reason=첫 대화 시작",
-            message_preview,
+            "router_node.routed",
+            message=message_preview,
+            action="opening",
+            reason="첫 대화 시작",
         )
         _record_routing_decision(state, configuration, "opening", "첫 대화 시작", None)
         return {"user_action": "opening"}
@@ -121,13 +129,43 @@ async def router_node(state: GraphState, config: RunnableConfig) -> dict:
     action, reason = _parse_classification(classification_text, message_preview)
 
     logger.info(
-        "router_node: message=%r -> action=%s reason=%s",
-        message_preview,
-        action,
-        reason,
+        "router_node.routed", message=message_preview, action=action, reason=reason
     )
 
     _record_routing_decision(state, configuration, action, reason, classification_text)
+
+    if action in DOCUMENT_GENERATION_ACTIONS:
+        (
+            sufficient,
+            gate_reason,
+            raw_output,
+            gate_source,
+        ) = await is_conversation_sufficient(state, configuration)
+        logger.info(
+            "router_node.sufficiency_checked",
+            message=message_preview,
+            source=gate_source,
+            sufficient=sufficient,
+            reason=gate_reason,
+        )
+        if not sufficient:
+            logger.info(
+                "router_node.routed",
+                message=message_preview,
+                action="refuse",
+                source=gate_source,
+                reason=gate_reason,
+            )
+            _record_routing_decision(
+                state,
+                configuration,
+                "refuse",
+                f"[{gate_source}] {gate_reason}",
+                raw_output,
+                router_name="sufficiency",
+            )
+            return {"user_action": "refuse"}
+
     return {"user_action": action}
 
 

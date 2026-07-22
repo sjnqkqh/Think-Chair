@@ -3,7 +3,9 @@ from typing import Annotated, Literal, TypedDict
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
-UserAction = Literal["opening", "say", "feedback", "outline", "polish", "finalize"]
+UserAction = Literal[
+    "opening", "say", "feedback", "outline", "polish", "finalize", "refuse"
+]
 
 
 class NewPaper(TypedDict, total=False):
@@ -25,3 +27,4 @@ class GraphState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     client_message: str | None
     new_paper: NewPaper | None
+    polish_attempts: int

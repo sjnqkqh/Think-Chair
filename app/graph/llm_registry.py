@@ -1,9 +1,9 @@
-import logging
-
 from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
-logger = logging.getLogger(__name__)
+from app.logging import get_logger
+
+logger = get_logger(__name__)
 
 _registry: dict[str, BaseChatModel] = {}
 
@@ -27,4 +27,4 @@ def bootstrap(settings) -> None:
             streaming=True,
         ),
     )
-    logger.info("llm registry bootstrapped: model=%s", settings.DEEPSEEK_MODEL)
+    logger.info("llm_registry.bootstrapped", model=settings.DEEPSEEK_MODEL)

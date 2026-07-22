@@ -96,15 +96,29 @@ async def test_full_manuscript_flow(chat_app_state):
         assert routing_decisions[0].message_id == chat_messages[0].id
 
         # 4) 원고 작성 요청 → 파일 저장 + DB row 확인
-        # router 분류(1번째 LLM 호출) + polish_node 생성(2번째 호출)이 순서대로 소비되도록 전용 FakeListChatModel 등록
+        # router 분류(1번째) + 충분성 게이트(2번째 SUFFICIENT) + polish_node 생성(3번째)이
+        # 순서대로 소비되도록 전용 FakeListChatModel 등록. 게이트 휴리스틱을 통과하도록
+        # 충분한 길이의 요청 메시지를 보낸다.
+        polish_request = (
+            "지금까지 이야기한 어텐션 메커니즘 내용을 바탕으로, RNN은 알지만 트랜스포머는 "
+            "처음인 백엔드 개발자를 독자로 삼아 직관 위주의 딥다이브 원고를 작성해주세요. "
+            "코드는 최소화하고 수식보다 비유와 예시 중심으로 설명해줘."
+        )
         original_llm = llm_registry._registry.get("default")
         llm_registry.register(
-            "default", FakeListChatModel(responses=["polish", "원고 본문입니다."])
+            "default",
+            FakeListChatModel(
+                responses=[
+                    "polish",
+                    '{"sufficient": true, "reason": "근거 충분"}',
+                    "원고 본문입니다.",
+                ]
+            ),
         )
         try:
             polish_res = await client.post(
                 f"/api/chat/{manuscript_id}/message",
-                data={"content": "원고 작성해주세요"},
+                data={"content": polish_request},
             )
             assert polish_res.status_code == 200
             # 파일 생성은 분리되어 즉시 시작 안내만 채팅에 노출된다.
@@ -124,7 +138,7 @@ async def test_full_manuscript_flow(chat_app_state):
             .all()
         )
         assert len(chat_messages_after_polish) == 8
-        assert chat_messages_after_polish[-2].content == "원고 작성해주세요"
+        assert chat_messages_after_polish[-2].content == polish_request
         assert chat_messages_after_polish[-1].role == "assistant"
         assert chat_messages_after_polish[-1].phase == "polish"
 
