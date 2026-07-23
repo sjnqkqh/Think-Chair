@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessageChunk, HumanMessage
 from app.models.manuscript import Manuscript
 from app.models.user import User
 
-USER_VISIBLE_CHAT_NODES = {"opening", "converse", "feedback", "refuse"}
+USER_VISIBLE_CHAT_NODES = {"opening", "converse", "feedback", "reject_documentation"}
 
 
 class ChatGraphRunner:

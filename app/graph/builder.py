@@ -11,7 +11,7 @@ from app.graph.nodes.save_new_paper import save_new_paper_node
 from app.graph.nodes.generate_document_from_conversation import (
     generate_document_from_conversation_node,
 )
-from app.graph.nodes.refuse import refuse_node
+from app.graph.nodes.reject_documentation import reject_documentation_node
 from app.graph.router.intent_router import route_by_action, router_node
 from app.graph.state import GraphState
 
@@ -54,7 +54,7 @@ def build_graph(checkpointer):
         "generate_document_from_conversation",
         generate_document_from_conversation_node,
     )
-    graph.add_node("refuse", refuse_node)
+    graph.add_node("reject_documentation", reject_documentation_node)
     graph.add_node("chinese_prevent", chinese_prevent_node)
     graph.add_node("save_new_paper", save_new_paper_node)
     graph.add_node("evaluate_document", evaluate_document_node)
@@ -70,12 +70,13 @@ def build_graph(checkpointer):
             "feedback": "feedback",
             "outline": "outline",
             "generate_document": "generate_document_from_conversation",
-            "refuse": "refuse",
+            "refuse": "reject_documentation",
         },
     )
 
-    for node_name in ("opening", "converse", "feedback", "outline", "refuse"):
+    for node_name in ("opening", "converse", "feedback", "outline"):
         graph.add_edge(node_name, "chinese_prevent")
+    graph.add_edge("reject_documentation", END)
 
     graph.add_conditional_edges(
         "generate_document_from_conversation",

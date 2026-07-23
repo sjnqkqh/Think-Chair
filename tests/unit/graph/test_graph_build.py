@@ -24,12 +24,23 @@ async def test_build_graph_wires_all_expected_nodes():
             "feedback",
             "outline",
             "generate_document_from_conversation",
-            "refuse",
+            "reject_documentation",
             "chinese_prevent",
             "save_new_paper",
             "evaluate_document",
         }
         assert expected <= nodes
+
+
+@pytest.mark.asyncio
+async def test_reject_documentation_ends_without_chinese_prevent():
+    async with make_checkpointer(":memory:") as checkpointer:
+        graph = build_graph(checkpointer)
+        graph_view = graph.get_graph()
+        edges = {(edge.source, edge.target) for edge in graph_view.edges}
+
+        assert ("reject_documentation", "__end__") in edges
+        assert ("reject_documentation", "chinese_prevent") not in edges
 
 
 def test_route_after_chinese_prevent_routes_when_new_paper_exists():

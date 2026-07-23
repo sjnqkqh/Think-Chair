@@ -31,6 +31,6 @@ INSUFFICIENT_CONTEXT_RESPONSE = PromptTemplate(
 - "정보가 부족해서 지금은 문서를 작성해 드리기 어렵다"는 취지를 분명히 밝히며 거절하십시오.
 - 그다음, 문서를 작성하려면 어떤 정보(구체적 경험·사례, 다룰 범위, 방향성 등)가 더 필요한지 2~3가지를 짧게 요청하십시오.
 - 3~5문장 이내의 대화체로만 답하십시오.""",
-    used_when="user_action == 'refuse' 로 refuse 노드가 호출될 때 사용된다.",
+    used_when="user_action == 'refuse' 로 reject_documentation 노드가 호출될 때 사용된다.",
     description="대화 부족으로 문서 생성을 단호히 거절하고 필요한 정보를 요청하는 지시문. 문서/마크다운 생성을 금지한다.",
 )
