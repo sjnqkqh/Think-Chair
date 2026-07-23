@@ -10,7 +10,9 @@ from app.graph.nodes.converse import converse_node
 from app.graph.nodes.feedback import feedback_node
 from app.graph.nodes.opening import opening_node
 from app.graph.nodes.outline import outline_node
-from app.graph.nodes.save_new_paper import save_new_paper_node
+from app.graph.nodes.save_new_paper import (
+    save_new_paper_node,
+)
 from app.graph.nodes.generate_document_from_conversation import (
     generate_document_from_conversation_node,
 )
@@ -85,6 +87,8 @@ def test_save_new_paper_node_saves_to_storage_and_database():
     assert result["new_paper"]["storage_key"] == saved_key
     assert result["new_paper"]["version_id"]
     assert result["new_paper"]["created_at"]
+    assert result["messages"][0].content == "문서 생성과 저장이 완료되었습니다. 문서 본문은 대화 컨텍스트에 포함하지 않습니다."
+    assert "저장할 본문" not in result["messages"][0].content
 
 
 @pytest.mark.asyncio

@@ -153,7 +153,42 @@ async def test_full_manuscript_flow(chat_app_state):
         assert routing_decisions_after_document_generation[-1].decision == "generate_document"
         assert routing_decisions_after_document_generation[-1].raw_output == "generate_document"
 
-        # 5) 다른 원고의 thread_id 격리 확인
+        # 5) 문서화 완료 뒤의 일반 질문은 say로 처리한다. 생성한 원고 본문은
+        # 그래프 대화 컨텍스트에 넣지 않고, 완료 상태 AI 메시지만 남겨야 한다.
+        llm_registry.register(
+            "default",
+            FakeListChatModel(
+                responses=[
+                    "say|포스팅 요약 아이디어를 묻는 일반 대화",
+                    "포스팅 요약은 AI 에이전트 중심 서버 설계의 핵심과 한계를 짚는 내용으로 적을 수 있습니다.",
+                ]
+            ),
+        )
+        try:
+            summary_res = await client.post(
+                f"/api/chat/{manuscript_id}/message",
+                data={"content": "이 대화를 포스팅으로 작성한다면 요약을 뭐라고 적으면 좋을까요?"},
+            )
+            assert summary_res.status_code == 200
+            summary = join_sse_chunks(summary_res.text)
+            assert summary == (
+                "포스팅 요약은 AI 에이전트 중심 서버 설계의 핵심과 한계를 짚는 내용으로 적을 수 있습니다."
+            )
+            assert "원고 본문입니다." not in summary
+
+            snapshot = await graph.aget_state(config)
+            history = snapshot.values["messages"]
+            assert any(
+                message.content
+                == "문서 생성과 저장이 완료되었습니다. 문서 본문은 대화 컨텍스트에 포함하지 않습니다."
+                for message in history
+            )
+            assert all(message.content != "원고 본문입니다." for message in history)
+        finally:
+            if original_llm is not None:
+                llm_registry.register("default", original_llm)
+
+        # 6) 다른 원고의 thread_id 격리 확인
         create_res2 = await client.post(
             "/api/manuscripts", json={"topic": "다른 글", "concept": "TIL"}
         )
