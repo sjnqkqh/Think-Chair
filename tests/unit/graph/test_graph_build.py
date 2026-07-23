@@ -24,6 +24,7 @@ async def test_build_graph_wires_all_expected_nodes():
             "feedback",
             "outline",
             "polish",
+            "clean_polish_output",
             "refuse",
             "chinese_prevent",
             "make_new_paper",
