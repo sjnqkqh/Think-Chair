@@ -6,7 +6,14 @@ pytestmark = pytest.mark.unit
 
 
 def test_parse_evaluation_response_handles_valid_json():
-    raw = '{"score": 82, "verdict": "양호", "reason": "충실함", "improvements": ["a", "b"]}'
+    raw = '''{
+        "score": 82,
+        "verdict": "양호",
+        "reason": "충실함",
+        "improvements": ["a", "b"],
+        "has_unnecessary_header": true,
+        "has_unnecessary_footer": false
+    }'''
 
     parsed = parse_evaluation_response(raw)
 
@@ -15,6 +22,8 @@ def test_parse_evaluation_response_handles_valid_json():
         "verdict": "양호",
         "reason": "충실함",
         "improvements": '["a", "b"]',
+        "has_unnecessary_header": True,
+        "has_unnecessary_footer": False,
     }
 
 
@@ -33,6 +42,8 @@ def test_parse_evaluation_response_returns_empty_result_for_invalid_payload(raw)
         "verdict": None,
         "reason": None,
         "improvements": None,
+        "has_unnecessary_header": None,
+        "has_unnecessary_footer": None,
     }
 
 
@@ -49,3 +60,12 @@ def test_parse_evaluation_response_rejects_non_string_text_fields():
 
     assert parsed["verdict"] is None
     assert parsed["reason"] is None
+
+
+def test_parse_evaluation_response_rejects_non_boolean_body_boundary_flags():
+    parsed = parse_evaluation_response(
+        '{"has_unnecessary_header": "true", "has_unnecessary_footer": 0}'
+    )
+
+    assert parsed["has_unnecessary_header"] is None
+    assert parsed["has_unnecessary_footer"] is None

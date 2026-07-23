@@ -7,6 +7,8 @@ class EvaluationResult(TypedDict):
     verdict: str | None
     reason: str | None
     improvements: str | None
+    has_unnecessary_header: bool | None
+    has_unnecessary_footer: bool | None
 
 
 def parse_evaluation_response(raw_output: str) -> EvaluationResult:
@@ -23,6 +25,8 @@ def parse_evaluation_response(raw_output: str) -> EvaluationResult:
     score = data.get("score")
     verdict = data.get("verdict")
     reason = data.get("reason")
+    has_unnecessary_header = data.get("has_unnecessary_header")
+    has_unnecessary_footer = data.get("has_unnecessary_footer")
     return {
         "score": score if isinstance(score, int) and not isinstance(score, bool) else None,
         "verdict": verdict if isinstance(verdict, str) else None,
@@ -32,11 +36,28 @@ def parse_evaluation_response(raw_output: str) -> EvaluationResult:
             if improvements is not None
             else None
         ),
+        "has_unnecessary_header": (
+            has_unnecessary_header
+            if isinstance(has_unnecessary_header, bool)
+            else None
+        ),
+        "has_unnecessary_footer": (
+            has_unnecessary_footer
+            if isinstance(has_unnecessary_footer, bool)
+            else None
+        ),
     }
 
 
 def _empty_evaluation() -> EvaluationResult:
-    return {"score": None, "verdict": None, "reason": None, "improvements": None}
+    return {
+        "score": None,
+        "verdict": None,
+        "reason": None,
+        "improvements": None,
+        "has_unnecessary_header": None,
+        "has_unnecessary_footer": None,
+    }
 
 
 def _strip_code_fence(text: str) -> str:

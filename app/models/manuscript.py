@@ -2,7 +2,7 @@ import datetime
 import enum
 import uuid
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -73,6 +73,8 @@ class DocumentEvaluation(Base):
     verdict: Mapped[str | None] = mapped_column(String(32), nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     improvements: Mapped[str | None] = mapped_column(Text, nullable=True)
+    has_unnecessary_header: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    has_unnecessary_footer: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     checklist_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     raw_output: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(

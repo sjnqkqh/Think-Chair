@@ -185,7 +185,14 @@ async def test_polish_node_no_step_back_on_first_attempt():
 @pytest.mark.asyncio
 async def test_evaluate_polish_node_persists_evaluation():
     db = MagicMock()
-    raw = '{"score": 70, "verdict": "보완 필요", "reason": "근거 부족", "improvements": ["수치 추가"]}'
+    raw = '''{
+        "score": 70,
+        "verdict": "보완 필요",
+        "reason": "근거 부족",
+        "improvements": ["수치 추가"],
+        "has_unnecessary_header": true,
+        "has_unnecessary_footer": false
+    }'''
     with _RegisteredModel(FakeListChatModel(responses=[raw])):
         state = _base_state(
             new_paper={
@@ -202,6 +209,8 @@ async def test_evaluate_polish_node_persists_evaluation():
     saved = db.add.call_args[0][0]
     assert saved.score == 70
     assert saved.verdict == "보완 필요"
+    assert saved.has_unnecessary_header is True
+    assert saved.has_unnecessary_footer is False
     assert saved.checklist_id
     db.commit.assert_called_once()
 

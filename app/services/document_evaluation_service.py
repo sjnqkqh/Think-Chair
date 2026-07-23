@@ -21,6 +21,8 @@ def save_document_evaluation(
             verdict=evaluation["verdict"],
             reason=evaluation["reason"],
             improvements=evaluation["improvements"],
+            has_unnecessary_header=evaluation["has_unnecessary_header"],
+            has_unnecessary_footer=evaluation["has_unnecessary_footer"],
             checklist_id=checklist_id,
             raw_output=raw_output,
         )
