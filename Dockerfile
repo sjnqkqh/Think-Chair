@@ -21,6 +21,7 @@ WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    DATA_ROOT=/data \
     STORAGE_ROOT=/data/storage
 
 # Copy the resolved virtual environment without shipping uv or build tools.
@@ -34,6 +35,8 @@ RUN useradd --create-home --uid 10001 appuser \
     && chown -R appuser:appuser /app /data
 
 USER appuser
+
+VOLUME ["/data"]
 
 EXPOSE 8000
 
