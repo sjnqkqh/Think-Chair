@@ -4,7 +4,6 @@ from app.logging import get_logger
 from app.graph.nodes.converse import converse_node
 from app.graph.nodes.evaluate import evaluate_polish_node
 from app.graph.nodes.feedback import feedback_node
-from app.graph.nodes.finalize import finalize_node
 from app.graph.nodes.chinese_prevent import chinese_prevent_node
 from app.graph.nodes.opening import opening_node
 from app.graph.nodes.outline import outline_node
@@ -46,7 +45,6 @@ def build_graph(checkpointer):
     graph.add_node("feedback", feedback_node)
     graph.add_node("outline", outline_node)
     graph.add_node("polish", polish_node)
-    graph.add_node("finalize", finalize_node)
     graph.add_node("refuse", refuse_node)
     graph.add_node("chinese_prevent", chinese_prevent_node)
     graph.add_node("make_new_paper", make_new_paper_node)
@@ -63,7 +61,6 @@ def build_graph(checkpointer):
             "feedback": "feedback",
             "outline": "outline",
             "polish": "polish",
-            "finalize": "finalize",
             "refuse": "refuse",
         },
     )
@@ -84,6 +81,4 @@ def build_graph(checkpointer):
     )
     graph.add_edge("make_new_paper", "evaluate_polish")
     graph.add_edge("evaluate_polish", END)
-    graph.add_edge("finalize", END)
-
     return graph.compile(checkpointer=checkpointer)
