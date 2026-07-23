@@ -7,7 +7,7 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from app.graph import llm_registry
 from app.models.chat import ChatMessage, RoutingDecision
-from main import app as fastapi_app
+from app.main import app as fastapi_app
 from tests.helpers import join_sse_chunks, signup_async
 
 pytestmark = pytest.mark.e2e

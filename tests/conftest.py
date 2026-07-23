@@ -22,7 +22,7 @@ from app.graph.checkpointer import make_checkpointer
 from app.graph.conversation_state import ConversationStateReader
 from app.services.background_tasks import BackgroundTaskRegistry
 from app.services.chat_service import ChatService
-from main import app as fastapi_app
+from app.main import app as fastapi_app
 
 test_engine = create_engine(
     "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
