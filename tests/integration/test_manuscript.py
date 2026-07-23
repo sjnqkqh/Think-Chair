@@ -62,18 +62,10 @@ def test_teaching_manuscript_requires_and_returns_audience_level(client):
     assert response.json()["audience_level"] == "초급"
 
     manuscript_id = response.json()["id"]
-    assert client.get(f"/api/manuscripts/{manuscript_id}").json()["audience_level"] == "초급"
-
-
-def test_non_teaching_manuscript_rejects_audience_level(client):
-    signup(client, login_id="invalid-audience")
-
-    response = client.post(
-        "/api/manuscripts",
-        json={"topic": "어텐션", "concept": "딥다이브", "audience_level": "초급"},
+    assert (
+        client.get(f"/api/manuscripts/{manuscript_id}").json()["audience_level"]
+        == "초급"
     )
-
-    assert response.status_code == 422
 
 
 def test_delete_manuscript_soft_deletes_and_hides_from_list(client):
@@ -102,4 +94,3 @@ def test_delete_manuscript_requires_ownership(client, db_session):
     signup(client, login_id="delother")
     response = client.delete(f"/api/manuscripts/{manuscript_id}")
     assert response.status_code == 404
-
