@@ -12,7 +12,7 @@ from app.services.manuscript_service import (
     get_manuscript,
     group_manuscripts_by_date,
     list_manuscript_versions,
-    list_manuscripts,
+    get_manuscripts_list_by_user,
 )
 from app.templates.jinja import make_templates
 
@@ -27,7 +27,7 @@ async def workspace_root(
     user: User = Depends(require_user),
     db: Session = Depends(get_database_session),
 ):
-    manuscripts = list_manuscripts(db, user)
+    manuscripts = get_manuscripts_list_by_user(db, user)
     return templates.TemplateResponse(
         request,
         "workspace/index.html",
@@ -48,7 +48,7 @@ async def workspace_sidebar(
     user: User = Depends(require_user),
     db: Session = Depends(get_database_session),
 ):
-    manuscripts = list_manuscripts(db, user)
+    manuscripts = get_manuscripts_list_by_user(db, user)
     return templates.TemplateResponse(
         request,
         "workspace/_sidebar_left.html",
@@ -66,7 +66,7 @@ async def workspace_sidebar_active(
     user: User = Depends(require_user),
     db: Session = Depends(get_database_session),
 ):
-    manuscripts = list_manuscripts(db, user)
+    manuscripts = get_manuscripts_list_by_user(db, user)
     active = get_manuscript(db, user, manuscript_id)
     return templates.TemplateResponse(
         request,
@@ -85,7 +85,7 @@ async def workspace_detail(
     user: User = Depends(require_user),
     db: Session = Depends(get_database_session),
 ):
-    manuscripts = list_manuscripts(db, user)
+    manuscripts = get_manuscripts_list_by_user(db, user)
     active = get_manuscript(db, user, manuscript_id)
     messages = await request.app.state.conversation_state.load_messages(active.id)
     return templates.TemplateResponse(

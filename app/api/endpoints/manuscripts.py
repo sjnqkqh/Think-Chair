@@ -16,7 +16,7 @@ from app.services.manuscript_service import (
     get_manuscript,
     get_version_file,
     list_manuscript_versions_after,
-    list_manuscripts,
+    get_manuscripts_list_by_user,
 )
 from app.services.storage.base import FileStorage
 from app.templates.jinja import make_templates
@@ -48,7 +48,7 @@ def list_all(
     user: User = Depends(require_user),
     db: Session = Depends(get_database_session),
 ):
-    manuscripts = list_manuscripts(db, user)
+    manuscripts = get_manuscripts_list_by_user(db, user)
     return [
         ManuscriptResponse(
             id=str(m.id),

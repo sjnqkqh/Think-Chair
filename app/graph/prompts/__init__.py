@@ -62,7 +62,7 @@ def build_system_prompt(
     *,
     topic: str,
     user_nickname: str | None = None,
-    audience: str | None = None,
+    audience_level: str | None = None,
 ) -> str:
     persona = get_persona(concept)
     concept_content = get_concept_content(concept, phase)
@@ -71,8 +71,8 @@ def build_system_prompt(
     context = f"[주제] {topic}"
     if user_nickname:
         context += f"\n[사용자 닉네임] {user_nickname}"
-    if audience:
-        context += f"\n[독자 수준] {audience}"
+    if audience_level:
+        context += f"\n[독자 수준] {audience_level}"
 
     parts = [
         persona.text,

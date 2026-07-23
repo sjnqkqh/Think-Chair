@@ -41,6 +41,41 @@ def test_create_manuscript_invalid_concept_returns_422(client):
     assert response.status_code == 422
 
 
+def test_teaching_manuscript_requires_and_returns_audience_level(client):
+    signup(client, login_id="teaching-audience")
+
+    missing_audience = client.post(
+        "/api/manuscripts", json={"topic": "파이썬 기초", "concept": "수업 자료"}
+    )
+    assert missing_audience.status_code == 422
+
+    response = client.post(
+        "/api/manuscripts",
+        json={
+            "topic": "파이썬 기초",
+            "concept": "수업 자료",
+            "audience_level": "초급",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["audience_level"] == "초급"
+
+    manuscript_id = response.json()["id"]
+    assert client.get(f"/api/manuscripts/{manuscript_id}").json()["audience_level"] == "초급"
+
+
+def test_non_teaching_manuscript_rejects_audience_level(client):
+    signup(client, login_id="invalid-audience")
+
+    response = client.post(
+        "/api/manuscripts",
+        json={"topic": "어텐션", "concept": "딥다이브", "audience_level": "초급"},
+    )
+
+    assert response.status_code == 422
+
+
 def test_delete_manuscript_soft_deletes_and_hides_from_list(client):
     # 삭제 요청 시 204를 반환하고, 목록/조회 API에서 더 이상 노출되지 않아야 한다.
     signup(client, login_id="deletetester")
@@ -67,5 +102,4 @@ def test_delete_manuscript_requires_ownership(client, db_session):
     signup(client, login_id="delother")
     response = client.delete(f"/api/manuscripts/{manuscript_id}")
     assert response.status_code == 404
-
 

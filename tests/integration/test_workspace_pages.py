@@ -27,6 +27,9 @@ def test_workspace_root_renders_new_manuscript_button(client):
     assert "새 원고" in response.text
     assert "로그아웃" in response.text
     assert "답을 대신 내놓는 AI가 아니라" in response.text
+    assert "concept: '딥다이브'" in response.text
+    assert 'x-model="concept"' in response.text
+    assert ':disabled="concept !== \'수업 자료\'"' in response.text
 
 
 def test_workspace_detail_renders_version_download_label(
