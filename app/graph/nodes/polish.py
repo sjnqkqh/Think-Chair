@@ -19,7 +19,7 @@ async def polish_node(state: GraphState, config: RunnableConfig) -> dict:
         phase="polish",
         topic=state["topic"],
         user_nickname=state.get("user_nickname"),
-        audience=state.get("audience_level"),
+        audience_level=state.get("audience_level"),
     )
 
     prompt_messages = [

@@ -30,7 +30,7 @@ def create_manuscript(db: Session, user: User, payload: ManuscriptCreateRequest)
     return manuscript
 
 
-def list_manuscripts(db: Session, user: User):
+def get_manuscripts_list_by_user(db: Session, user: User):
     return manuscript_repo.list_by_user(db, user)
 
 

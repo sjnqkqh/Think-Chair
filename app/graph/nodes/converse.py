@@ -17,7 +17,7 @@ async def converse_node(state: GraphState, config: RunnableConfig) -> dict:
         phase=state["user_action"],
         topic=state["topic"],
         user_nickname=state.get("user_nickname"),
-        audience=state.get("audience_level"),
+        audience_level=state.get("audience_level"),
     )
     response = await language_model.ainvoke(
         [

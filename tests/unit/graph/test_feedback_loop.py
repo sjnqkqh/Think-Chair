@@ -53,7 +53,7 @@ class _RegisteredModel:
 def _rich_messages():
     return [
         HumanMessage(content="어텐션 메커니즘을 백엔드 개발자 대상으로 설명하고 싶어. " * 3),
-        AIMessage(content="어떤 배경지식을 가진 독자를 가정할까요?"),
+        AIMessage(content="이 주제에서 어디까지 이해하고 있나요?"),
         HumanMessage(content="RNN은 알지만 트랜스포머는 처음인 사람들이야. 코드보다 직관 위주로." * 3),
     ]
 

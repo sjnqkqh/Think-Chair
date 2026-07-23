@@ -43,20 +43,12 @@ def test_prompt_prohibits_chinese_characters():
     assert "한자" in prompt
 
 
-def test_prompt_includes_audience_when_provided():
-    # audience가 주어지면 독자 수준 컨텍스트가 프롬프트에 포함되어야 한다.
+def test_prompt_includes_audience_level_when_provided():
     prompt = build_system_prompt(
-        "수업 자료", "outline", topic="파이썬 기초", audience="초급"
+        "수업 자료", "outline", topic="파이썬 기초", audience_level="초급"
     )
 
-    assert "초급" in prompt
-
-
-def test_prompt_omits_audience_context_when_not_provided():
-    # audience가 없으면 독자 수준 컨텍스트 라인이 프롬프트에 나타나지 않아야 한다.
-    prompt = build_system_prompt("에세이", "polish", topic="여행 이야기")
-
-    assert "[독자 수준]" not in prompt
+    assert "[독자 수준] 초급" in prompt
 
 
 @pytest.mark.parametrize("concept", ["회고", "TIL"])

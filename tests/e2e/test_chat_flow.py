@@ -101,7 +101,7 @@ async def test_full_manuscript_flow(chat_app_state):
         # 충분한 길이의 요청 메시지를 보낸다.
         polish_request = (
             "지금까지 이야기한 어텐션 메커니즘 내용을 바탕으로, RNN은 알지만 트랜스포머는 "
-            "처음인 백엔드 개발자를 독자로 삼아 직관 위주의 딥다이브 원고를 작성해주세요. "
+            "잘 모르고 있습니다. 추가 학습을 위한 딥다이브 원고를 작성해주세요. "
             "코드는 최소화하고 수식보다 비유와 예시 중심으로 설명해줘."
         )
         original_llm = llm_registry._registry.get("default")
