@@ -24,6 +24,8 @@ def test_save_document_evaluation_persists_normalized_result():
             "verdict": "보완 필요",
             "reason": "근거 부족",
             "improvements": '["수치 추가"]',
+            "has_unnecessary_header": True,
+            "has_unnecessary_footer": False,
         },
     )
 
@@ -32,5 +34,7 @@ def test_save_document_evaluation_persists_normalized_result():
     assert str(saved.manuscript_id) == _MANUSCRIPT_ID
     assert str(saved.version_id) == _VERSION_ID
     assert saved.score == 70
+    assert saved.has_unnecessary_header is True
+    assert saved.has_unnecessary_footer is False
     assert saved.checklist_id == "checklist-1"
     db.commit.assert_called_once()

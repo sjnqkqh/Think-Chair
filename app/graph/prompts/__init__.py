@@ -9,7 +9,7 @@ from app.graph.prompts.persona.listening_persona import LISTENING_PERSONA
 from app.graph.prompts.phases.feedback import FEEDBACK
 from app.graph.prompts.phases.opening import OPENING, build_opening_prompt
 from app.graph.prompts.phases.outline import OUTLINE
-from app.graph.prompts.phases.polish import POLISH
+from app.graph.prompts.phases.document_generation import DOCUMENT_GENERATION
 from app.graph.prompts.phases.say import SAY, SAY_LISTENING
 from app.graph.prompts.types import PromptTemplate
 
@@ -20,7 +20,7 @@ PHASE_ROLES = {
     "say": "purpose",
     "feedback": "checkpoint",
     "outline": "generate",
-    "polish": "generate",
+    "generate_document": "generate",
 }
 
 PHASE_INSTRUCTIONS = {
@@ -28,7 +28,7 @@ PHASE_INSTRUCTIONS = {
     "say": SAY,
     "feedback": FEEDBACK,
     "outline": OUTLINE,
-    "polish": POLISH,
+    "generate_document": DOCUMENT_GENERATION,
 }
 
 GLOBAL_CONSTRAINTS = [CHINESE_BAN, ASCII_DIAGRAM_BAN, EMOJI_BAN, TABLE_BAN, PROMPT_LEAK_BAN]

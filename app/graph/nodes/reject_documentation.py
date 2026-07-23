@@ -7,7 +7,7 @@ from app.graph.state import GraphState
 from app.graph.transcript import render_transcript
 
 
-async def refuse_node(state: GraphState, config: RunnableConfig) -> dict:
+async def reject_documentation_node(state: GraphState, config: RunnableConfig) -> dict:
     language_model = get_language_model(config["configurable"].get("model", "default"))
     transcript = render_transcript(state["messages"])
     response = await language_model.ainvoke(

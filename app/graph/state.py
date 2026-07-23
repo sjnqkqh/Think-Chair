@@ -4,12 +4,12 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
 UserAction = Literal[
-    "opening", "say", "feedback", "outline", "polish", "finalize", "refuse"
+    "opening", "say", "feedback", "outline", "generate_document", "refuse"
 ]
 
 
 class NewPaper(TypedDict, total=False):
-    kind: Literal["outline", "polish"]
+    kind: Literal["outline", "document"]
     content: str
     storage_key: str
     version_id: str
@@ -27,4 +27,4 @@ class GraphState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     client_message: str | None
     new_paper: NewPaper | None
-    polish_attempts: int
+    document_generation_attempts: int

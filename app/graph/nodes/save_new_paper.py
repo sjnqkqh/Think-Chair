@@ -1,6 +1,7 @@
 import datetime
 import uuid
 
+from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
 from app.graph.state import GraphState
@@ -36,6 +37,7 @@ def _save_new_paper(state: GraphState, storage, db, created_at: datetime.datetim
     db.commit()
 
     return {
+        "messages": [AIMessage(content='문서 생성과 저장이 완료되었습니다. 문서 본문은 대화 컨텍스트에 포함하지 않습니다.')],
         "new_paper": {
             **new_paper,
             "storage_key": key,
@@ -46,7 +48,7 @@ def _save_new_paper(state: GraphState, storage, db, created_at: datetime.datetim
     }
 
 
-def make_new_paper_node(state: GraphState, config: RunnableConfig) -> dict:
+def save_new_paper_node(state: GraphState, config: RunnableConfig) -> dict:
     storage = config["configurable"]["storage"]
     db = config["configurable"].get("db_session")
     created_at = datetime.datetime.utcnow()

@@ -57,7 +57,7 @@ app/
 ├── pages/                   # HTML 페이지 라우터: auth, workspace, chat
 ├── templates/               # Jinja2 템플릿
 ├── graph/                   # LangGraph 상태 머신, 노드, 라우터, 프롬프트
-│   ├── builder.py            # opening/say/feedback/outline/polish/finalize 흐름 구성
+│   ├── builder.py            # opening/say/feedback/outline/generate_document_from_conversation 흐름 구성
 │   ├── state.py              # GraphState, UserAction, NewPaper 타입
 │   ├── nodes/                # 대화, 피드백, 개요, 탈고, 저장 노드
 │   └── prompts/              # persona/phase/concept/constraint 프롬프트 조합
@@ -79,12 +79,11 @@ Think Chair의 대화는 `app/graph/builder.py`의 상태 머신으로 실행됩
 - `say`: 일반 대화와 사고 확장 질문
 - `feedback`: 지금까지의 내용에 대한 논리 점검과 보완 질문
 - `outline`: 대화를 바탕으로 목차와 핵심 문장 생성
-- `polish`: 대화를 바탕으로 저장 가능한 마크다운 원고 생성
+- `generate_document_from_conversation`: 대화를 바탕으로 저장 가능한 마크다운 원고 생성
 - `chinese_prevent`: 한자/중국어 혼입 정제
 - `make_new_paper`: 생성된 개요 또는 원고를 버전으로 저장
-- `finalize`: 선택한 버전 확정
 
-사용자 메시지는 먼저 라우터 프롬프트에서 `say / feedback / outline / polish` 중 하나로 분류되고, 각 노드의 결과는 LangGraph SQLite Checkpointer에 대화 상태로 누적됩니다.
+사용자 메시지는 먼저 라우터 프롬프트에서 `say / feedback / outline / generate_document` 중 하나로 분류되고, 각 노드의 결과는 LangGraph SQLite Checkpointer에 대화 상태로 누적됩니다.
 
 ## 환경 설정
 

@@ -12,7 +12,7 @@ from app.graph.prompts import (
 from app.graph.prompts.persona.base_persona import BASE_PERSONA
 from app.graph.prompts.persona.listening_persona import LISTENING_PERSONA
 from app.graph.prompts.phases.outline import OUTLINE_FINAL_GUARD
-from app.graph.prompts.phases.polish import POLISH_FINAL_GUARD
+from app.graph.prompts.phases.document_generation import DOCUMENT_FINAL_GUARD
 from app.graph.prompts.phases.say import SAY_DOCUMENT_GUARD, SAY_LISTENING
 
 pytestmark = pytest.mark.unit
@@ -38,7 +38,7 @@ def test_purpose_is_nonempty(concept):
 
 def test_prompt_prohibits_chinese_characters():
     # 모든 프롬프트는 한자 사용 금지 문구를 포함해야 한다.
-    prompt = build_system_prompt("딥다이브", "polish", topic="테스트 주제")
+    prompt = build_system_prompt("딥다이브", "generate_document", topic="테스트 주제")
 
     assert "한자" in prompt
 
@@ -113,7 +113,7 @@ def test_opening_prompt_uses_concept_specific_question(concept, expected, unexpe
 
 def test_prompt_prohibits_emoji():
     # 이모지 금지 제약도 항상 포함되어야 한다.
-    prompt = build_system_prompt("에세이", "polish", topic="여행 이야기")
+    prompt = build_system_prompt("에세이", "generate_document", topic="여행 이야기")
 
     assert "이모지" in prompt
 
@@ -124,7 +124,7 @@ def _all_templates():
         LISTENING_PERSONA,
         SAY_DOCUMENT_GUARD,
         OUTLINE_FINAL_GUARD,
-        POLISH_FINAL_GUARD,
+        DOCUMENT_FINAL_GUARD,
         *GLOBAL_CONSTRAINTS,
         *PHASE_INSTRUCTIONS.values(),
     ]

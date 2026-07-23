@@ -18,9 +18,9 @@ def test_save_creates_nested_directories(tmp_path):
     # key에 하위 디렉토리가 포함돼 있으면 필요한 폴더를 자동으로 만들어야 한다.
     storage = LocalFileStorage(root=tmp_path)
 
-    storage.save("polishes/nested/b.md", b"content")
+    storage.save("documents/nested/b.md", b"content")
 
-    assert (tmp_path / "polishes" / "nested" / "b.md").exists()
+    assert (tmp_path / "documents" / "nested" / "b.md").exists()
 
 
 def test_delete_removes_file(tmp_path):

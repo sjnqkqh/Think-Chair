@@ -7,10 +7,10 @@ def test_event_logger_emits_event_and_fields(caplog):
     logger = get_logger("tests.graph.logging")
 
     with caplog.at_level(logging.INFO, logger="tests.graph.logging"):
-        logger.info("evaluate_polish.start", version_id="version-1", concept="essay")
+        logger.info("evaluate_document.start", version_id="version-1", concept="essay")
 
     assert caplog.records[-1].message == (
-        "evaluate_polish.start {'version_id': 'version-1', 'concept': 'essay'}"
+        "evaluate_document.start {'version_id': 'version-1', 'concept': 'essay'}"
     )
 
 
@@ -21,10 +21,10 @@ def test_event_logger_exception_keeps_traceback(caplog):
         try:
             raise ValueError("failure")
         except ValueError:
-            logger.exception("evaluate_polish.failed", version_id="version-1")
+            logger.exception("evaluate_document.failed", version_id="version-1")
 
     assert caplog.records[-1].exc_info is not None
-    assert "evaluate_polish.failed" in caplog.records[-1].message
+    assert "evaluate_document.failed" in caplog.records[-1].message
 
 
 def test_event_logger_error_keeps_explicit_traceback(caplog):

@@ -83,9 +83,9 @@ def test_get_version_file_uses_kind_specific_filename(db_session):
     )
     document = ManuscriptVersion(
         manuscript_id=manuscript.id,
-        kind="polish",
+        kind="document",
         revision=1,
-        storage_key="polishs/test.md",
+        storage_key="documents/test.md",
         created_at=datetime.datetime(2026, 7, 8, 0, 7),
     )
     db_session.add_all([outline, document])

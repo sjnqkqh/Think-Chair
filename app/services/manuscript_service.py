@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 VERSION_KIND_LABELS = {
     "outline": "개요",
-    "polish": "문서",
+    "document": "문서",
 }
 
 

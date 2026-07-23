@@ -96,10 +96,10 @@ async def test_full_manuscript_flow(chat_app_state):
         assert routing_decisions[0].message_id == chat_messages[0].id
 
         # 4) 원고 작성 요청 → 파일 저장 + DB row 확인
-        # router 분류(1번째) + 충분성 게이트(2번째 SUFFICIENT) + polish_node 생성(3번째)이
+        # router 분류(1번째) + 충분성 게이트(2번째 SUFFICIENT) + 문서 생성 노드(3번째)가
         # 순서대로 소비되도록 전용 FakeListChatModel 등록. 게이트 휴리스틱을 통과하도록
         # 충분한 길이의 요청 메시지를 보낸다.
-        polish_request = (
+        document_request = (
             "지금까지 이야기한 어텐션 메커니즘 내용을 바탕으로, RNN은 알지만 트랜스포머는 "
             "잘 모르고 있습니다. 추가 학습을 위한 딥다이브 원고를 작성해주세요. "
             "코드는 최소화하고 수식보다 비유와 예시 중심으로 설명해줘."
@@ -109,51 +109,86 @@ async def test_full_manuscript_flow(chat_app_state):
             "default",
             FakeListChatModel(
                 responses=[
-                    "polish",
+                    "generate_document",
                     '{"sufficient": true, "reason": "근거 충분"}',
                     "원고 본문입니다.",
                 ]
             ),
         )
         try:
-            polish_res = await client.post(
+            document_res = await client.post(
                 f"/api/chat/{manuscript_id}/message",
-                data={"content": polish_request},
+                data={"content": document_request},
             )
-            assert polish_res.status_code == 200
+            assert document_res.status_code == 200
             # 파일 생성은 분리되어 즉시 시작 안내만 채팅에 노출된다.
-            assert join_sse_chunks(polish_res.text) == (
+            assert join_sse_chunks(document_res.text) == (
                 "문서 작성을 시작했습니다. 완료되면 오른쪽 문서 목록에 표시됩니다."
             )
-            assert "원고 본문입니다" not in polish_res.text
+            assert "원고 본문입니다" not in document_res.text
             await _wait_until(lambda: storage.save.assert_called_once())
         finally:
             if original_llm is not None:
                 llm_registry.register("default", original_llm)
-        chat_messages_after_polish = (
+        chat_messages_after_document_generation = (
             db_session
             .query(ChatMessage)
             .filter(ChatMessage.manuscript_id == manuscript_uuid)
             .order_by(ChatMessage.sequence.asc())
             .all()
         )
-        assert len(chat_messages_after_polish) == 8
-        assert chat_messages_after_polish[-2].content == polish_request
-        assert chat_messages_after_polish[-1].role == "assistant"
-        assert chat_messages_after_polish[-1].phase == "polish"
+        assert len(chat_messages_after_document_generation) == 8
+        assert chat_messages_after_document_generation[-2].content == document_request
+        assert chat_messages_after_document_generation[-1].role == "assistant"
+        assert chat_messages_after_document_generation[-1].phase == "generate_document"
 
-        routing_decisions_after_polish = (
+        routing_decisions_after_document_generation = (
             db_session
             .query(RoutingDecision)
             .filter(RoutingDecision.manuscript_id == manuscript_uuid)
             .order_by(RoutingDecision.created_at.asc())
             .all()
         )
-        assert len(routing_decisions_after_polish) == 4
-        assert routing_decisions_after_polish[-1].decision == "polish"
-        assert routing_decisions_after_polish[-1].raw_output == "polish"
+        assert len(routing_decisions_after_document_generation) == 4
+        assert routing_decisions_after_document_generation[-1].decision == "generate_document"
+        assert routing_decisions_after_document_generation[-1].raw_output == "generate_document"
 
-        # 5) 다른 원고의 thread_id 격리 확인
+        # 5) 문서화 완료 뒤의 일반 질문은 say로 처리한다. 생성한 원고 본문은
+        # 그래프 대화 컨텍스트에 넣지 않고, 완료 상태 AI 메시지만 남겨야 한다.
+        llm_registry.register(
+            "default",
+            FakeListChatModel(
+                responses=[
+                    "say|포스팅 요약 아이디어를 묻는 일반 대화",
+                    "포스팅 요약은 AI 에이전트 중심 서버 설계의 핵심과 한계를 짚는 내용으로 적을 수 있습니다.",
+                ]
+            ),
+        )
+        try:
+            summary_res = await client.post(
+                f"/api/chat/{manuscript_id}/message",
+                data={"content": "이 대화를 포스팅으로 작성한다면 요약을 뭐라고 적으면 좋을까요?"},
+            )
+            assert summary_res.status_code == 200
+            summary = join_sse_chunks(summary_res.text)
+            assert summary == (
+                "포스팅 요약은 AI 에이전트 중심 서버 설계의 핵심과 한계를 짚는 내용으로 적을 수 있습니다."
+            )
+            assert "원고 본문입니다." not in summary
+
+            snapshot = await graph.aget_state(config)
+            history = snapshot.values["messages"]
+            assert any(
+                message.content
+                == "문서 생성과 저장이 완료되었습니다. 문서 본문은 대화 컨텍스트에 포함하지 않습니다."
+                for message in history
+            )
+            assert all(message.content != "원고 본문입니다." for message in history)
+        finally:
+            if original_llm is not None:
+                llm_registry.register("default", original_llm)
+
+        # 6) 다른 원고의 thread_id 격리 확인
         create_res2 = await client.post(
             "/api/manuscripts", json={"topic": "다른 글", "concept": "TIL"}
         )

@@ -14,7 +14,7 @@ DOCUMENT_READINESS_CHECK = PromptTemplate(
 - 출력은 아래 JSON 객체 하나만 출력하십시오. 코드펜스, 설명, 그 외 어떤 필드도 덧붙이지 마십시오.
 
 {"sufficient": true 또는 false, "reason": "짧은 판단 사유"}""",
-    used_when="router_node에서 문서 생성(outline/polish) 요청이 감지되면 문서 작성 준비도를 판정할 때 사용한다.",
+    used_when="router_node에서 문서 생성(outline/generate_document) 요청이 감지되면 문서 작성 준비도를 판정할 때 사용한다.",
     description="대화 맥락이 문서 작성에 충분한지 LLM으로 판정하는 프롬프트. 문서 생성을 금지하고 sufficient/reason JSON만 강제한다.",
 )
 
@@ -31,6 +31,6 @@ INSUFFICIENT_CONTEXT_RESPONSE = PromptTemplate(
 - "정보가 부족해서 지금은 문서를 작성해 드리기 어렵다"는 취지를 분명히 밝히며 거절하십시오.
 - 그다음, 문서를 작성하려면 어떤 정보(구체적 경험·사례, 다룰 범위, 방향성 등)가 더 필요한지 2~3가지를 짧게 요청하십시오.
 - 3~5문장 이내의 대화체로만 답하십시오.""",
-    used_when="user_action == 'refuse' 로 refuse 노드가 호출될 때 사용된다.",
+    used_when="user_action == 'refuse' 로 reject_documentation 노드가 호출될 때 사용된다.",
     description="대화 부족으로 문서 생성을 단호히 거절하고 필요한 정보를 요청하는 지시문. 문서/마크다운 생성을 금지한다.",
 )
