@@ -138,3 +138,7 @@ uv run ruff check app tests
 ```
 
 `tests/`는 인증, 원고 서비스, LangGraph 노드와 빌드, 채팅 API, 워크스페이스 페이지, 한자/중국어 필터, 로컬 스토리지를 검증합니다.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
