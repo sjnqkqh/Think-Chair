@@ -10,11 +10,13 @@ from app.graph.nodes.converse import converse_node
 from app.graph.nodes.feedback import feedback_node
 from app.graph.nodes.opening import opening_node
 from app.graph.nodes.outline import outline_node
-from app.graph.nodes.make_new_paper import make_new_paper_node
-from app.graph.nodes.polish import polish_node
+from app.graph.nodes.save_new_paper import save_new_paper_node
+from app.graph.nodes.generate_document_from_conversation import (
+    generate_document_from_conversation_node,
+)
 from app.graph.router.intent_router import router_node
 from app.graph.prompts.phases.outline import OUTLINE_FINAL_GUARD
-from app.graph.prompts.phases.polish import POLISH_FINAL_GUARD
+from app.graph.prompts.phases.document_generation import DOCUMENT_FINAL_GUARD
 
 pytestmark = pytest.mark.unit
 
@@ -26,7 +28,7 @@ def _base_state(**overrides):
         "topic": "테스트 주제",
         "user_nickname": "테스터",
         "audience_level": None,
-        "user_action": "polish",
+        "user_action": "generate_document",
         "messages": [HumanMessage(content="원고를 작성해줘")],
         "client_message": None,
         "new_paper": None,
@@ -48,7 +50,7 @@ def test_chinese_prevent_node_removes_chinese_from_message_and_new_paper():
     state = _base_state(
         messages=[AIMessage(content="漢字テスト 결과", id="message-1")],
         client_message="漢字테스트 안내",
-        new_paper={"kind": "polish", "content": "漢字テスト 본문"},
+        new_paper={"kind": "document", "content": "漢字テ스트 본문"},
     )
 
     result = chinese_prevent_node(state)
@@ -59,23 +61,23 @@ def test_chinese_prevent_node_removes_chinese_from_message_and_new_paper():
     assert "漢字" not in result["new_paper"]["content"]
 
 
-def test_make_new_paper_node_saves_to_storage_and_database():
+def test_save_new_paper_node_saves_to_storage_and_database():
     storage = MagicMock()
     database_session = MagicMock()
     database_session.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
         None
     )
 
-    state = _base_state(new_paper={"kind": "polish", "content": "저장할 본문"})
+    state = _base_state(new_paper={"kind": "document", "content": "저장할 본문"})
     configuration = {
         "configurable": {"storage": storage, "db_session": database_session}
     }
 
-    result = make_new_paper_node(state, configuration)
+    result = save_new_paper_node(state, configuration)
 
     storage.save.assert_called_once()
     saved_key, saved_bytes = storage.save.call_args[0]
-    assert saved_key.startswith("polishs/")
+    assert saved_key.startswith("documents/")
     assert saved_bytes == "저장할 본문".encode("utf-8")
 
     database_session.add.assert_called_once()
@@ -88,11 +90,14 @@ def test_make_new_paper_node_saves_to_storage_and_database():
 @pytest.mark.asyncio
 async def test_router_node_classifies_action_from_llm_response():
     original = language_model_registry._registry.get("default")
-    # 분류("polish") 이후 충분성 게이트가 호출되므로 JSON 판정 응답을 함께 제공한다.
+    # 분류("generate_document") 이후 충분성 게이트가 호출되므로 JSON 판정 응답을 함께 제공한다.
     language_model_registry.register(
         "default",
         FakeListChatModel(
-            responses=["polish", '{"sufficient": true, "reason": "근거 충분"}']
+            responses=[
+                "generate_document",
+                '{"sufficient": true, "reason": "근거 충분"}',
+            ]
         ),
     )
     try:
@@ -101,11 +106,13 @@ async def test_router_node_classifies_action_from_llm_response():
             messages=[
                 HumanMessage(content="어텐션을 백엔드 개발자에게 설명하고 싶어. " * 3),
                 AIMessage(content="이 주제에서 어디까지 이해하고 있나요?"),
-                HumanMessage(content="RNN은 알지만 트랜스포머는 처음인 사람들이야. " * 3),
+                HumanMessage(
+                    content="RNN은 알지만 트랜스포머는 처음인 사람들이야. " * 3
+                ),
             ],
         )
         result = await router_node(state, {"configurable": {"model": "default"}})
-        assert result["user_action"] == "polish"
+        assert result["user_action"] == "generate_document"
     finally:
         if original is not None:
             language_model_registry.register("default", original)
@@ -114,7 +121,9 @@ async def test_router_node_classifies_action_from_llm_response():
 @pytest.mark.asyncio
 async def test_router_node_routes_first_message_to_opening_without_classifier():
     original = language_model_registry._registry.get("default")
-    language_model_registry.register("default", FakeListChatModel(responses=["polish"]))
+    language_model_registry.register(
+        "default", FakeListChatModel(responses=["generate_document"])
+    )
     try:
         state = _base_state(
             user_action=None, messages=[HumanMessage(content="안녕하세요")]
@@ -200,10 +209,10 @@ async def test_response_nodes_return_context_message_and_client_message(
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("node", "kind"),
-    [(outline_node, "outline"), (polish_node, "polish")],
+    [(outline_node, "outline"), (generate_document_from_conversation_node, "document")],
 )
 async def test_generation_nodes_append_final_output_rules_after_history(node, kind):
-    expected_guard = {"outline": OUTLINE_FINAL_GUARD, "polish": POLISH_FINAL_GUARD}[
+    expected_guard = {"outline": OUTLINE_FINAL_GUARD, "document": DOCUMENT_FINAL_GUARD}[
         kind
     ]
     original = language_model_registry._registry.get("default")

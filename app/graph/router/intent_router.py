@@ -12,8 +12,8 @@ from app.models.chat import RoutingDecision
 
 logger = get_logger(__name__)
 
-CLASSIFIABLE_ACTIONS = {"say", "feedback", "outline", "polish"}
-DOCUMENT_GENERATION_ACTIONS = {"outline", "polish"}
+CLASSIFIABLE_ACTIONS = {"say", "feedback", "outline", "generate_document"}
+DOCUMENT_GENERATION_ACTIONS = {"outline", "generate_document"}
 
 
 def _last_human_message(state: GraphState) -> HumanMessage | None:

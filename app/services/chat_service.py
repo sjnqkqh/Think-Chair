@@ -14,7 +14,7 @@ from app.utils.sse import SseEvent
 
 logger = get_logger(__name__)
 
-DOCUMENT_GENERATION_ACTIONS = {"outline", "polish"}
+DOCUMENT_GENERATION_ACTIONS = {"outline", "generate_document"}
 DOCUMENT_GENERATION_ACK = (
     "문서 작성을 시작했습니다. 완료되면 오른쪽 문서 목록에 표시됩니다."
 )

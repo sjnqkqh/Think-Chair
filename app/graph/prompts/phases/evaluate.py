@@ -14,6 +14,6 @@ EVALUATE = PromptTemplate(
 
 출력은 아래 JSON 객체 하나만 출력하십시오. 코드펜스나 다른 설명을 붙이지 마십시오.
 {"score": 0-100 정수, "verdict": "양호|보완 필요|재작성 필요 중 하나", "reason": "판정 사유", "improvements": ["개선점1", "개선점2"], "has_unnecessary_header": true 또는 false, "has_unnecessary_footer": true 또는 false}""",
-    used_when="make_new_paper 이후 evaluate_polish 노드가 polish 문서를 평가할 때 사용된다.",
+    used_when="save_new_paper 이후 evaluate_document 노드가 document 문서를 평가할 때 사용된다.",
     description="컨셉별 체크리스트로 생성 문서를 평가해 점수·사유·개선점을 JSON으로 산출하는 프롬프트.",
 )

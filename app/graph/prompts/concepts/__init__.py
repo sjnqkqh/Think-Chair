@@ -16,7 +16,7 @@ def _load_concept(concept: ConceptType) -> dict[str, PromptTemplate]:
         "generate": PromptTemplate(
             id=f"concept.{concept.value}.generate",
             text=generate_md,
-            used_when="outline/draft/polish 생성 단계에서 사용",
+            used_when="outline/draft/generate_document 생성 단계에서 사용",
             description=f"{concept.value} 문서의 생성 기준 전체 (독자, 구조, 작성 기준, 금지 사항 등).",
         ),
         "checkpoint": PromptTemplate(

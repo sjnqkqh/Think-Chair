@@ -59,7 +59,7 @@ def _service(graph_runner, background_tasks):
 
 
 def test_is_document_generation_predicate():
-    assert is_document_generation("polish") is True
+    assert is_document_generation("generate_document") is True
     assert is_document_generation("outline") is True
     assert is_document_generation("say") is False
     assert is_document_generation(None) is False
@@ -69,7 +69,7 @@ async def test_stream_response_dispatches_document_generation():
     background = RecordingBackgroundTasks()
     service = _service(FakeGraphRunner(), background)
 
-    events = [event async for event in service.stream_response(uuid.uuid4(), "polish")]
+    events = [event async for event in service.stream_response(uuid.uuid4(), "generate_document")]
 
     assert events[0] == (SseEvent.READY, {})
     assert (SseEvent.CHUNK, {"content": DOCUMENT_GENERATION_ACK}) in events

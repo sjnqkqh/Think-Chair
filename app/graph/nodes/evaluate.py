@@ -13,17 +13,17 @@ from app.services.evaluation_response_parser import parse_evaluation_response
 logger = get_logger(__name__)
 
 
-async def evaluate_polish_node(state: GraphState, config: RunnableConfig) -> dict:
+async def evaluate_document_node(state: GraphState, config: RunnableConfig) -> dict:
     new_paper = state.get("new_paper")
-    if not new_paper or new_paper.get("kind") != "polish":
+    if not new_paper or new_paper.get("kind") != "document":
         logger.info(
-            "evaluate_polish.skip", kind=new_paper.get("kind") if new_paper else None
+            "evaluate_document.skip", kind=new_paper.get("kind") if new_paper else None
         )
         return {}
 
     version_id = new_paper.get("version_id")
     logger.info(
-        "evaluate_polish.start",
+        "evaluate_document.start",
         manuscript_id=state["manuscript_id"],
         version_id=version_id,
         concept=state["concept"],
@@ -48,7 +48,7 @@ async def evaluate_polish_node(state: GraphState, config: RunnableConfig) -> dic
         raw_output = (response.content or "").strip()
         parsed = parse_evaluation_response(raw_output)
         logger.info(
-            "evaluate_polish.result",
+            "evaluate_document.result",
             version_id=version_id,
             score=parsed["score"],
             verdict=parsed["verdict"],
@@ -75,8 +75,8 @@ async def evaluate_polish_node(state: GraphState, config: RunnableConfig) -> dic
                     checklist.id,
                     parsed,
                 )
-        logger.info("evaluate_polish.saved", version_id=version_id)
+        logger.info("evaluate_document.saved", version_id=version_id)
     except Exception:
-        logger.exception("evaluate_polish.failed", version_id=version_id)
+        logger.exception("evaluate_document.failed", version_id=version_id)
 
     return {}

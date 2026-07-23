@@ -33,5 +33,5 @@ SAY_DOCUMENT_GUARD = PromptTemplate(
 - 사용자가 명시적으로 요청하지 않았다면 초안이나 목차를 통째로 제공하지 마십시오.
 - 대화체 문장으로만 답하십시오.""",
     used_when="converse_node에서 매 호출마다, 전체 채팅 히스토리 뒤의 마지막 SystemMessage로 추가된다.",
-    description="say 단계에서 문서형 응답이 나가는 것을 막기 위한 최종 출력 가드레일. outline/polish의 FINAL_MARKDOWN_OUTPUT_RULES와 동일한 위치 패턴.",
+    description="say 단계에서 문서형 응답이 나가는 것을 막기 위한 최종 출력 가드레일. outline/generate_document의 최종 출력 규칙과 동일한 위치 패턴.",
 )

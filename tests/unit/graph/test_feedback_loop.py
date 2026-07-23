@@ -5,9 +5,11 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.graph import llm_registry as language_model_registry
-from app.graph.nodes.evaluate import evaluate_polish_node
-from app.graph.nodes.polish import polish_node
-from app.graph.prompts.phases.polish import POLISH_STEP_BACK
+from app.graph.nodes.evaluate import evaluate_document_node
+from app.graph.nodes.generate_document_from_conversation import (
+    generate_document_from_conversation_node,
+)
+from app.graph.prompts.phases.document_generation import DOCUMENT_STEP_BACK
 from app.graph.router.intent_router import router_node
 from app.graph.router.sufficiency import _passes_heuristic
 from app.graph.transcript import render_transcript
@@ -25,12 +27,12 @@ def _base_state(**overrides):
         "topic": "테스트 주제",
         "user_nickname": "테스터",
         "audience_level": None,
-        "user_action": "polish",
+        "user_action": "generate_document",
         "current_message_id": None,
         "messages": [HumanMessage(content="원고를 작성해줘")],
         "client_message": None,
         "new_paper": None,
-        "polish_attempts": 0,
+        "document_generation_attempts": 0,
     }
     state.update(overrides)
     return state
@@ -83,7 +85,7 @@ def test_render_transcript_labels_roles_and_skips_empty():
 @pytest.mark.asyncio
 async def test_router_refuses_when_heuristic_fails_without_gate_llm():
     # classifier만 호출되고(휴리스틱 미달) 게이트 LLM은 호출되지 않아야 한다.
-    with _RegisteredModel(FakeListChatModel(responses=["polish"])):
+    with _RegisteredModel(FakeListChatModel(responses=["generate_document"])):
         state = _base_state(
             user_action=None,
             messages=[
@@ -100,19 +102,19 @@ async def test_router_refuses_when_heuristic_fails_without_gate_llm():
 async def test_router_keeps_action_when_gate_llm_says_sufficient():
     with _RegisteredModel(
         FakeListChatModel(
-            responses=["polish", '{"sufficient": true, "reason": "근거 충분"}']
+            responses=["generate_document", '{"sufficient": true, "reason": "근거 충분"}']
         )
     ):
         state = _base_state(user_action=None, messages=_rich_messages())
         result = await router_node(state, {"configurable": {"model": "default"}})
-        assert result["user_action"] == "polish"
+        assert result["user_action"] == "generate_document"
 
 
 @pytest.mark.asyncio
 async def test_router_refuses_when_gate_llm_says_insufficient():
     with _RegisteredModel(
         FakeListChatModel(
-            responses=["polish", '{"sufficient": false, "reason": "방향성 부족"}']
+            responses=["generate_document", '{"sufficient": false, "reason": "방향성 부족"}']
         )
     ):
         state = _base_state(user_action=None, messages=_rich_messages())
@@ -126,7 +128,7 @@ async def test_router_retries_gate_until_valid_json():
     with _RegisteredModel(
         FakeListChatModel(
             responses=[
-                "polish",
+                "generate_document",
                 "# 문서를 생성해버림",
                 '{"sufficient": false, "reason": "방향성 부족"}',
             ]
@@ -141,11 +143,11 @@ async def test_router_retries_gate_until_valid_json():
 async def test_router_proceeds_when_gate_retries_exhausted():
     # 재시도를 모두 소진하면(계속 형식 위반) 생성으로 진행한다(오거절 방지).
     with _RegisteredModel(
-        FakeListChatModel(responses=["polish", "# 계속 문서만 생성"])
+        FakeListChatModel(responses=["generate_document", "# 계속 문서만 생성"])
     ):
         state = _base_state(user_action=None, messages=_rich_messages())
         result = await router_node(state, {"configurable": {"model": "default"}})
-        assert result["user_action"] == "polish"
+        assert result["user_action"] == "generate_document"
 
 
 # --- Feature 2-1: step-back 재시도 ---
@@ -161,21 +163,25 @@ class _RecordingModel:
 
 
 @pytest.mark.asyncio
-async def test_polish_node_injects_step_back_on_retry():
+async def test_generate_document_from_conversation_node_injects_step_back_on_retry():
     with _RegisteredModel(_RecordingModel()) as model:
-        state = _base_state(polish_attempts=1)
-        result = await polish_node(state, {"configurable": {"model": "default"}})
-        assert result["polish_attempts"] == 2
-        assert model.messages[-1].content == POLISH_STEP_BACK.text
+        state = _base_state(document_generation_attempts=1)
+        result = await generate_document_from_conversation_node(
+            state, {"configurable": {"model": "default"}}
+        )
+        assert result["document_generation_attempts"] == 2
+        assert model.messages[-1].content == DOCUMENT_STEP_BACK.text
 
 
 @pytest.mark.asyncio
-async def test_polish_node_no_step_back_on_first_attempt():
+async def test_generate_document_from_conversation_node_no_step_back_on_first_attempt():
     with _RegisteredModel(_RecordingModel()) as model:
-        state = _base_state(polish_attempts=0)
-        result = await polish_node(state, {"configurable": {"model": "default"}})
-        assert result["polish_attempts"] == 1
-        assert POLISH_STEP_BACK.text not in [
+        state = _base_state(document_generation_attempts=0)
+        result = await generate_document_from_conversation_node(
+            state, {"configurable": {"model": "default"}}
+        )
+        assert result["document_generation_attempts"] == 1
+        assert DOCUMENT_STEP_BACK.text not in [
             m.content for m in model.messages if isinstance(m, SystemMessage)
         ]
 
@@ -183,7 +189,7 @@ async def test_polish_node_no_step_back_on_first_attempt():
 # --- Feature 2-2: 체크리스트 평가 저장 ---
 
 @pytest.mark.asyncio
-async def test_evaluate_polish_node_persists_evaluation():
+async def test_evaluate_document_node_persists_evaluation():
     db = MagicMock()
     raw = '''{
         "score": 70,
@@ -196,12 +202,12 @@ async def test_evaluate_polish_node_persists_evaluation():
     with _RegisteredModel(FakeListChatModel(responses=[raw])):
         state = _base_state(
             new_paper={
-                "kind": "polish",
+                "kind": "document",
                 "content": "본문",
                 "version_id": _VERSION_ID,
             }
         )
-        result = await evaluate_polish_node(
+        result = await evaluate_document_node(
             state, {"configurable": {"model": "default", "db_session": db}}
         )
     assert result == {}
@@ -216,19 +222,19 @@ async def test_evaluate_polish_node_persists_evaluation():
 
 
 @pytest.mark.asyncio
-async def test_evaluate_polish_node_uses_db_factory_when_request_session_is_missing():
+async def test_evaluate_document_node_uses_db_factory_when_request_session_is_missing():
     database_session = MagicMock()
     db_factory = MagicMock()
     db_factory.return_value.__enter__.return_value = database_session
     with _RegisteredModel(FakeListChatModel(responses=['{"score": 70}'])):
         state = _base_state(
             new_paper={
-                "kind": "polish",
+                "kind": "document",
                 "content": "본문",
                 "version_id": _VERSION_ID,
             }
         )
-        await evaluate_polish_node(
+        await evaluate_document_node(
             state, {"configurable": {"model": "default", "db_factory": db_factory}}
         )
 
@@ -237,10 +243,10 @@ async def test_evaluate_polish_node_uses_db_factory_when_request_session_is_miss
 
 
 @pytest.mark.asyncio
-async def test_evaluate_polish_node_skips_non_polish():
+async def test_evaluate_document_node_skips_non_document():
     db = MagicMock()
     state = _base_state(new_paper={"kind": "outline", "content": "개요", "version_id": _VERSION_ID})
-    result = await evaluate_polish_node(
+    result = await evaluate_document_node(
         state, {"configurable": {"model": "default", "db_session": db}}
     )
     assert result == {}

@@ -20,7 +20,7 @@ class ConceptType(str, enum.Enum):
 class ManuscriptStatus(str, enum.Enum):
     DRAFTING = "drafting"
     DRAFTED = "drafted"
-    POLISHING = "polishing"
+    GENERATING_DOCUMENT = "generating_document"
     FINALIZED = "finalized"
 
 

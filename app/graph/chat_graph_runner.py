@@ -92,5 +92,5 @@ def _initial_turn_state(
         "messages": [HumanMessage(content=user_message)],
         "client_message": None,
         "new_paper": None,
-        "polish_attempts": 0,
+        "document_generation_attempts": 0,
     }

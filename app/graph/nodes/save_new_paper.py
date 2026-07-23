@@ -46,7 +46,7 @@ def _save_new_paper(state: GraphState, storage, db, created_at: datetime.datetim
     }
 
 
-def make_new_paper_node(state: GraphState, config: RunnableConfig) -> dict:
+def save_new_paper_node(state: GraphState, config: RunnableConfig) -> dict:
     storage = config["configurable"]["storage"]
     db = config["configurable"].get("db_session")
     created_at = datetime.datetime.utcnow()

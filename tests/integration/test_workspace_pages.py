@@ -51,9 +51,9 @@ def test_workspace_detail_renders_version_download_label(
             ),
             ManuscriptVersion(
                 manuscript_id=manuscript_id,
-                kind="polish",
+                kind="document",
                 revision=1,
-                storage_key="polishs/test.md",
+                storage_key="documents/test.md",
                 created_at=datetime.datetime(2026, 7, 8, 0, 7),
             ),
         ]
@@ -67,7 +67,7 @@ def test_workspace_detail_renders_version_download_label(
     assert "버전 1" not in response.text
     assert 'class="text-sm text-[#787671]">(09:07)</span>' in response.text
     assert "[다운로드]" in response.text
-    assert "polish v1" not in response.text
+    assert "document v1" not in response.text
 
 
 def test_workspace_detail_unknown_manuscript_returns_404(client):

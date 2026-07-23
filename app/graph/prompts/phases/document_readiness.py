@@ -14,7 +14,7 @@ DOCUMENT_READINESS_CHECK = PromptTemplate(
 - 출력은 아래 JSON 객체 하나만 출력하십시오. 코드펜스, 설명, 그 외 어떤 필드도 덧붙이지 마십시오.
 
 {"sufficient": true 또는 false, "reason": "짧은 판단 사유"}""",
-    used_when="router_node에서 문서 생성(outline/polish) 요청이 감지되면 문서 작성 준비도를 판정할 때 사용한다.",
+    used_when="router_node에서 문서 생성(outline/generate_document) 요청이 감지되면 문서 작성 준비도를 판정할 때 사용한다.",
     description="대화 맥락이 문서 작성에 충분한지 LLM으로 판정하는 프롬프트. 문서 생성을 금지하고 sufficient/reason JSON만 강제한다.",
 )
 

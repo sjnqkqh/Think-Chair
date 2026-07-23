@@ -12,6 +12,6 @@ def test_langgraph_debug_page_renders_compiled_graph(client):
     assert "전이 18개" in response.text
     assert "노드 목록" in response.text
     assert "router(router)" in response.text
-    assert "make_new_paper" in response.text
-    assert "evaluate_polish" in response.text
+    assert "save_new_paper" in response.text
+    assert "evaluate_document" in response.text
     assert "mermaid" in response.text
