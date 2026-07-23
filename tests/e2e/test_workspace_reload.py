@@ -1,7 +1,7 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from main import app as fastapi_app
+from app.main import app as fastapi_app
 from tests.helpers import signup_async
 
 pytestmark = pytest.mark.e2e
