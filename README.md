@@ -121,7 +121,7 @@ docker build -t think-chair .
 docker run --rm -p 8000:8000 --env-file .env think-chair
 ```
 
-원고 파일을 컨테이너 재시작 후에도 보존하려면 호스트 디렉터리를 `/data`에 마운트합니다.
+SQLite DB, LangGraph 체크포인트, 원고 파일을 컨테이너 재시작 후에도 보존하려면 호스트 디렉터리를 `/data`에 마운트합니다.
 
 ```bash
 docker run --rm -p 8000:8000 --env-file .env -v "$(pwd)/data:/data" think-chair

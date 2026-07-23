@@ -36,7 +36,7 @@ llm_registry.bootstrap(settings)
 async def lifespan(app: FastAPI):
     # LangGraph 체크포인터는 앱 생명주기 동안 열려있어야 하므로 AsyncExitStack으로 관리한다.
     async with AsyncExitStack() as stack:
-        checkpoint_path = os.path.join(settings.BASE_DIR, "draftsmith_checkpoint.db")
+        checkpoint_path = str(settings.DATA_ROOT / "draftsmith_checkpoint.db")
         checkpointer = await stack.enter_async_context(
             make_checkpointer(checkpoint_path)
         )

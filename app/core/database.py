@@ -1,9 +1,10 @@
-import os
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
 from app.core.config import settings
 
-DATABASE_URL = f"sqlite:///{os.path.join(settings.BASE_DIR, 'rag_history.db')}"
+database_path = settings.DATA_ROOT / "rag_history.db"
+database_path.parent.mkdir(parents=True, exist_ok=True)
+DATABASE_URL = f"sqlite:///{database_path}"
 
 engine = create_engine(
     DATABASE_URL, connect_args={"check_same_thread": False, "timeout": 10}
