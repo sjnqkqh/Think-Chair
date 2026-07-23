@@ -6,6 +6,7 @@ from app.graph.nodes.evaluate import evaluate_polish_node
 from app.graph.nodes.feedback import feedback_node
 from app.graph.nodes.finalize import finalize_node
 from app.graph.nodes.chinese_prevent import chinese_prevent_node
+from app.graph.nodes.clean_polish_output import clean_polish_output_node
 from app.graph.nodes.opening import opening_node
 from app.graph.nodes.outline import outline_node
 from app.graph.nodes.make_new_paper import make_new_paper_node
@@ -47,6 +48,7 @@ def build_graph(checkpointer):
     graph.add_node("outline", outline_node)
     graph.add_node("polish", polish_node)
     graph.add_node("finalize", finalize_node)
+    graph.add_node("clean_polish_output", clean_polish_output_node)
     graph.add_node("refuse", refuse_node)
     graph.add_node("chinese_prevent", chinese_prevent_node)
     graph.add_node("make_new_paper", make_new_paper_node)
@@ -72,10 +74,11 @@ def build_graph(checkpointer):
         graph.add_edge(node_name, "chinese_prevent")
 
     graph.add_conditional_edges(
-        "polish",
+        "clean_polish_output",
         route_after_polish,
         {"polish": "polish", "chinese_prevent": "chinese_prevent"},
     )
+    graph.add_edge("polish", "clean_polish_output")
 
     graph.add_conditional_edges(
         "chinese_prevent",

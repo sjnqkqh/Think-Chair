@@ -6,6 +6,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.graph import llm_registry as language_model_registry
 from app.graph.nodes.chinese_prevent import chinese_prevent_node
+from app.graph.nodes.clean_polish_output import clean_polish_output_node
 from app.graph.nodes.converse import converse_node
 from app.graph.nodes.feedback import feedback_node
 from app.graph.nodes.opening import opening_node
@@ -57,6 +58,50 @@ def test_chinese_prevent_node_removes_chinese_from_message_and_new_paper():
     assert result["messages"][0].id == "message-1"
     assert "漢字" not in result["client_message"]
     assert "漢字" not in result["new_paper"]["content"]
+
+
+def test_clean_polish_output_node_removes_generation_preface_and_closing(caplog):
+    preface = (
+        "작성되었습니다. 전체 분량은 약 8개 섹션으로 구성되어 있으며, "
+        "부트캠프 3개월 차 수강생이 읽을 수준에 맞추었습니다."
+    )
+    body = "# 트랜스포머\n\n트랜스포머는 어텐션을 사용하는 모델입니다."
+    closing = "검토해 보시고 수정이 필요하면 말씀해 주세요."
+    state = _base_state(
+        polish_attempts=1,
+        new_paper={"kind": "polish", "content": f"{preface}\n\n{body}\n\n{closing}"},
+    )
+
+    result = clean_polish_output_node(state)
+
+    assert result["new_paper"]["content"] == body
+    assert "polish_output.meta_removed" in caplog.records[-1].message
+    assert "content_bytes_before" in caplog.records[-1].message
+    assert preface not in caplog.records[-1].message
+
+
+def test_clean_polish_output_node_keeps_regular_markdown_unchanged():
+    body = "# 작성 과정\n\n작성 과정에서 검토해 볼 항목을 정리합니다."
+
+    result = clean_polish_output_node(
+        _base_state(new_paper={"kind": "polish", "content": body})
+    )
+
+    assert result == {}
+
+
+def test_clean_polish_output_node_keeps_body_with_broad_meta_words():
+    body = (
+        "전체 구성은 문제 정의, 해결 방법, 한계 순서로 설명합니다.\n\n"
+        "수강생이 작성할 때에는 각 단락의 근거를 확인해야 합니다.\n\n"
+        "원하시면 다음 절에서 성능 최적화를 적용할 수 있습니다."
+    )
+
+    result = clean_polish_output_node(
+        _base_state(new_paper={"kind": "polish", "content": body})
+    )
+
+    assert result == {}
 
 
 def test_make_new_paper_node_saves_to_storage_and_database():
