@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Generator"
+  short_description: "변경 코드 기반의 간결한 한국어 PR 문서 작성"
+  default_prompt: "Use $pr-generator to draft a concise Korean PR document from the current changes."
