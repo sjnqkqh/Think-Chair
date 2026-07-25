@@ -1,0 +1,20 @@
+services:
+  think-chair:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: think-chair:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Keep all mutable SQLite and manuscript data in the named volume.
+      DATA_ROOT: /data
+      STORAGE_ROOT: /data/storage
+    volumes:
+      - think-chair-data:/data
+    restart: unless-stopped
+
+volumes:
+  think-chair-data:

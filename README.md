@@ -116,16 +116,35 @@ uvicorn app.main:app --reload
 
 ## Docker
 
+Docker Compose로 이미지를 빌드하고 호스트의 9000번 포트에서 실행합니다. `.env`에
+`DEEPSEEK_API_KEY`와 운영용 `JWT_SECRET`을 설정한 뒤 실행하세요.
+
+```bash
+docker compose up --build -d
+```
+
+- 워크스페이스: `http://localhost:9000/workspace`
+- API 문서: `http://localhost:9000/docs`
+
+앱 로그와 종료는 다음 명령으로 확인합니다.
+
+```bash
+docker compose logs -f
+docker compose down
+```
+
+Compose는 SQLite DB, LangGraph 체크포인트, 원고 파일을 `think-chair-data` named volume에 보존합니다. 볼륨까지 삭제하려면 `docker compose down -v`를 사용합니다.
+
+기존 Docker CLI 실행 방법:
+
 ```bash
 docker build -t think-chair .
-docker run --rm -p 8000:8000 --env-file .env think-chair
+docker run --rm -p 8000:8000 --env-file .env \
+  -e DATA_ROOT=/data -e STORAGE_ROOT=/data/storage \
+  -v "$(pwd)/data:/data" think-chair
 ```
 
-SQLite DB, LangGraph 체크포인트, 원고 파일을 컨테이너 재시작 후에도 보존하려면 호스트 디렉터리를 `/data`에 마운트합니다.
-
-```bash
-docker run --rm -p 8000:8000 --env-file .env -v "$(pwd)/data:/data" think-chair
-```
+컨테이너 내부 포트는 8000이며, Compose가 이를 호스트의 9000번 포트로 연결합니다.
 
 ## API
 
