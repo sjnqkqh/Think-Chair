@@ -19,6 +19,10 @@ def is_document_generation(action: str | None) -> bool:
     return action in DOCUMENT_GENERATION_ACTIONS
 
 
+def list_chat_messages(database_session, manuscript_id: uuid.UUID) -> list[ChatMessage]:
+    return chat_repo.list_messages(database_session, manuscript_id)
+
+
 class ChatService:
     """채팅 턴 처리와 응답 스트리밍 정책을 담당한다.
 
