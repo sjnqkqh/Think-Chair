@@ -22,7 +22,7 @@ def create(db: Session, user: User, topic: str, concept, audience_level: str | N
 def list_by_user(db: Session, user: User) -> list[Manuscript]:
     return (
         db.query(Manuscript)
-        .filter(Manuscript.user_id == user.id, Manuscript.is_deleted == False)
+        .filter(Manuscript.user_id == user.id, Manuscript.is_deleted.is_(False))
         .order_by(Manuscript.created_at.desc())
         .all()
     )
@@ -34,7 +34,7 @@ def get_owned(db: Session, user: User, manuscript_id: uuid.UUID) -> Manuscript |
         .filter(
             Manuscript.id == manuscript_id,
             Manuscript.user_id == user.id,
-            Manuscript.is_deleted == False,
+            Manuscript.is_deleted.is_(False),
         )
         .first()
     )

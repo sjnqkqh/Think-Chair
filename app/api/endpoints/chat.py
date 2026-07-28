@@ -7,11 +7,13 @@ from sse_starlette.sse import EventSourceResponse
 
 from app.core.auth_deps import require_user
 from app.core.database import get_database_session
+from app.logging import get_logger
 from app.models.user import User
 from app.services.manuscript_service import get_manuscript
 from app.utils.sse import SseEvent
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+logger = get_logger(__name__)
 
 
 @router.post("/{manuscript_id}/message")
@@ -35,7 +37,19 @@ async def send_message(
                     "event": event_name,
                     "data": json.dumps(payload, ensure_ascii=False),
                 }
-        except Exception as exc:
-            yield {"event": SseEvent.ERROR, "data": json.dumps({"message": str(exc)})}
+        except Exception:
+            logger.exception("chat.stream_failed", manuscript_id=manuscript_id)
+            yield {
+                "event": SseEvent.ERROR,
+                "data": json.dumps(
+                    {
+                        "message": (
+                            "응답 처리 중 오류가 발생했습니다. "
+                            "잠시 후 다시 시도해 주세요."
+                        )
+                    },
+                    ensure_ascii=False,
+                ),
+            }
 
     return EventSourceResponse(sse_events(), sep="\n")
