@@ -39,3 +39,21 @@ def test_create_message_sequence_isolated_between_manuscripts(db_session):
     first_b = chat_repo.create_message(db_session, manuscript_b, "user", "b1", None)
 
     assert first_b.sequence == 1
+
+
+def test_list_messages_orders_by_sequence(db_session):
+    manuscript = _manuscript(db_session, "chatrepo_order")
+    second = chat_repo.create_message(
+        db_session, manuscript, "assistant", "second", None
+    )
+    first = chat_repo.create_message(db_session, manuscript, "user", "first", None)
+    second.sequence = 2
+    first.sequence = 1
+    db_session.commit()
+
+    messages = chat_repo.list_messages(db_session, manuscript.id)
+
+    assert [message.content for message in messages] == [
+        "first",
+        "second",
+    ]

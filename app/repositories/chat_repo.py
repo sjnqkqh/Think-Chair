@@ -7,6 +7,15 @@ from app.models.chat import ChatMessage
 from app.models.manuscript import Manuscript
 
 
+def list_messages(db: Session, manuscript_id: uuid.UUID) -> list[ChatMessage]:
+    return (
+        db.query(ChatMessage)
+        .filter(ChatMessage.manuscript_id == manuscript_id)
+        .order_by(ChatMessage.sequence)
+        .all()
+    )
+
+
 def create_message(
     db: Session,
     manuscript: Manuscript,

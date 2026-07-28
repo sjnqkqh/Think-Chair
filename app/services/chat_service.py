@@ -1,18 +1,13 @@
 import uuid
 from collections.abc import AsyncIterator
 
-from sqlalchemy.exc import SQLAlchemyError
-
 from app.graph.chat_graph_runner import ChatGraphRunner
-from app.logging import get_logger
 from app.models.chat import ChatMessage
 from app.models.manuscript import Manuscript
 from app.models.user import User
 from app.repositories import chat_repo
 from app.services.background_tasks import BackgroundTaskRegistry
 from app.utils.sse import SseEvent
-
-logger = get_logger(__name__)
 
 DOCUMENT_GENERATION_ACTIONS = {"outline", "generate_document"}
 DOCUMENT_GENERATION_ACK = (
@@ -136,26 +131,10 @@ class ChatService:
         content: str,
         phase: str | None,
     ) -> ChatMessage:
-        """채팅 기록 저장. 감사/분석용 로그이므로 저장에 실패해도 예외를 삼키고
-        in-memory 메시지를 반환해 진행 중인 턴을 깨뜨리지 않는다."""
-        try:
-            return chat_repo.create_message(
-                database_session,
-                manuscript=manuscript,
-                role=role,
-                content=content,
-                phase=phase,
-            )
-        except SQLAlchemyError:
-            logger.exception(
-                "chat_message.save_failed", manuscript_id=manuscript.id, role=role
-            )
-            database_session.rollback()
-            return ChatMessage(
-                id=uuid.uuid4(),
-                manuscript_id=manuscript.id,
-                role=role,
-                content=content,
-                phase=phase,
-                sequence=1,
-            )
+        return chat_repo.create_message(
+            database_session,
+            manuscript=manuscript,
+            role=role,
+            content=content,
+            phase=phase,
+        )

@@ -15,7 +15,6 @@ from app.graph import llm_registry
 from app.graph.builder import build_graph
 from app.graph.chat_graph_runner import ChatGraphRunner
 from app.graph.checkpointer import make_checkpointer
-from app.graph.conversation_state import ConversationStateReader
 from app.pages.auth_pages import router as auth_pages_router
 from app.pages.debug_pages import router as debug_pages_router
 from app.pages.workspace_pages import router as workspace_pages_router
@@ -51,7 +50,6 @@ async def lifespan(app: FastAPI):
             background_tasks=BackgroundTaskRegistry(),
         )
         app.state.chat_service = chat_service
-        app.state.conversation_state = ConversationStateReader(graph)
         yield
 
 
