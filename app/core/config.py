@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     DEEPSEEK_MODEL: str = "deepseek-chat"
 
     # Think Chair
-    JWT_SECRET: str = "dev-secret-change-me"
+    JWT_SECRET: str
     JWT_TTL_HOURS: int = 24
     DATA_ROOT: Path = PROJECT_ROOT
     STORAGE_ROOT: Path = Path.home() / "storage"

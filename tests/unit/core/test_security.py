@@ -1,5 +1,7 @@
 import pytest
+from pydantic import ValidationError
 
+from app.core.config import Settings
 from app.core.security import hash_password, verify_password, create_jwt, decode_jwt
 
 pytestmark = pytest.mark.unit
@@ -16,3 +18,10 @@ def test_jwt_round_trip():
     token = create_jwt("user-123")
     payload = decode_jwt(token)
     assert payload["sub"] == "user-123"
+
+
+def test_jwt_secret_is_required_from_environment(monkeypatch):
+    monkeypatch.delenv("JWT_SECRET")
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)

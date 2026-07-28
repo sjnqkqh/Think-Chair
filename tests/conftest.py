@@ -2,6 +2,7 @@ import os
 
 os.environ["LANGCHAIN_TRACING_V2"] = "false"
 os.environ["LANGSMITH_TRACING"] = "false"
+os.environ["JWT_SECRET"] = "test-secret-at-least-32-characters"
 
 from collections import namedtuple
 from contextlib import contextmanager
