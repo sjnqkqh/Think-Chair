@@ -2,7 +2,6 @@ import datetime
 import uuid
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage
 
 from app.models.manuscript import Manuscript, ManuscriptVersion
 from app.repositories import chat_repo
@@ -34,9 +33,7 @@ def test_workspace_root_renders_new_manuscript_button(client):
     assert ':disabled="concept !== \'수업 자료\'"' in response.text
 
 
-def test_workspace_detail_renders_version_download_label(
-    client, db_session, stub_workspace_state
-):
+def test_workspace_detail_renders_version_download_label(client, db_session):
     signup(client, login_id=f"workspaceversion-{uuid.uuid4()}")
     create_response = client.post(
         "/api/manuscripts", json={"topic": "버전 표시", "concept": "TIL"}
@@ -72,9 +69,7 @@ def test_workspace_detail_renders_version_download_label(
     assert "document v1" not in response.text
 
 
-def test_workspace_detail_prefers_persisted_chat_messages(
-    client, db_session, stub_workspace_state
-):
+def test_workspace_detail_renders_persisted_chat_messages(client, db_session):
     signup(client, login_id=f"workspacehistory-{uuid.uuid4()}")
     create_response = client.post(
         "/api/manuscripts", json={"topic": "대화 표시", "concept": "TIL"}
@@ -85,42 +80,25 @@ def test_workspace_detail_prefers_persisted_chat_messages(
     chat_repo.create_message(
         db_session, manuscript, "assistant", "저장된 답변", "opening"
     )
-    stub_workspace_state.load_messages.return_value = [
-        HumanMessage(content="체크포인트 질문"),
-        AIMessage(content="체크포인트 답변"),
-    ]
-
     response = client.get(f"/workspace/{manuscript_id}")
 
     assert response.status_code == 200
     assert "저장된 질문" in response.text
     assert "저장된 답변" in response.text
-    assert "체크포인트 질문" not in response.text
-    assert "체크포인트 답변" not in response.text
     assert "message-human" in response.text
-    stub_workspace_state.load_messages.assert_not_awaited()
 
 
-def test_workspace_detail_falls_back_to_checkpoint_without_persisted_messages(
-    client, stub_workspace_state
-):
+def test_workspace_detail_without_persisted_messages_renders_empty_history(client):
     signup(client, login_id=f"workspacelegacy-{uuid.uuid4()}")
     create_response = client.post(
         "/api/manuscripts", json={"topic": "기존 대화", "concept": "TIL"}
     )
     manuscript_id = uuid.UUID(create_response.json()["id"])
-    stub_workspace_state.load_messages.return_value = [
-        HumanMessage(content="기존 질문"),
-        AIMessage(content="기존 답변"),
-    ]
 
     response = client.get(f"/workspace/{manuscript_id}")
 
     assert response.status_code == 200
-    assert "기존 질문" in response.text
-    assert "기존 답변" in response.text
-    assert "message-human" in response.text
-    stub_workspace_state.load_messages.assert_awaited_once_with(manuscript_id)
+    assert 'class="message ' not in response.text
 
 
 def test_workspace_detail_unknown_manuscript_returns_404(client):

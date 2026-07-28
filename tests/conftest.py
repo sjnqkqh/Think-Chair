@@ -5,7 +5,7 @@ os.environ["LANGSMITH_TRACING"] = "false"
 
 from collections import namedtuple
 from contextlib import contextmanager
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,7 +19,6 @@ from app.graph import llm_registry
 from app.graph.builder import build_graph
 from app.graph.chat_graph_runner import ChatGraphRunner
 from app.graph.checkpointer import make_checkpointer
-from app.graph.conversation_state import ConversationStateReader
 from app.services.background_tasks import BackgroundTaskRegistry
 from app.services.chat_service import ChatService
 from app.main import app as fastapi_app
@@ -95,7 +94,7 @@ ChatAppState = namedtuple("ChatAppState", ["graph", "storage", "db_session", "ch
 
 @pytest.fixture
 async def chat_app_state(fake_llm, db_session):
-    """실 그래프로 배선한 ChatService/ConversationStateReader를 app.state에 얹는다.
+    """실 그래프로 배선한 ChatService를 app.state에 얹는다.
 
     chat API·e2e 흐름·워크스페이스 재로드 테스트가 공유하는 배선.
     """
@@ -110,19 +109,5 @@ async def chat_app_state(fake_llm, db_session):
             db_factory=lambda: db_session,
             background_tasks=BackgroundTaskRegistry(),
         )
-        with _override_app_state(
-            chat_service=chat_service,
-            conversation_state=ConversationStateReader(graph),
-        ):
+        with _override_app_state(chat_service=chat_service):
             yield ChatAppState(graph, storage, db_session, chat_service)
-
-
-@pytest.fixture
-def stub_workspace_state():
-    """렌더링 전용 테스트용. 그래프 없이 chat_service/conversation_state를 목으로 대체한다."""
-    conversation_state = MagicMock()
-    conversation_state.load_messages = AsyncMock(return_value=[])
-    with _override_app_state(
-        chat_service=MagicMock(), conversation_state=conversation_state
-    ):
-        yield conversation_state

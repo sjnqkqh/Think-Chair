@@ -89,9 +89,6 @@ async def workspace_detail(
     manuscripts = get_manuscripts_list_by_user(db, user)
     active = get_manuscript(db, user, manuscript_id)
     messages = chat_repo.list_messages(db, active.id)
-    if not messages:
-        # ponytail: checkpoint fallback preserves legacy history until it is backfilled.
-        messages = await request.app.state.conversation_state.load_messages(active.id)
     return templates.TemplateResponse(
         request,
         "workspace/index.html",
