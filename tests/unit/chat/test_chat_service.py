@@ -90,8 +90,7 @@ async def test_stream_response_dispatches_assistant_reply():
     assert background.started == []
 
 
-def test_save_chat_message_returns_in_memory_on_db_error(monkeypatch, caplog):
-    # 저장 실패 시 예외를 삼키고 rollback + 로깅 후 in-memory 메시지를 돌려줘야 한다.
+def test_save_chat_message_propagates_db_error(monkeypatch):
     def boom(*args, **kwargs):
         raise SQLAlchemyError("db down")
 
@@ -99,14 +98,7 @@ def test_save_chat_message_returns_in_memory_on_db_error(monkeypatch, caplog):
     session = MagicMock()
     manuscript = SimpleNamespace(id=uuid.uuid4())
 
-    with caplog.at_level("ERROR", logger="app.services.chat_service"):
-        message = ChatService._save_chat_message(
+    with pytest.raises(SQLAlchemyError, match="db down"):
+        ChatService._save_chat_message(
             session, manuscript, "user", "내용", None
         )
-
-    assert message.content == "내용"
-    assert message.sequence == 1
-    session.rollback.assert_called_once()
-    assert any(
-        "chat_message.save_failed" in record.message for record in caplog.records
-    )

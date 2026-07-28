@@ -8,6 +8,7 @@ from app.core.auth_deps import require_user
 from app.core.database import get_database_session
 from app.models.manuscript import ConceptType
 from app.models.user import User
+from app.repositories import chat_repo
 from app.services.manuscript_service import (
     get_manuscript,
     group_manuscripts_by_date,
@@ -87,7 +88,10 @@ async def workspace_detail(
 ):
     manuscripts = get_manuscripts_list_by_user(db, user)
     active = get_manuscript(db, user, manuscript_id)
-    messages = await request.app.state.conversation_state.load_messages(active.id)
+    messages = chat_repo.list_messages(db, active.id)
+    if not messages:
+        # ponytail: checkpoint fallback preserves legacy history until it is backfilled.
+        messages = await request.app.state.conversation_state.load_messages(active.id)
     return templates.TemplateResponse(
         request,
         "workspace/index.html",
