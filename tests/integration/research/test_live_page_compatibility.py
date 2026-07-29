@@ -3,7 +3,7 @@ import os
 import pytest
 
 from app.research.contracts import FetchRequest
-from app.research.tools.fetch_page import fetch_page
+from app.research.page_fetcher import fetch_page
 
 
 pytestmark = [

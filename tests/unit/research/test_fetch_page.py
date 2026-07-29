@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from app.research.contracts import FetchRequest
-from app.research.tools.fetch_page import fetch_page
+from app.research.page_fetcher import fetch_page
 
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "research"
@@ -157,7 +157,7 @@ async def test_rejects_unsupported_media_type():
 
 async def test_rejects_oversized_html(monkeypatch):
     """설정한 최대 바이트를 넘는 HTML을 끝까지 보관하지 않고 거부하는지 검증한다."""
-    monkeypatch.setattr("app.research.tools.fetch_page.MAX_RESPONSE_BYTES", 32)
+    monkeypatch.setattr("app.research.page_fetcher.MAX_RESPONSE_BYTES", 32)
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/robots.txt":
@@ -239,7 +239,7 @@ async def test_returns_retryable_error_after_timeout(monkeypatch):
     async def record_delay(delay: float) -> None:
         delays.append(delay)
 
-    monkeypatch.setattr("app.research.tools.fetch_page.asyncio.sleep", record_delay)
+    monkeypatch.setattr("app.research.page_fetcher.asyncio.sleep", record_delay)
     async with _client(handler) as client:
         response = await fetch_page(
             FetchRequest(url="https://docs.example.com/slow"),

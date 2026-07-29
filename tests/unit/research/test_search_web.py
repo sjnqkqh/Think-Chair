@@ -3,7 +3,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.research.contracts import SearchRequest
-from app.research.tools.search_web import search_web
+from app.research.web_search import search_web
 
 
 def _client(handler) -> httpx.AsyncClient:
@@ -129,7 +129,7 @@ async def test_returns_retryable_error_after_timeout(monkeypatch):
     async def record_delay(delay: float) -> None:
         delays.append(delay)
 
-    monkeypatch.setattr("app.research.tools.search_web.asyncio.sleep", record_delay)
+    monkeypatch.setattr("app.research.web_search.asyncio.sleep", record_delay)
     async with _client(handler) as client:
         response = await search_web(
             SearchRequest(query="queue latency"),
