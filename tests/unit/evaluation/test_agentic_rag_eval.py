@@ -4,14 +4,10 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from tests.evaluation.run_agentic_rag_eval import (
+from tests.evaluation.agentic_rag_eval_contracts import (
     EVALUATION_SCHEMA_VERSION,
-    EvaluationCitation,
-    EvaluationPrediction,
-    evaluate_run,
     load_evaluation_cases,
     load_evaluation_corpus,
-    main,
     validate_evaluation_fixture,
 )
 
@@ -21,8 +17,8 @@ CASES_PATH = Path("tests/evaluation/agentic_rag_cases.json")
 CORPUS_PATH = Path("tests/evaluation/agentic_rag_corpus.json")
 
 
-def test_load_evaluation_cases_freezes_product_aligned_multilingual_dialogues():
-    """평가 사례가 실제 제품의 대화 방향과 다국어 조건을 계속 지키는지 검증한다."""
+def test_evaluation_cases_define_product_aligned_multilingual_dialogues():
+    """후속 기능이 같은 제품 대화와 다국어 조건으로 평가되도록 사례 계약을 고정한다."""
     cases = load_evaluation_cases(CASES_PATH)
 
     assert cases
@@ -46,8 +42,8 @@ def test_load_evaluation_cases_freezes_product_aligned_multilingual_dialogues():
         cases[0].case_id = "changed"
 
 
-def test_load_evaluation_corpus_covers_case_sources_chunks_and_urls():
-    """모든 기대 근거가 출처 URL을 가진 합성 corpus에 실제로 존재하는지 검증한다."""
+def test_evaluation_corpus_covers_expected_sources_chunks_and_urls():
+    """후속 검색 평가가 사용할 모든 기대 근거와 원본 URL이 corpus에 존재하는지 검증한다."""
     cases = load_evaluation_cases(CASES_PATH)
     corpus = load_evaluation_corpus(CORPUS_PATH)
 
@@ -70,8 +66,8 @@ def test_load_evaluation_corpus_covers_case_sources_chunks_and_urls():
         ),
     ],
 )
-def test_load_evaluation_cases_rejects_schema_changes(tmp_path, mutation):
-    """후속 PR이 합의된 평가 입력 구조를 임의로 바꾸지 못하도록 잘못된 schema를 거부한다."""
+def test_evaluation_cases_reject_unplanned_schema_changes(tmp_path, mutation):
+    """후속 PR이 합의된 평가 입력 구조를 암묵적으로 바꾸지 못하도록 잘못된 schema를 거부한다."""
     raw_case = load_evaluation_cases(CASES_PATH)[0].model_dump(mode="json")
     mutation(raw_case)
     path = tmp_path / "changed-schema.json"
@@ -81,166 +77,19 @@ def test_load_evaluation_cases_rejects_schema_changes(tmp_path, mutation):
         load_evaluation_cases(path)
 
 
-def test_evaluate_run_measures_detector_and_retrieval_results():
-    """조사 필요 판단과 근거 검색 성능이 약속한 계산식으로 집계되는지 검증한다."""
-    loaded_cases = load_evaluation_cases(CASES_PATH)
-    corpus = load_evaluation_corpus(CORPUS_PATH)
-    positive_case = next(
-        case for case in loaded_cases if case.case_id == "general-technical-claim-ko"
-    )
-    missed_positive_case = next(
-        case for case in loaded_cases if case.case_id == "current-benchmark-en"
-    )
-    negative_case = next(
-        case for case in loaded_cases if case.case_id == "personal-experience-ko"
-    )
-    true_negative_case = negative_case.model_copy(
-        update={"case_id": "personal-experience-copy"}
-    )
-    cases = [
-        positive_case,
-        missed_positive_case,
-        negative_case,
-        true_negative_case,
-    ]
-    cited_chunk = next(
-        chunk
-        for chunk in corpus
-        if chunk.chunk_key == positive_case.expected_chunk_keys[0]
-    )
-    predictions = [
-        EvaluationPrediction(
-            case_id=positive_case.case_id,
-            research_required=True,
-            retrieved_source_keys=positive_case.expected_source_keys,
-            retrieved_chunk_keys=positive_case.expected_chunk_keys,
-            citations=(
-                EvaluationCitation(
-                    source_key=cited_chunk.source_key,
-                    chunk_key=cited_chunk.chunk_key,
-                    url=cited_chunk.url,
-                ),
-            ),
-        ),
-        EvaluationPrediction(case_id=missed_positive_case.case_id),
-        EvaluationPrediction(
-            case_id=negative_case.case_id,
-            research_required=True,
-        ),
-        EvaluationPrediction(case_id=true_negative_case.case_id),
-    ]
-
-    summary = evaluate_run(
-        cases,
-        predictions,
-        corpus=corpus,
-        run_name="candidate",
-        retrieval_k=5,
-    )
-
-    assert summary["detector"] == {
-        "true_positive": 1,
-        "false_positive": 1,
-        "false_negative": 1,
-        "true_negative": 1,
-        "precision": 0.5,
-        "recall": 0.5,
-    }
-    assert summary["retrieval"] == {
-        "k": 5,
-        "evaluated_cases": 2,
-        "source_recall_at_k": 0.5,
-        "chunk_recall_at_k": 0.5,
-    }
+@pytest.mark.xfail(
+    strict=True,
+    reason="PR 03 must replace this gap with implementation-backed retrieval evaluation",
+)
+def test_pr03_must_evaluate_retrieval_citations_and_tenant_isolation():
+    """PR 03 전에는 실제 검색 결과가 없으므로 검색·인용·격리 평가는 의도적으로 실패한다."""
+    pytest.fail("retrieval and grounded response are not implemented")
 
 
-def test_evaluate_run_fails_invalid_citation_tenant_leak_and_missed_abstention():
-    """잘못된 인용·타인 자료 노출·답변 보류 누락을 안전성 실패로 잡는지 검증한다."""
-    cases = load_evaluation_cases(CASES_PATH)
-    corpus = load_evaluation_corpus(CORPUS_PATH)
-    tenant_case = next(case for case in cases if case.case_id == "tenant-isolation")
-    case = tenant_case.model_copy(update={"must_abstain": True})
-    prediction = EvaluationPrediction(
-        case_id=case.case_id,
-        research_required=True,
-        retrieved_source_keys=(
-            *case.expected_source_keys,
-            *case.forbidden_source_keys,
-        ),
-        retrieved_chunk_keys=case.expected_chunk_keys,
-        citations=(
-            EvaluationCitation(
-                source_key=case.expected_source_keys[0],
-                chunk_key=case.expected_chunk_keys[0],
-                url="https://wrong.example/source",
-            ),
-        ),
-        abstained=False,
-    )
-
-    summary = evaluate_run(
-        [case],
-        [prediction],
-        corpus=corpus,
-        run_name="candidate",
-        retrieval_k=5,
-    )
-
-    assert summary["passed"] is False
-    assert summary["safety"] == {
-        "invalid_citation_case_ids": [case.case_id],
-        "tenant_leak_case_ids": [case.case_id],
-        "missed_abstention_case_ids": [case.case_id],
-    }
-    assert summary["cases"][0]["failures"] == [
-        "invalid_citation",
-        "tenant_leak",
-        "missed_abstention",
-    ]
-
-
-def test_cli_outputs_comparable_machine_readable_summaries(tmp_path, capsys):
-    """기존 방식과 후보 방식을 같은 JSON 구조로 비교할 수 있는지 검증한다."""
-    cases = load_evaluation_cases(CASES_PATH)
-    prediction_path = tmp_path / "predictions.json"
-    prediction_path.write_text(
-        json.dumps(
-            [
-                {
-                    "case_id": case.case_id,
-                    "research_required": case.expected_research_required,
-                    "retrieved_source_keys": case.expected_source_keys,
-                    "retrieved_chunk_keys": case.expected_chunk_keys,
-                    "citations": [],
-                    "abstained": case.must_abstain,
-                }
-                for case in cases
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    outputs = []
-    for run_name in ("baseline", "candidate"):
-        main(
-            [
-                "--cases",
-                str(CASES_PATH),
-                "--corpus",
-                str(CORPUS_PATH),
-                "--predictions",
-                str(prediction_path),
-                "--run-name",
-                run_name,
-            ]
-        )
-        outputs.append(json.loads(capsys.readouterr().out))
-
-    baseline, candidate = outputs
-    assert baseline["run_name"] == "baseline"
-    assert candidate["run_name"] == "candidate"
-    assert baseline["passed"] is True
-    assert baseline.keys() == candidate.keys()
-    assert baseline["detector"].keys() == candidate["detector"].keys()
-    assert baseline["retrieval"].keys() == candidate["retrieval"].keys()
-    assert baseline["safety"].keys() == candidate["safety"].keys()
+@pytest.mark.xfail(
+    strict=True,
+    reason="PR 04 must replace this gap with implementation-backed detector evaluation",
+)
+def test_pr04_must_evaluate_research_requirement_detection():
+    """PR 04 전에는 실제 판별 결과가 없으므로 조사 필요 여부 평가는 의도적으로 실패한다."""
+    pytest.fail("evidence need detector is not implemented")

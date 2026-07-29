@@ -2,8 +2,8 @@
 
 ## 상태와 범위
 
-- 상태: 구현 완료
-- 대상: PR 00의 합성 평가 데이터와 평가 runner
+- 상태: 평가 계약 구현 완료, 실제 기능 평가는 PR 03·04 대기
+- 대상: PR 00의 합성 평가 데이터와 고정 schema
 - 제품 흐름: AI가 질문하고 사용자가 답한다
 - 제외: 실제 detector·검색·임베딩 구현, 운영 대화 자동 추출, 다중 턴 평가
 
@@ -57,9 +57,9 @@ PR 00은 아직 배포되지 않았으므로 기존 `input` 필드와의 호환 
 식별자, canonical URL, 제목, 언어, 본문, 발행일·수집일, public/private 범위와
 비공개 소유자 정보를 저장한다. 실제 운영 자료나 URL은 사용하지 않는다.
 
-prediction의 citation은 `source_key`, `chunk_key`, `url`을 한 묶음으로 전달한다.
-세 값이 실제 corpus와 일치하고 해당 source/chunk가 검색 결과에 포함된 경우만
-유효한 인용으로 인정한다.
+후속 retrieval 결과는 기대 `source_key`와 `chunk_key`를 실제 corpus 및
+canonical URL과 대조한다. 구체적인 prediction과 citation 출력 계약은 실제
+retrieval·grounded response가 생기는 PR 03에서 확정한다.
 
 ## 합성 사례 구성
 
@@ -77,10 +77,10 @@ prediction의 citation은 `source_key`, `chunk_key`, `url`을 한 묶음으로 �
 합성 데이터에는 실제 사용자 문장, 사용자 식별자, 비공개 URL, 프로젝트 고유
 정보를 넣지 않는다.
 
-## runner와 테스트 변경
+## 계약 검증과 의도된 실패
 
-runner의 지표 계산 방식은 유지한다. Pydantic loader와 `EvaluationCase`가
-schema v2의 명시적인 대화 쌍을 검증한다.
+Pydantic loader와 `EvaluationCase`가 schema v2의 명시적인 대화 쌍을 검증한다.
+실제 기능이 없는 PR 00에서 가짜 prediction과 자체 evaluator를 만들지 않는다.
 
 테스트는 다음을 고정한다.
 
@@ -88,16 +88,19 @@ schema v2의 명시적인 대화 쌍을 검증한다.
 - 모든 AI 질문과 사용자 답변이 비어 있지 않음
 - 다섯 가지 `language_pair` 포함
 - 조사 필요와 불필요 사례가 각각 최소 3개
-- detector precision/recall과 retrieval Recall@k 계산
-- 잘못된 인용, 비공개 출처 노출, 답변 보류 실패를 결정적으로 검출
-- baseline과 candidate의 CLI 출력 형식이 동일
+- 모든 기대 source/chunk가 URL을 가진 합성 corpus에 존재
+- PR 03의 retrieval·citation·tenant 격리 평가는 `strict xfail`
+- PR 04의 detector 평가는 `strict xfail`
 
-runner는 이미 생성된 baseline/candidate prediction을 채점한다. 실제 서비스나
-외부 모델을 호출해 prediction·응답 시간·비용을 만드는 adapter는 후속 작업이다.
+PR 03은 검색·인용 `xfail`을 실제 retrieval·grounded response 출력 기반
+테스트로 교체하고 Recall@k와 인용·격리 검사를 구현한다. PR 04는 detector
+`xfail`을 실제 출력 기반 테스트로 교체하고 precision/recall을 계산한다.
 
 ## 완료 조건
 
 - 평가 데이터가 실제 제품의 발화 방향을 따른다.
 - 실제 운영 대화 없이도 반복 실행 가능한 합성 사례만 사용한다.
-- schema와 runner 테스트가 통과한다.
+- schema와 corpus 계약 검증이 통과한다.
+- 실제 기능이 필요한 두 검증은 담당 PR이 표시된 의도된 실패로 남는다.
+- 가짜 prediction, 자체 evaluator, 공용 runner를 만들지 않는다.
 - 기존 프로젝트 전체 테스트와 Ruff 검사를 통과한다.
