@@ -6,18 +6,22 @@ import pytest
 
 from tests.evaluation.run_agentic_rag_eval import (
     EVALUATION_SCHEMA_VERSION,
+    EvaluationCitation,
     EvaluationPrediction,
     evaluate_run,
     load_evaluation_cases,
+    load_evaluation_corpus,
     main,
+    validate_evaluation_fixture,
 )
 
 pytestmark = pytest.mark.unit
 
 CASES_PATH = Path("tests/evaluation/agentic_rag_cases.jsonl")
+CORPUS_PATH = Path("tests/evaluation/agentic_rag_corpus.jsonl")
 
 
-def test_load_evaluation_cases_freezes_the_multilingual_fixture():
+def test_load_evaluation_cases_freezes_product_aligned_multilingual_dialogues():
     cases = load_evaluation_cases(CASES_PATH)
 
     assert cases
@@ -29,18 +33,39 @@ def test_load_evaluation_cases_freezes_the_multilingual_fixture():
         "mixed",
     }
     assert all(case.schema_version == EVALUATION_SCHEMA_VERSION for case in cases)
+    assert all(case.ai_question.strip() and case.human_response.strip() for case in cases)
+    assert sum(case.expected_research_required for case in cases) >= 3
+    assert sum(not case.expected_research_required for case in cases) >= 3
+    assert {
+        case.language_pair for case in cases if case.expected_source_keys
+    } == {"ko-ko", "en-en", "ko-en", "en-ko", "mixed"}
     assert any(case.expected_source_keys for case in cases)
-    assert any(case.expected_chunk_keys for case in cases)
     assert any(case.forbidden_source_keys for case in cases)
     with pytest.raises(FrozenInstanceError):
         cases[0].case_id = "changed"
 
 
+def test_load_evaluation_corpus_covers_case_sources_chunks_and_urls():
+    cases = load_evaluation_cases(CASES_PATH)
+    corpus = load_evaluation_corpus(CORPUS_PATH)
+
+    validate_evaluation_fixture(cases, corpus)
+
+    assert corpus
+    assert len({chunk.chunk_key for chunk in corpus}) == len(corpus)
+    assert all(chunk.url.startswith("https://") for chunk in corpus)
+    assert {"ko", "en"}.issubset({chunk.language for chunk in corpus})
+
+
 @pytest.mark.parametrize(
     "mutation",
     [
-        lambda case: case.update(schema_version=2),
+        lambda case: case.update(schema_version=EVALUATION_SCHEMA_VERSION + 1),
         lambda case: case.update(unexpected_field=True),
+        lambda case: (
+            case.__setitem__("input", case.pop("human_response")),
+            case.pop("ai_question"),
+        ),
     ],
 )
 def test_load_evaluation_cases_rejects_schema_changes(tmp_path, mutation):
@@ -55,29 +80,41 @@ def test_load_evaluation_cases_rejects_schema_changes(tmp_path, mutation):
 
 def test_evaluate_run_measures_detector_and_retrieval_results():
     loaded_cases = load_evaluation_cases(CASES_PATH)
+    corpus = load_evaluation_corpus(CORPUS_PATH)
     positive_case = next(
-        case for case in loaded_cases if case.case_id == "embedding-benchmark-ko-en"
+        case for case in loaded_cases if case.case_id == "general-technical-claim-ko"
     )
     missed_positive_case = next(
-        case for case in loaded_cases if case.case_id == "python-docs-en"
+        case for case in loaded_cases if case.case_id == "current-benchmark-en"
     )
-    negative_case = next(case for case in loaded_cases if case.case_id == "casual-ko")
-    true_negative_case = replace(negative_case, case_id="casual-en")
+    negative_case = next(
+        case for case in loaded_cases if case.case_id == "personal-experience-ko"
+    )
+    true_negative_case = replace(negative_case, case_id="personal-experience-copy")
     cases = [
         positive_case,
         missed_positive_case,
         negative_case,
         true_negative_case,
     ]
+    cited_chunk = next(
+        chunk
+        for chunk in corpus
+        if chunk.chunk_key == positive_case.expected_chunk_keys[0]
+    )
     predictions = [
         EvaluationPrediction(
             case_id=positive_case.case_id,
             research_required=True,
             retrieved_source_keys=positive_case.expected_source_keys,
             retrieved_chunk_keys=positive_case.expected_chunk_keys,
-            citation_source_keys=positive_case.expected_source_keys,
-            citation_chunk_keys=positive_case.expected_chunk_keys,
-            abstained=False,
+            citations=(
+                EvaluationCitation(
+                    source_key=cited_chunk.source_key,
+                    chunk_key=cited_chunk.chunk_key,
+                    url=cited_chunk.url,
+                ),
+            ),
         ),
         EvaluationPrediction(case_id=missed_positive_case.case_id),
         EvaluationPrediction(
@@ -87,7 +124,13 @@ def test_evaluate_run_measures_detector_and_retrieval_results():
         EvaluationPrediction(case_id=true_negative_case.case_id),
     ]
 
-    summary = evaluate_run(cases, predictions, run_name="candidate", retrieval_k=5)
+    summary = evaluate_run(
+        cases,
+        predictions,
+        corpus=corpus,
+        run_name="candidate",
+        retrieval_k=5,
+    )
 
     assert summary["detector"] == {
         "true_positive": 1,
@@ -105,12 +148,10 @@ def test_evaluate_run_measures_detector_and_retrieval_results():
     }
 
 
-def test_evaluate_run_fails_invalid_citations_tenant_leaks_and_missed_abstention():
-    tenant_case = next(
-        case
-        for case in load_evaluation_cases(CASES_PATH)
-        if case.case_id == "tenant-isolation"
-    )
+def test_evaluate_run_fails_invalid_citation_tenant_leak_and_missed_abstention():
+    cases = load_evaluation_cases(CASES_PATH)
+    corpus = load_evaluation_corpus(CORPUS_PATH)
+    tenant_case = next(case for case in cases if case.case_id == "tenant-isolation")
     case = replace(tenant_case, must_abstain=True)
     prediction = EvaluationPrediction(
         case_id=case.case_id,
@@ -120,12 +161,23 @@ def test_evaluate_run_fails_invalid_citations_tenant_leaks_and_missed_abstention
             *case.forbidden_source_keys,
         ),
         retrieved_chunk_keys=case.expected_chunk_keys,
-        citation_source_keys=("invented-source",),
-        citation_chunk_keys=("invented-source#claim",),
+        citations=(
+            EvaluationCitation(
+                source_key=case.expected_source_keys[0],
+                chunk_key=case.expected_chunk_keys[0],
+                url="https://wrong.example/source",
+            ),
+        ),
         abstained=False,
     )
 
-    summary = evaluate_run([case], [prediction], run_name="candidate", retrieval_k=5)
+    summary = evaluate_run(
+        [case],
+        [prediction],
+        corpus=corpus,
+        run_name="candidate",
+        retrieval_k=5,
+    )
 
     assert summary["passed"] is False
     assert summary["safety"] == {
@@ -151,8 +203,7 @@ def test_cli_outputs_comparable_machine_readable_summaries(tmp_path, capsys):
                     "research_required": case.expected_research_required,
                     "retrieved_source_keys": case.expected_source_keys,
                     "retrieved_chunk_keys": case.expected_chunk_keys,
-                    "citation_source_keys": [],
-                    "citation_chunk_keys": [],
+                    "citations": [],
                     "abstained": case.must_abstain,
                 }
             )
@@ -167,6 +218,8 @@ def test_cli_outputs_comparable_machine_readable_summaries(tmp_path, capsys):
             [
                 "--cases",
                 str(CASES_PATH),
+                "--corpus",
+                str(CORPUS_PATH),
                 "--predictions",
                 str(prediction_path),
                 "--run-name",
@@ -189,13 +242,14 @@ def test_evaluate_run_keeps_semantic_evaluation_optional():
     case = next(
         case
         for case in load_evaluation_cases(CASES_PATH)
-        if case.case_id == "casual-ko"
+        if case.case_id == "personal-experience-ko"
     )
     prediction = EvaluationPrediction(case_id=case.case_id)
 
     summary = evaluate_run(
         [case],
         [prediction],
+        corpus=load_evaluation_corpus(CORPUS_PATH),
         run_name="candidate",
         retrieval_k=5,
         semantic_evaluator=lambda evaluated_case, _: {

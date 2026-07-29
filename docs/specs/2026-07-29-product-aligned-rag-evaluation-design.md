@@ -2,7 +2,7 @@
 
 ## 상태와 범위
 
-- 상태: 구현 전 승인 대기
+- 상태: 구현 완료
 - 대상: PR 00의 합성 평가 데이터와 평가 runner
 - 제품 흐름: AI가 질문하고 사용자가 답한다
 - 제외: 실제 detector·검색·임베딩 구현, 운영 대화 자동 추출, 다중 턴 평가
@@ -51,6 +51,16 @@ PR 00은 아직 배포되지 않았으므로 기존 `input` 필드와의 호환 
 | `must_abstain` | 근거 부족·충돌 때문에 단정하면 안 되는지 |
 | `forbidden_source_keys` | 검색·인용에 나타나면 안 되는 비공개 출처 |
 
+## 합성 검색 자료
+
+검색 평가는 별도의 합성 corpus JSONL을 사용한다. 각 문서 조각에는 source/chunk
+식별자, canonical URL, 제목, 언어, 본문, 발행일·수집일, public/private 범위와
+비공개 소유자 정보를 저장한다. 실제 운영 자료나 URL은 사용하지 않는다.
+
+prediction의 citation은 `source_key`, `chunk_key`, `url`을 한 묶음으로 전달한다.
+세 값이 실제 corpus와 일치하고 해당 source/chunk가 검색 결과에 포함된 경우만
+유효한 인용으로 인정한다.
+
 ## 합성 사례 구성
 
 10개 안팎의 사례로 시작하고, 각 사례는 실제 사용자나 원문을 알아볼 수 없게
@@ -82,6 +92,9 @@ runner의 지표 계산 방식은 유지한다. loader와 `EvaluationCase`만 sc
 - detector precision/recall과 retrieval Recall@k 계산
 - 잘못된 인용, 비공개 출처 노출, 답변 보류 실패를 결정적으로 검출
 - baseline과 candidate의 CLI 출력 형식이 동일
+
+runner는 이미 생성된 baseline/candidate prediction을 채점한다. 실제 서비스나
+외부 모델을 호출해 prediction·응답 시간·비용을 만드는 adapter는 후속 작업이다.
 
 ## 완료 조건
 
