@@ -1,5 +1,5 @@
 import json
-from dataclasses import FrozenInstanceError, replace
+from dataclasses import FrozenInstanceError, asdict, replace
 from pathlib import Path
 
 import pytest
@@ -22,6 +22,7 @@ CORPUS_PATH = Path("tests/evaluation/agentic_rag_corpus.jsonl")
 
 
 def test_load_evaluation_cases_freezes_product_aligned_multilingual_dialogues():
+    """평가 사례가 실제 제품의 대화 방향과 다국어 조건을 계속 지키는지 검증한다."""
     cases = load_evaluation_cases(CASES_PATH)
 
     assert cases
@@ -46,6 +47,7 @@ def test_load_evaluation_cases_freezes_product_aligned_multilingual_dialogues():
 
 
 def test_load_evaluation_corpus_covers_case_sources_chunks_and_urls():
+    """모든 기대 근거가 출처 URL을 가진 합성 corpus에 실제로 존재하는지 검증한다."""
     cases = load_evaluation_cases(CASES_PATH)
     corpus = load_evaluation_corpus(CORPUS_PATH)
 
@@ -69,7 +71,8 @@ def test_load_evaluation_corpus_covers_case_sources_chunks_and_urls():
     ],
 )
 def test_load_evaluation_cases_rejects_schema_changes(tmp_path, mutation):
-    raw_case = json.loads(CASES_PATH.read_text(encoding="utf-8").splitlines()[0])
+    """후속 PR이 합의된 평가 입력 구조를 임의로 바꾸지 못하도록 잘못된 schema를 거부한다."""
+    raw_case = asdict(load_evaluation_cases(CASES_PATH)[0])
     mutation(raw_case)
     path = tmp_path / "changed-schema.jsonl"
     path.write_text(json.dumps(raw_case), encoding="utf-8")
@@ -79,6 +82,7 @@ def test_load_evaluation_cases_rejects_schema_changes(tmp_path, mutation):
 
 
 def test_evaluate_run_measures_detector_and_retrieval_results():
+    """조사 필요 판단과 근거 검색 성능이 약속한 계산식으로 집계되는지 검증한다."""
     loaded_cases = load_evaluation_cases(CASES_PATH)
     corpus = load_evaluation_corpus(CORPUS_PATH)
     positive_case = next(
@@ -149,6 +153,7 @@ def test_evaluate_run_measures_detector_and_retrieval_results():
 
 
 def test_evaluate_run_fails_invalid_citation_tenant_leak_and_missed_abstention():
+    """잘못된 인용·타인 자료 노출·답변 보류 누락을 안전성 실패로 잡는지 검증한다."""
     cases = load_evaluation_cases(CASES_PATH)
     corpus = load_evaluation_corpus(CORPUS_PATH)
     tenant_case = next(case for case in cases if case.case_id == "tenant-isolation")
@@ -193,6 +198,7 @@ def test_evaluate_run_fails_invalid_citation_tenant_leak_and_missed_abstention()
 
 
 def test_cli_outputs_comparable_machine_readable_summaries(tmp_path, capsys):
+    """기존 방식과 후보 방식을 같은 JSON 구조로 비교할 수 있는지 검증한다."""
     cases = load_evaluation_cases(CASES_PATH)
     prediction_path = tmp_path / "predictions.jsonl"
     prediction_path.write_text(
@@ -239,6 +245,7 @@ def test_cli_outputs_comparable_machine_readable_summaries(tmp_path, capsys):
 
 
 def test_evaluate_run_keeps_semantic_evaluation_optional():
+    """외부 의미 평가 없이도 동작하면서 필요할 때만 평가기를 연결할 수 있는지 검증한다."""
     case = next(
         case
         for case in load_evaluation_cases(CASES_PATH)

@@ -297,12 +297,18 @@ def _field_names(data_class: type) -> set[str]:
 
 
 def _load_jsonl(path: Path) -> list[tuple[int, object]]:
+    text = path.read_text(encoding="utf-8")
+    decoder = json.JSONDecoder()
     loaded = []
-    for line_number, line in enumerate(
-        path.read_text(encoding="utf-8").splitlines(), start=1
-    ):
-        if line.strip():
-            loaded.append((line_number, json.loads(line)))
+    position = 0
+    while position < len(text):
+        while position < len(text) and text[position].isspace():
+            position += 1
+        if position == len(text):
+            break
+        line_number = text.count("\n", 0, position) + 1
+        raw, position = decoder.raw_decode(text, position)
+        loaded.append((line_number, raw))
     return loaded
 
 
