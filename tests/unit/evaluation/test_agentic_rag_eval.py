@@ -1,8 +1,8 @@
 import json
-from dataclasses import FrozenInstanceError, asdict, replace
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from tests.evaluation.run_agentic_rag_eval import (
     EVALUATION_SCHEMA_VERSION,
@@ -17,8 +17,8 @@ from tests.evaluation.run_agentic_rag_eval import (
 
 pytestmark = pytest.mark.unit
 
-CASES_PATH = Path("tests/evaluation/agentic_rag_cases.jsonl")
-CORPUS_PATH = Path("tests/evaluation/agentic_rag_corpus.jsonl")
+CASES_PATH = Path("tests/evaluation/agentic_rag_cases.json")
+CORPUS_PATH = Path("tests/evaluation/agentic_rag_corpus.json")
 
 
 def test_load_evaluation_cases_freezes_product_aligned_multilingual_dialogues():
@@ -42,7 +42,7 @@ def test_load_evaluation_cases_freezes_product_aligned_multilingual_dialogues():
     } == {"ko-ko", "en-en", "ko-en", "en-ko", "mixed"}
     assert any(case.expected_source_keys for case in cases)
     assert any(case.forbidden_source_keys for case in cases)
-    with pytest.raises(FrozenInstanceError):
+    with pytest.raises(ValidationError, match="frozen"):
         cases[0].case_id = "changed"
 
 
@@ -72,12 +72,12 @@ def test_load_evaluation_corpus_covers_case_sources_chunks_and_urls():
 )
 def test_load_evaluation_cases_rejects_schema_changes(tmp_path, mutation):
     """후속 PR이 합의된 평가 입력 구조를 임의로 바꾸지 못하도록 잘못된 schema를 거부한다."""
-    raw_case = asdict(load_evaluation_cases(CASES_PATH)[0])
+    raw_case = load_evaluation_cases(CASES_PATH)[0].model_dump(mode="json")
     mutation(raw_case)
-    path = tmp_path / "changed-schema.jsonl"
-    path.write_text(json.dumps(raw_case), encoding="utf-8")
+    path = tmp_path / "changed-schema.json"
+    path.write_text(json.dumps([raw_case]), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="schema"):
+    with pytest.raises(ValidationError):
         load_evaluation_cases(path)
 
 
@@ -94,7 +94,9 @@ def test_evaluate_run_measures_detector_and_retrieval_results():
     negative_case = next(
         case for case in loaded_cases if case.case_id == "personal-experience-ko"
     )
-    true_negative_case = replace(negative_case, case_id="personal-experience-copy")
+    true_negative_case = negative_case.model_copy(
+        update={"case_id": "personal-experience-copy"}
+    )
     cases = [
         positive_case,
         missed_positive_case,
@@ -157,7 +159,7 @@ def test_evaluate_run_fails_invalid_citation_tenant_leak_and_missed_abstention()
     cases = load_evaluation_cases(CASES_PATH)
     corpus = load_evaluation_corpus(CORPUS_PATH)
     tenant_case = next(case for case in cases if case.case_id == "tenant-isolation")
-    case = replace(tenant_case, must_abstain=True)
+    case = tenant_case.model_copy(update={"must_abstain": True})
     prediction = EvaluationPrediction(
         case_id=case.case_id,
         research_required=True,
@@ -200,10 +202,10 @@ def test_evaluate_run_fails_invalid_citation_tenant_leak_and_missed_abstention()
 def test_cli_outputs_comparable_machine_readable_summaries(tmp_path, capsys):
     """기존 방식과 후보 방식을 같은 JSON 구조로 비교할 수 있는지 검증한다."""
     cases = load_evaluation_cases(CASES_PATH)
-    prediction_path = tmp_path / "predictions.jsonl"
+    prediction_path = tmp_path / "predictions.json"
     prediction_path.write_text(
-        "\n".join(
-            json.dumps(
+        json.dumps(
+            [
                 {
                     "case_id": case.case_id,
                     "research_required": case.expected_research_required,
@@ -212,8 +214,8 @@ def test_cli_outputs_comparable_machine_readable_summaries(tmp_path, capsys):
                     "citations": [],
                     "abstained": case.must_abstain,
                 }
-            )
-            for case in cases
+                for case in cases
+            ]
         ),
         encoding="utf-8",
     )
@@ -242,30 +244,3 @@ def test_cli_outputs_comparable_machine_readable_summaries(tmp_path, capsys):
     assert baseline["detector"].keys() == candidate["detector"].keys()
     assert baseline["retrieval"].keys() == candidate["retrieval"].keys()
     assert baseline["safety"].keys() == candidate["safety"].keys()
-
-
-def test_evaluate_run_keeps_semantic_evaluation_optional():
-    """외부 의미 평가 없이도 동작하면서 필요할 때만 평가기를 연결할 수 있는지 검증한다."""
-    case = next(
-        case
-        for case in load_evaluation_cases(CASES_PATH)
-        if case.case_id == "personal-experience-ko"
-    )
-    prediction = EvaluationPrediction(case_id=case.case_id)
-
-    summary = evaluate_run(
-        [case],
-        [prediction],
-        corpus=load_evaluation_corpus(CORPUS_PATH),
-        run_name="candidate",
-        retrieval_k=5,
-        semantic_evaluator=lambda evaluated_case, _: {
-            "case_id": evaluated_case.case_id,
-            "score": 0.8,
-        },
-    )
-
-    assert summary["cases"][0]["semantic"] == {
-        "case_id": case.case_id,
-        "score": 0.8,
-    }

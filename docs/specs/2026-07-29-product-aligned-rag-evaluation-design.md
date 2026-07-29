@@ -53,7 +53,7 @@ PR 00은 아직 배포되지 않았으므로 기존 `input` 필드와의 호환 
 
 ## 합성 검색 자료
 
-검색 평가는 별도의 합성 corpus JSONL을 사용한다. 각 문서 조각에는 source/chunk
+검색 평가는 별도의 합성 corpus JSON 배열을 사용한다. 각 문서 조각에는 source/chunk
 식별자, canonical URL, 제목, 언어, 본문, 발행일·수집일, public/private 범위와
 비공개 소유자 정보를 저장한다. 실제 운영 자료나 URL은 사용하지 않는다.
 
@@ -79,9 +79,8 @@ prediction의 citation은 `source_key`, `chunk_key`, `url`을 한 묶음으로 �
 
 ## runner와 테스트 변경
 
-runner의 지표 계산 방식은 유지한다. loader와 `EvaluationCase`만 schema v2의
-명시적인 대화 쌍을 읽도록 바꾸며, 선택적 semantic evaluator에도 같은 사례를
-전달한다.
+runner의 지표 계산 방식은 유지한다. Pydantic loader와 `EvaluationCase`가
+schema v2의 명시적인 대화 쌍을 검증한다.
 
 테스트는 다음을 고정한다.
 

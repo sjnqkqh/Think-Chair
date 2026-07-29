@@ -1,15 +1,19 @@
 import argparse
 import json
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass, fields
 from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 EVALUATION_SCHEMA_VERSION = 2
 
 
-@dataclass(frozen=True)
-class EvaluationCase:
-    schema_version: int
+class FrozenEvaluationModel(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+class EvaluationCase(FrozenEvaluationModel):
+    schema_version: Literal[2]
     case_id: str
     category: str
     language_pair: str
@@ -23,9 +27,8 @@ class EvaluationCase:
     forbidden_source_keys: tuple[str, ...]
 
 
-@dataclass(frozen=True)
-class EvaluationCorpusChunk:
-    schema_version: int
+class EvaluationCorpusChunk(FrozenEvaluationModel):
+    schema_version: Literal[2]
     source_key: str
     chunk_key: str
     url: str
@@ -39,15 +42,13 @@ class EvaluationCorpusChunk:
     owner_manuscript_id: str | None
 
 
-@dataclass(frozen=True)
-class EvaluationCitation:
+class EvaluationCitation(FrozenEvaluationModel):
     source_key: str
     chunk_key: str
     url: str
 
 
-@dataclass(frozen=True)
-class EvaluationPrediction:
+class EvaluationPrediction(FrozenEvaluationModel):
     case_id: str
     research_required: bool = False
     retrieved_source_keys: tuple[str, ...] = ()
@@ -55,85 +56,22 @@ class EvaluationPrediction:
     citations: tuple[EvaluationCitation, ...] = ()
     abstained: bool = False
 
-
-SemanticEvaluator = Callable[
-    [EvaluationCase, EvaluationPrediction], Mapping[str, object]
-]
-
-
 def load_evaluation_cases(path: Path) -> list[EvaluationCase]:
-    cases = []
-    expected_fields = _field_names(EvaluationCase)
-    for line_number, raw in _load_jsonl(path):
-        _require_schema(raw, expected_fields, line_number, "case")
-        cases.append(
-            EvaluationCase(
-                schema_version=raw["schema_version"],
-                case_id=raw["case_id"],
-                category=raw["category"],
-                language_pair=raw["language_pair"],
-                ai_question=raw["ai_question"],
-                human_response=raw["human_response"],
-                expected_research_required=raw["expected_research_required"],
-                expected_source_keys=tuple(raw["expected_source_keys"]),
-                expected_chunk_keys=tuple(raw["expected_chunk_keys"]),
-                reference_answer=raw["reference_answer"],
-                must_abstain=raw["must_abstain"],
-                forbidden_source_keys=tuple(raw["forbidden_source_keys"]),
-            )
-        )
-    return cases
+    return TypeAdapter(list[EvaluationCase]).validate_json(
+        path.read_text(encoding="utf-8")
+    )
 
 
 def load_evaluation_corpus(path: Path) -> list[EvaluationCorpusChunk]:
-    corpus = []
-    expected_fields = _field_names(EvaluationCorpusChunk)
-    for line_number, raw in _load_jsonl(path):
-        _require_schema(raw, expected_fields, line_number, "corpus")
-        corpus.append(
-            EvaluationCorpusChunk(
-                schema_version=raw["schema_version"],
-                source_key=raw["source_key"],
-                chunk_key=raw["chunk_key"],
-                url=raw["url"],
-                title=raw["title"],
-                language=raw["language"],
-                text=raw["text"],
-                published_at=raw["published_at"],
-                fetched_at=raw["fetched_at"],
-                scope=raw["scope"],
-                owner_user_id=raw["owner_user_id"],
-                owner_manuscript_id=raw["owner_manuscript_id"],
-            )
-        )
-    return corpus
+    return TypeAdapter(list[EvaluationCorpusChunk]).validate_json(
+        path.read_text(encoding="utf-8")
+    )
 
 
 def load_predictions(path: Path) -> list[EvaluationPrediction]:
-    predictions = []
-    expected_fields = _field_names(EvaluationPrediction)
-    citation_fields = _field_names(EvaluationCitation)
-    for line_number, raw in _load_jsonl(path):
-        if not isinstance(raw, dict) or set(raw) != expected_fields:
-            raise ValueError(f"prediction schema mismatch on line {line_number}")
-        citations = []
-        for citation in raw["citations"]:
-            if not isinstance(citation, dict) or set(citation) != citation_fields:
-                raise ValueError(
-                    f"prediction citation schema mismatch on line {line_number}"
-                )
-            citations.append(EvaluationCitation(**citation))
-        predictions.append(
-            EvaluationPrediction(
-                case_id=raw["case_id"],
-                research_required=raw["research_required"],
-                retrieved_source_keys=tuple(raw["retrieved_source_keys"]),
-                retrieved_chunk_keys=tuple(raw["retrieved_chunk_keys"]),
-                citations=tuple(citations),
-                abstained=raw["abstained"],
-            )
-        )
-    return predictions
+    return TypeAdapter(list[EvaluationPrediction]).validate_json(
+        path.read_text(encoding="utf-8")
+    )
 
 
 def validate_evaluation_fixture(
@@ -166,7 +104,6 @@ def evaluate_run(
     corpus: list[EvaluationCorpusChunk],
     run_name: str,
     retrieval_k: int,
-    semantic_evaluator: SemanticEvaluator | None = None,
 ) -> dict[str, object]:
     validate_evaluation_fixture(cases, corpus)
     predictions_by_case = {prediction.case_id: prediction for prediction in predictions}
@@ -237,11 +174,6 @@ def evaluate_run(
                 "case_id": case.case_id,
                 "passed": not failures,
                 "failures": failures,
-                "semantic": (
-                    dict(semantic_evaluator(case, prediction))
-                    if semantic_evaluator
-                    else None
-                ),
             }
         )
 
@@ -290,38 +222,6 @@ def _citations_are_valid(
         ):
             return False
     return True
-
-
-def _field_names(data_class: type) -> set[str]:
-    return {field.name for field in fields(data_class)}
-
-
-def _load_jsonl(path: Path) -> list[tuple[int, object]]:
-    text = path.read_text(encoding="utf-8")
-    decoder = json.JSONDecoder()
-    loaded = []
-    position = 0
-    while position < len(text):
-        while position < len(text) and text[position].isspace():
-            position += 1
-        if position == len(text):
-            break
-        line_number = text.count("\n", 0, position) + 1
-        raw, position = decoder.raw_decode(text, position)
-        loaded.append((line_number, raw))
-    return loaded
-
-
-def _require_schema(
-    raw: object,
-    expected_fields: set[str],
-    line_number: int,
-    fixture_name: str,
-) -> None:
-    if not isinstance(raw, dict) or set(raw) != expected_fields:
-        raise ValueError(f"{fixture_name} schema mismatch on line {line_number}")
-    if raw["schema_version"] != EVALUATION_SCHEMA_VERSION:
-        raise ValueError(f"unsupported {fixture_name} schema on line {line_number}")
 
 
 def _recall_at_k(expected: tuple[str, ...], actual: tuple[str, ...], k: int) -> float:
