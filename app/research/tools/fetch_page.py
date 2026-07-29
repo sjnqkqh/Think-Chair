@@ -21,12 +21,13 @@ from app.research.network_safety import (
     resolve_addresses,
 )
 from app.research.page_parser import parse_html_page
+from app.research.retry import retry_wait_seconds
 
 USER_AGENT = "ThinkChairResearchBot/1.0"
 FETCH_TIMEOUT_SECONDS = 10
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 MAX_REDIRECTS = 3
-MAX_ATTEMPTS = 2
+MAX_ATTEMPTS = 3
 MIN_TEXT_CHARS = 40
 
 
@@ -50,12 +51,12 @@ async def _download(client: httpx.AsyncClient, url: str) -> _Download:
             ) as response:
                 if response.status_code == 429 or response.status_code >= 500:
                     if attempt + 1 < MAX_ATTEMPTS:
-                        retry_after = response.headers.get("Retry-After", "0.25")
-                        try:
-                            delay = min(float(retry_after), 1.0)
-                        except ValueError:
-                            delay = 0.25
-                        await asyncio.sleep(delay)
+                        await asyncio.sleep(
+                            retry_wait_seconds(
+                                attempt,
+                                response.headers.get("Retry-After"),
+                            )
+                        )
                         continue
                     return _Download(
                         status_code=response.status_code,
@@ -74,8 +75,10 @@ async def _download(client: httpx.AsyncClient, url: str) -> _Download:
                     body=bytes(body),
                 )
         except httpx.TimeoutException:
-            if attempt + 1 == MAX_ATTEMPTS:
-                return _Download(error_code="fetch_timeout", retryable=True)
+            if attempt + 1 < MAX_ATTEMPTS:
+                await asyncio.sleep(retry_wait_seconds(attempt))
+                continue
+            return _Download(error_code="fetch_timeout", retryable=True)
         except httpx.HTTPError:
             return _Download(error_code="fetch_network_error", retryable=True)
     return _Download(error_code="fetch_upstream_error", retryable=True)

@@ -116,15 +116,20 @@ async def test_ignores_non_http_provider_result():
     assert [hit.url for hit in response.results] == ["https://docs.example.com/safe"]
 
 
-async def test_returns_retryable_error_after_timeout():
-    """검색 시간 초과가 예외로 새지 않고 재시도 가능한 오류로 반환되는지 검증한다."""
+async def test_returns_retryable_error_after_timeout(monkeypatch):
+    """검색 시간 초과를 지수 백오프로 제한 재시도한 뒤 구조화된 오류로 반환하는지 검증한다."""
     attempts = 0
+    delays = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal attempts
         attempts += 1
         raise httpx.ReadTimeout("slow", request=request)
 
+    async def record_delay(delay: float) -> None:
+        delays.append(delay)
+
+    monkeypatch.setattr("app.research.tools.search_web.asyncio.sleep", record_delay)
     async with _client(handler) as client:
         response = await search_web(
             SearchRequest(query="queue latency"),
@@ -132,7 +137,8 @@ async def test_returns_retryable_error_after_timeout():
             api_key="brave-key",
         )
 
-    assert attempts == 2
+    assert attempts == 3
+    assert delays == [0.25, 0.5]
     assert response.results == []
     assert response.error_code == "search_timeout"
     assert response.retryable is True

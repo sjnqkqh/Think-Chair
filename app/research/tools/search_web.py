@@ -7,10 +7,11 @@ from langchain_core.tools import StructuredTool
 from app.core.config import settings
 from app.research.contracts import SearchHit, SearchRequest, SearchResponse
 from app.research.network_safety import normalize_http_url
+from app.research.retry import retry_wait_seconds
 
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 SEARCH_TIMEOUT_SECONDS = 10
-MAX_ATTEMPTS = 2
+MAX_ATTEMPTS = 3
 
 
 def _domain_is_allowed(url: str, allowed_domains: list[str] | None) -> bool:
@@ -58,13 +59,6 @@ def _normalize_results(payload: dict, request: SearchRequest) -> list[SearchHit]
     return hits
 
 
-def _retry_delay(response: httpx.Response) -> float:
-    try:
-        return min(float(response.headers.get("Retry-After", "0.25")), 1.0)
-    except ValueError:
-        return 0.25
-
-
 async def search_web(
     request: SearchRequest,
     *,
@@ -99,6 +93,7 @@ async def search_web(
                 )
             except httpx.TimeoutException:
                 if attempt + 1 < MAX_ATTEMPTS:
+                    await asyncio.sleep(retry_wait_seconds(attempt))
                     continue
                 return SearchResponse(error_code="search_timeout", retryable=True)
             except httpx.HTTPError:
@@ -114,7 +109,12 @@ async def search_web(
                     return SearchResponse(error_code="search_invalid_response")
             if response.status_code == 429 or response.status_code >= 500:
                 if attempt + 1 < MAX_ATTEMPTS:
-                    await asyncio.sleep(_retry_delay(response))
+                    await asyncio.sleep(
+                        retry_wait_seconds(
+                            attempt,
+                            response.headers.get("Retry-After"),
+                        )
+                    )
                     continue
                 error_code = (
                     "search_rate_limited"

@@ -224,9 +224,10 @@ async def test_rejects_private_canonical_url():
     assert response.error_code == "unsafe_canonical_url"
 
 
-async def test_returns_retryable_error_after_timeout():
-    """원문 요청 시간 초과가 예외로 새지 않고 재시도 가능한 오류로 반환되는지 검증한다."""
+async def test_returns_retryable_error_after_timeout(monkeypatch):
+    """원문 시간 초과를 지수 백오프로 제한 재시도한 뒤 구조화된 오류로 반환하는지 검증한다."""
     page_attempts = 0
+    delays = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal page_attempts
@@ -235,6 +236,10 @@ async def test_returns_retryable_error_after_timeout():
         page_attempts += 1
         raise httpx.ReadTimeout("slow", request=request)
 
+    async def record_delay(delay: float) -> None:
+        delays.append(delay)
+
+    monkeypatch.setattr("app.research.tools.fetch_page.asyncio.sleep", record_delay)
     async with _client(handler) as client:
         response = await fetch_page(
             FetchRequest(url="https://docs.example.com/slow"),
@@ -242,7 +247,8 @@ async def test_returns_retryable_error_after_timeout():
             resolver=_public_resolver,
         )
 
-    assert page_attempts == 2
+    assert page_attempts == 3
+    assert delays == [0.25, 0.5]
     assert response.error_code == "fetch_timeout"
     assert response.retryable is True
 
