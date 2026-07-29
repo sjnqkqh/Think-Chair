@@ -93,6 +93,7 @@ Think Chair의 대화는 `app/graph/builder.py`의 상태 머신으로 실행됩
 DEEPSEEK_API_KEY=your_deepseek_api_key
 DEEPSEEK_API_BASE=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
+BRAVE_SEARCH_API_KEY=your_brave_search_api_key
 
 JWT_SECRET=change-this-in-production
 JWT_TTL_HOURS=24
@@ -170,6 +171,14 @@ uv run ruff check app tests
 ```
 
 `tests/`는 인증, 원고 서비스, LangGraph 노드와 빌드, 채팅 API, 워크스페이스 페이지, 한자/중국어 필터, 로컬 스토리지를 검증합니다.
+
+Reddit·Hugging Face의 현재 HTML 호환성 검사는 외부 네트워크를 사용하므로 기본
+테스트에서는 건너뜁니다. 개발자가 직접 확인할 때만 다음과 같이 실행합니다.
+
+```bash
+RUN_LIVE_WEB_TESTS=1 uv run pytest \
+  tests/integration/research/test_live_page_compatibility.py
+```
 
 ## License
 
