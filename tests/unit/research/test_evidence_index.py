@@ -34,10 +34,11 @@ def test_persists_vectors_and_reopens_compatible_collections(tmp_path):
         chunk_schema_version="test-schema",
     )
 
-    assert reopened.count_chunks("public") == 1
-    assert reopened.read_chunks("public")["metadatas"][0]["canonical_url"] == (
-        "https://example.com/source"
-    )
+    collection = reopened.collections["public"]
+    assert collection.count() == 1
+    assert collection.get(include=["metadatas"])["metadatas"][0][
+        "canonical_url"
+    ] == ("https://example.com/source")
 
 
 def test_rejects_collection_with_different_embedding_contract(tmp_path):

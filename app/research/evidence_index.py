@@ -71,14 +71,3 @@ class ResearchEvidenceIndex:
         self, scope: EvidenceScope, source_id: str
     ) -> None:
         self.collections[scope].delete(where={"source_id": source_id})
-
-    def count_chunks(self, scope: EvidenceScope) -> int:
-        return self.collections[scope].count()
-
-    def read_chunks(
-        self, scope: EvidenceScope, ids: list[str] | None = None
-    ):
-        return self.collections[scope].get(
-            ids=ids,
-            include=["documents", "metadatas"],
-        )

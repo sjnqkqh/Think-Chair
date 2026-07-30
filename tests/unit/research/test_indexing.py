@@ -124,6 +124,12 @@ async def _index_request(
     )
 
 
+def _count_indexed_chunks(
+    evidence_index: ResearchEvidenceIndex, scope: str
+) -> int:
+    return evidence_index.collections[scope].count()
+
+
 async def test_reuses_public_source_and_adds_redirect_alias(db_session, tmp_path):
     """같은 대표 URL의 공개 자료는 사용자와 요청 URL이 달라도 벡터를 복제하지 않는지 검증한다."""
     first_user, first_manuscript = _create_user_and_manuscript(db_session, "first")
@@ -151,7 +157,7 @@ async def test_reuses_public_source_and_adds_redirect_alias(db_session, tmp_path
         scope="public",
         evidence_index=evidence_index,
     )
-    original_count = evidence_index.count_chunks("public")
+    original_count = _count_indexed_chunks(evidence_index, "public")
     second = await _index_request(
         db_session,
         tmp_path,
@@ -172,10 +178,12 @@ async def test_reuses_public_source_and_adds_redirect_alias(db_session, tmp_path
     assert first.status == "completed"
     assert second.status == "completed"
     assert second.chunk_count == 0
-    assert evidence_index.count_chunks("public") == original_count
+    assert _count_indexed_chunks(evidence_index, "public") == original_count
     assert db_session.query(ResearchSource).count() == 1
     assert second.skipped_source_keys == ["source-key"]
-    metadata = evidence_index.read_chunks("public")["metadatas"]
+    metadata = evidence_index.collections["public"].get(
+        include=["metadatas"]
+    )["metadatas"]
     assert all(
         item["canonical_url"] == _make_fetched_source().canonical_url
         for item in metadata
@@ -219,8 +227,8 @@ async def test_isolates_private_sources_by_owner_and_manuscript(db_session, tmp_
         assert result.status == "completed"
 
     assert db_session.query(ResearchSource).count() == 2
-    assert evidence_index.count_chunks("private") > 1
-    assert evidence_index.count_chunks("public") == 0
+    assert _count_indexed_chunks(evidence_index, "private") > 1
+    assert _count_indexed_chunks(evidence_index, "public") == 0
 
 
 async def test_rejects_job_owned_by_another_user(db_session, tmp_path):
@@ -290,7 +298,7 @@ async def test_cleans_failed_artifacts_and_retries_without_duplicates(
 
     assert failed.status == "failed"
     assert source.status == ResearchSourceStatus.FAILED
-    assert evidence_index.count_chunks("public") == 0
+    assert _count_indexed_chunks(evidence_index, "public") == 0
     assert not (tmp_path / "storage" / source.storage_key).exists()
 
     completed = await _index_request(
@@ -304,7 +312,10 @@ async def test_cleans_failed_artifacts_and_retries_without_duplicates(
 
     assert completed.status == "completed"
     assert db_session.query(ResearchSource).count() == 1
-    assert evidence_index.count_chunks("public") == completed.chunk_count
+    assert (
+        _count_indexed_chunks(evidence_index, "public")
+        == completed.chunk_count
+    )
 
 
 async def test_reports_partial_when_only_some_sources_are_indexed(
@@ -369,7 +380,7 @@ async def test_does_not_restore_excluded_source(db_session, tmp_path):
         evidence_index=evidence_index,
     )
 
-    assert evidence_index.count_chunks("public") == 0
+    assert _count_indexed_chunks(evidence_index, "public") == 0
     assert not (tmp_path / "storage" / source.storage_key).exists()
 
     result = await _index_request(
