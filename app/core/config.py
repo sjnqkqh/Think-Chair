@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_API_BASE: str = "https://api.deepseek.com"
     DEEPSEEK_MODEL: str = "deepseek-chat"
+    BRAVE_SEARCH_API_KEY: str = ""
 
     # Think Chair
     JWT_SECRET: str = "dev-secret-change-me"
