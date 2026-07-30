@@ -6,6 +6,15 @@ from app.models.manuscript import (
     ManuscriptStatus,
     ManuscriptVersion,
 )
+from app.models.research import (
+    ResearchJob,
+    ResearchJobSource,
+    ResearchJobStatus,
+    ResearchSource,
+    ResearchSourceScope,
+    ResearchSourceStatus,
+    ResearchSourceUrl,
+)
 from app.models.user import User
 
 __all__ = [
@@ -16,5 +25,12 @@ __all__ = [
     "ManuscriptStatus",
     "ManuscriptVersion",
     "RoutingDecision",
+    "ResearchJob",
+    "ResearchJobSource",
+    "ResearchJobStatus",
+    "ResearchSource",
+    "ResearchSourceScope",
+    "ResearchSourceStatus",
+    "ResearchSourceUrl",
     "User",
 ]

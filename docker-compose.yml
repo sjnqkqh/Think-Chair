@@ -12,6 +12,7 @@ services:
       # Keep all mutable SQLite and manuscript data in the named volume.
       DATA_ROOT: /data
       STORAGE_ROOT: /data/storage
+      CHROMA_ROOT: /data/chroma_db
     volumes:
       - think-chair-data:/data
     restart: unless-stopped

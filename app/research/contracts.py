@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -66,3 +67,30 @@ class FetchResponse(BaseModel):
     source: FetchedSource | None = None
     error_code: str | None = None
     retryable: bool = False
+
+
+class SourceChunk(BaseModel):
+    id: str
+    source_id: UUID
+    ordinal: int
+    text: str
+    start_index: int
+    source_url: str
+    section_kind: Literal["page", "comment", "reply"]
+    language: Literal["ko", "en", "mixed", "und"]
+    chunk_schema_version: str
+
+
+class IndexRequest(BaseModel):
+    research_job_id: UUID
+    user_id: UUID
+    manuscript_id: UUID
+    sources: list[FetchedSource]
+
+
+class IndexResult(BaseModel):
+    indexed_source_ids: list[UUID] = Field(default_factory=list)
+    chunk_count: int = 0
+    skipped_source_keys: list[str] = Field(default_factory=list)
+    error_codes: list[str] = Field(default_factory=list)
+    status: Literal["completed", "partial", "failed"]

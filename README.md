@@ -94,10 +94,12 @@ DEEPSEEK_API_KEY=your_deepseek_api_key
 DEEPSEEK_API_BASE=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
 BRAVE_SEARCH_API_KEY=your_brave_search_api_key
+OPENAI_API_KEY=your_openai_api_key
 
 JWT_SECRET=change-this-in-production
 JWT_TTL_HOURS=24
 STORAGE_ROOT=./storage
+CHROMA_ROOT=./chroma_db
 
 # 선택: LangSmith 추적
 LANGCHAIN_TRACING_V2=true
@@ -134,7 +136,9 @@ docker compose logs -f
 docker compose down
 ```
 
-Compose는 SQLite DB, LangGraph 체크포인트, 원고 파일을 `think-chair-data` named volume에 보존합니다. 볼륨까지 삭제하려면 `docker compose down -v`를 사용합니다.
+Compose는 SQLite DB, LangGraph 체크포인트, 원고 파일과 Chroma 검색 자료를
+`think-chair-data` named volume에 보존합니다. 볼륨까지 삭제하려면
+`docker compose down -v`를 사용합니다.
 
 기존 Docker CLI 실행 방법:
 
