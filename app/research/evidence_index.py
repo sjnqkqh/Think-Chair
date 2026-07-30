@@ -4,19 +4,19 @@ from typing import Literal
 import chromadb
 from chromadb.errors import NotFoundError
 
-Scope = Literal["public", "private"]
+EvidenceScope = Literal["public", "private"]
 
-COLLECTION_NAMES: dict[Scope, str] = {
+EVIDENCE_COLLECTION_NAMES: dict[EvidenceScope, str] = {
     "public": "research_public_v1",
     "private": "research_private_v1",
 }
 
 
-class EmbeddingConfigurationMismatch(RuntimeError):
+class EvidenceIndexContractMismatch(RuntimeError):
     pass
 
 
-class ResearchVectorStore:
+class ResearchEvidenceIndex:
     def __init__(
         self,
         path: Path,
@@ -26,31 +26,31 @@ class ResearchVectorStore:
         chunk_schema_version: str,
     ):
         self.client = chromadb.PersistentClient(path=path)
-        self.contract = {
+        self.index_contract = {
             "embedding_model": embedding_model,
             "embedding_dimension": embedding_dimension,
             "chunk_schema_version": chunk_schema_version,
         }
         self.collections = {
-            scope: self._open_collection(name)
-            for scope, name in COLLECTION_NAMES.items()
+            scope: self._open_compatible_collection(name)
+            for scope, name in EVIDENCE_COLLECTION_NAMES.items()
         }
 
-    def _open_collection(self, name: str):
+    def _open_compatible_collection(self, name: str):
         try:
             collection = self.client.get_collection(name)
         except NotFoundError:
-            return self.client.create_collection(name, metadata=self.contract)
-        if collection.metadata != self.contract:
-            raise EmbeddingConfigurationMismatch(
+            return self.client.create_collection(name, metadata=self.index_contract)
+        if collection.metadata != self.index_contract:
+            raise EvidenceIndexContractMismatch(
                 f"{name} uses a different embedding contract"
             )
         return collection
 
-    def upsert(
+    def store_source_chunks(
         self,
         *,
-        scope: Scope,
+        scope: EvidenceScope,
         ids: list[str],
         documents: list[str],
         embeddings: list[list[float]],
@@ -63,17 +63,21 @@ class ResearchVectorStore:
             metadatas=metadatas,
         )
 
-    def delete(self, scope: Scope, ids: list[str]) -> None:
+    def discard_chunks(self, scope: EvidenceScope, ids: list[str]) -> None:
         if ids:
             self.collections[scope].delete(ids=ids)
 
-    def delete_source(self, scope: Scope, source_id: str) -> None:
+    def remove_source_evidence(
+        self, scope: EvidenceScope, source_id: str
+    ) -> None:
         self.collections[scope].delete(where={"source_id": source_id})
 
-    def count(self, scope: Scope) -> int:
+    def count_chunks(self, scope: EvidenceScope) -> int:
         return self.collections[scope].count()
 
-    def get(self, scope: Scope, ids: list[str] | None = None):
+    def read_chunks(
+        self, scope: EvidenceScope, ids: list[str] | None = None
+    ):
         return self.collections[scope].get(
             ids=ids,
             include=["documents", "metadatas"],

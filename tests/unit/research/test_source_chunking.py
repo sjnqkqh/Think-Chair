@@ -6,12 +6,12 @@ from pathlib import Path
 import pytest
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from app.research.chunking import (
+from app.research.source_chunking import (
     CHUNK_OVERLAP,
     CHUNK_SCHEMA_VERSION,
     CHUNK_SIZE,
-    chunk_source,
-    detect_language,
+    classify_text_language,
+    split_source_for_retrieval,
 )
 from app.research.contracts import ExtractedSection, FetchedSource
 from app.research.page_parser import parse_html_page
@@ -19,7 +19,9 @@ from app.research.page_parser import parse_html_page
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "research"
 
 
-def _source(text: str, *, sections: list[ExtractedSection] | None = None):
+def _make_fetched_source(
+    text: str, *, sections: list[ExtractedSection] | None = None
+):
     return FetchedSource(
         requested_url="https://example.com/requested",
         canonical_url="https://example.com/canonical",
@@ -36,7 +38,7 @@ def _source(text: str, *, sections: list[ExtractedSection] | None = None):
 
 
 @pytest.fixture(autouse=True)
-def offline_splitter(monkeypatch):
+def deterministic_test_splitter(monkeypatch):
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
@@ -45,7 +47,10 @@ def offline_splitter(monkeypatch):
         keep_separator="end",
         add_start_index=True,
     )
-    monkeypatch.setattr("app.research.chunking._splitter", lambda: splitter)
+    monkeypatch.setattr(
+        "app.research.source_chunking._retrieval_text_splitter",
+        lambda: splitter,
+    )
 
 
 def test_chunks_plain_text_by_structure_within_token_limit():
@@ -55,7 +60,9 @@ def test_chunks_plain_text_by_structure_within_token_limit():
         for index in range(8)
     ]
 
-    chunks = chunk_source(_source("\n\n".join(paragraphs)), uuid.uuid4())
+    chunks = split_source_for_retrieval(
+        _make_fetched_source("\n\n".join(paragraphs)), uuid.uuid4()
+    )
     assert len(chunks) > 1
     assert CHUNK_SIZE == 600
     assert CHUNK_OVERLAP == 100
@@ -67,7 +74,7 @@ def test_chunks_plain_text_by_structure_within_token_limit():
 def test_normalizes_unicode_and_preserves_section_source_urls():
     """원문은 NFC로 통일하고 댓글 청크는 대표 URL과 댓글 고유 주소를 함께 보존하는지 검증한다."""
     comment_url = "https://example.com/thread/comment-1"
-    source = _source(
+    source = _make_fetched_source(
         "Cafe\u0301 본문입니다.",
         sections=[
             ExtractedSection(
@@ -78,7 +85,7 @@ def test_normalizes_unicode_and_preserves_section_source_urls():
         ],
     )
 
-    chunks = chunk_source(source, uuid.uuid4())
+    chunks = split_source_for_retrieval(source, uuid.uuid4())
 
     assert all(unicodedata.is_normalized("NFC", chunk.text) for chunk in chunks)
     assert chunks[0].source_url == source.canonical_url
@@ -98,7 +105,7 @@ def test_normalizes_unicode_and_preserves_section_source_urls():
 )
 def test_labels_multilingual_content_without_splitting_by_language(text, expected):
     """한국어·영어·혼합 원문을 번역하거나 격리하지 않고 검색용 언어 정보만 붙이는지 검증한다."""
-    assert detect_language(text) == expected
+    assert classify_text_language(text) == expected
 
 
 def test_chunks_extracted_technical_document_fixture():
@@ -108,7 +115,9 @@ def test_chunks_extracted_technical_document_fixture():
         "https://docs.example.com/retries",
     )
 
-    chunks = chunk_source(_source(page.text), uuid.uuid4())
+    chunks = split_source_for_retrieval(
+        _make_fetched_source(page.text), uuid.uuid4()
+    )
 
     assert chunks
     assert "bounded exponential backoff" in " ".join(

@@ -69,7 +69,7 @@ class FetchResponse(BaseModel):
     retryable: bool = False
 
 
-class SourceChunk(BaseModel):
+class ResearchSourceChunk(BaseModel):
     id: str
     source_id: UUID
     ordinal: int
@@ -81,14 +81,14 @@ class SourceChunk(BaseModel):
     chunk_schema_version: str
 
 
-class IndexRequest(BaseModel):
+class ResearchIndexRequest(BaseModel):
     research_job_id: UUID
     user_id: UUID
     manuscript_id: UUID
     sources: list[FetchedSource]
 
 
-class IndexResult(BaseModel):
+class ResearchIndexResult(BaseModel):
     indexed_source_ids: list[UUID] = Field(default_factory=list)
     chunk_count: int = 0
     skipped_source_keys: list[str] = Field(default_factory=list)

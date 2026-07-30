@@ -15,7 +15,7 @@ from app.models.research import (
 _SOURCE_NAMESPACE = uuid.UUID("e9a6eb1a-54d1-49bd-8bca-2a17d0394630")
 
 
-def scoped_identity(
+def source_identity_key(
     scope: ResearchSourceScope,
     value: str,
     user_id: uuid.UUID,
@@ -25,11 +25,11 @@ def scoped_identity(
     return hashlib.sha256(f"{scope.value}:{owner}{value}".encode("utf-8")).hexdigest()
 
 
-def deterministic_source_id(identity_key: str) -> uuid.UUID:
+def source_id_from_identity(identity_key: str) -> uuid.UUID:
     return uuid.uuid5(_SOURCE_NAMESPACE, identity_key)
 
 
-def get_owned_job(
+def find_owned_research_job(
     db: Session,
     job_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -56,7 +56,7 @@ def find_source_by_url(
     user_id: uuid.UUID,
     manuscript_id: uuid.UUID,
 ) -> ResearchSource | None:
-    identity_key = scoped_identity(scope, url, user_id, manuscript_id)
+    identity_key = source_identity_key(scope, url, user_id, manuscript_id)
     return (
         db.query(ResearchSource)
         .join(ResearchSourceUrl, ResearchSourceUrl.source_id == ResearchSource.id)
@@ -65,7 +65,7 @@ def find_source_by_url(
     )
 
 
-def add_url_alias(
+def add_source_url_alias(
     db: Session,
     source: ResearchSource,
     url: str,
@@ -74,7 +74,9 @@ def add_url_alias(
     *,
     is_canonical: bool,
 ) -> None:
-    identity_key = scoped_identity(source.scope, url, user_id, manuscript_id)
+    identity_key = source_identity_key(
+        source.scope, url, user_id, manuscript_id
+    )
     alias = (
         db.query(ResearchSourceUrl)
         .filter(ResearchSourceUrl.identity_key == identity_key)
@@ -96,7 +98,7 @@ def add_url_alias(
     )
 
 
-def attach_source_to_job(
+def link_source_to_research_job(
     db: Session,
     job: ResearchJob,
     source: ResearchSource,

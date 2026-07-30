@@ -14,9 +14,18 @@ from app.models.research import (
     ResearchSourceStatus,
 )
 from app.repositories import research_repo
-from app.research.chunking import CHUNK_SCHEMA_VERSION, chunk_source, detect_language
-from app.research.contracts import FetchedSource, IndexRequest, IndexResult, SourceChunk
-from app.research.vector_store import ResearchVectorStore
+from app.research.contracts import (
+    FetchedSource,
+    ResearchIndexRequest,
+    ResearchIndexResult,
+    ResearchSourceChunk,
+)
+from app.research.evidence_index import ResearchEvidenceIndex
+from app.research.source_chunking import (
+    CHUNK_SCHEMA_VERSION,
+    classify_text_language,
+    split_source_for_retrieval,
+)
 from app.services.storage.base import FileStorage
 
 EMBEDDING_MODEL = "text-embedding-3-small"
@@ -24,7 +33,7 @@ EMBEDDING_DIMENSION = 1536
 logger = get_logger(__name__)
 
 
-def create_embedding_client(api_key: str | None = None) -> OpenAIEmbeddings:
+def create_research_embeddings(api_key: str | None = None) -> OpenAIEmbeddings:
     return OpenAIEmbeddings(
         api_key=api_key or settings.OPENAI_API_KEY,
         model=EMBEDDING_MODEL,
@@ -32,8 +41,10 @@ def create_embedding_client(api_key: str | None = None) -> OpenAIEmbeddings:
     )
 
 
-def create_vector_store(path: Path | None = None) -> ResearchVectorStore:
-    return ResearchVectorStore(
+def create_research_evidence_index(
+    path: Path | None = None,
+) -> ResearchEvidenceIndex:
+    return ResearchEvidenceIndex(
         path or settings.CHROMA_ROOT,
         embedding_model=EMBEDDING_MODEL,
         embedding_dimension=EMBEDDING_DIMENSION,
@@ -41,15 +52,15 @@ def create_vector_store(path: Path | None = None) -> ResearchVectorStore:
     )
 
 
-def _scope(value: str | None) -> ResearchSourceScope | None:
+def _admitted_source_scope(value: str | None) -> ResearchSourceScope | None:
     try:
         return ResearchSourceScope(value) if value else None
     except ValueError:
         return None
 
 
-def _metadata(
-    chunk: SourceChunk,
+def _build_chunk_metadata(
+    chunk: ResearchSourceChunk,
     source: ResearchSource,
 ) -> dict[str, str | int]:
     metadata: dict[str, str | int] = {
@@ -72,23 +83,23 @@ def _metadata(
     return metadata
 
 
-async def index_sources(
-    request: IndexRequest,
+async def index_research_sources(
+    request: ResearchIndexRequest,
     *,
     db: Session,
     storage: FileStorage,
     embeddings: Embeddings,
-    vector_store: ResearchVectorStore,
+    evidence_index: ResearchEvidenceIndex,
     admit_source: Callable[[FetchedSource], str | None],
-) -> IndexResult:
-    job = research_repo.get_owned_job(
+) -> ResearchIndexResult:
+    job = research_repo.find_owned_research_job(
         db,
         request.research_job_id,
         request.user_id,
         request.manuscript_id,
     )
     if job is None:
-        return IndexResult(status="failed", error_codes=["job_not_found"])
+        return ResearchIndexResult(status="failed", error_codes=["job_not_found"])
 
     job.status = ResearchJobStatus.RUNNING
     job.terminal_error = None
@@ -100,7 +111,7 @@ async def index_sources(
     chunk_count = 0
 
     for fetched_source in request.sources:
-        scope = _scope(admit_source(fetched_source))
+        scope = _admitted_source_scope(admit_source(fetched_source))
         if scope is None:
             skipped_source_keys.append(fetched_source.source_key)
             continue
@@ -119,12 +130,12 @@ async def index_sources(
             request.manuscript_id,
         )
 
-        if source is not None and source.status == ResearchSourceStatus.TOMBSTONED:
+        if source is not None and source.status == ResearchSourceStatus.EXCLUDED:
             skipped_source_keys.append(fetched_source.source_key)
             continue
 
         if source is not None and source.status == ResearchSourceStatus.INDEXED:
-            research_repo.add_url_alias(
+            research_repo.add_source_url_alias(
                 db,
                 source,
                 fetched_source.requested_url,
@@ -132,7 +143,7 @@ async def index_sources(
                 request.manuscript_id,
                 is_canonical=False,
             )
-            research_repo.attach_source_to_job(db, job, source)
+            research_repo.link_source_to_research_job(db, job, source)
             db.commit()
             if source.id not in indexed_source_ids:
                 indexed_source_ids.append(source.id)
@@ -140,13 +151,13 @@ async def index_sources(
             continue
 
         if source is None:
-            identity_key = research_repo.scoped_identity(
+            identity_key = research_repo.source_identity_key(
                 scope,
                 fetched_source.canonical_url,
                 request.user_id,
                 request.manuscript_id,
             )
-            source_id = research_repo.deterministic_source_id(identity_key)
+            source_id = research_repo.source_id_from_identity(identity_key)
             source = ResearchSource(
                 id=source_id,
                 identity_key=identity_key,
@@ -166,23 +177,27 @@ async def index_sources(
                 fetched_at=fetched_source.fetched_at,
                 content_hash=fetched_source.content_hash,
                 storage_key=f"research_sources/{source_id}.json",
-                language=detect_language(
+                language=classify_text_language(
                     "\n".join(
                         [fetched_source.text]
                         + [section.text for section in fetched_source.sections]
                     )
                 ),
                 status=ResearchSourceStatus.PENDING,
-                embedding_model=vector_store.contract["embedding_model"],
-                embedding_dimension=vector_store.contract["embedding_dimension"],
-                chunk_schema_version=vector_store.contract["chunk_schema_version"],
+                embedding_model=evidence_index.index_contract["embedding_model"],
+                embedding_dimension=evidence_index.index_contract[
+                    "embedding_dimension"
+                ],
+                chunk_schema_version=evidence_index.index_contract[
+                    "chunk_schema_version"
+                ],
             )
             db.add(source)
         else:
             source.status = ResearchSourceStatus.PENDING
             source.content_hash = fetched_source.content_hash
 
-        research_repo.add_url_alias(
+        research_repo.add_source_url_alias(
             db,
             source,
             fetched_source.canonical_url,
@@ -190,7 +205,7 @@ async def index_sources(
             request.manuscript_id,
             is_canonical=True,
         )
-        research_repo.add_url_alias(
+        research_repo.add_source_url_alias(
             db,
             source,
             fetched_source.requested_url,
@@ -200,7 +215,7 @@ async def index_sources(
         )
         db.commit()
 
-        chunks = chunk_source(
+        chunks = split_source_for_retrieval(
             fetched_source,
             source.id,
             chunk_schema_version=source.chunk_schema_version,
@@ -214,18 +229,20 @@ async def index_sources(
             vectors = await embeddings.aembed_documents(
                 [chunk.text for chunk in chunks]
             )
-            vector_store.upsert(
+            evidence_index.store_source_chunks(
                 scope=scope.value,
                 ids=chunk_ids,
                 documents=[chunk.text for chunk in chunks],
                 embeddings=vectors,
-                metadatas=[_metadata(chunk, source) for chunk in chunks],
+                metadatas=[
+                    _build_chunk_metadata(chunk, source) for chunk in chunks
+                ],
             )
         except Exception:
             logger.exception("research.source_index_failed", source_id=str(source.id))
             cleanup_failed = False
             try:
-                vector_store.delete(scope.value, chunk_ids)
+                evidence_index.discard_chunks(scope.value, chunk_ids)
             except Exception:
                 cleanup_failed = True
                 logger.exception(
@@ -246,7 +263,7 @@ async def index_sources(
             continue
 
         source.status = ResearchSourceStatus.INDEXED
-        research_repo.attach_source_to_job(db, job, source)
+        research_repo.link_source_to_research_job(db, job, source)
         db.commit()
         indexed_source_ids.append(source.id)
         chunk_count += len(chunks)
@@ -258,7 +275,7 @@ async def index_sources(
     job.status = ResearchJobStatus(status)
     job.terminal_error = error_codes[0] if status == "failed" else None
     db.commit()
-    return IndexResult(
+    return ResearchIndexResult(
         indexed_source_ids=indexed_source_ids,
         chunk_count=chunk_count,
         skipped_source_keys=skipped_source_keys,

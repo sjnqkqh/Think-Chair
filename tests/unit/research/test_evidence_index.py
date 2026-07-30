@@ -1,20 +1,20 @@
 import pytest
 
-from app.research.vector_store import (
-    EmbeddingConfigurationMismatch,
-    ResearchVectorStore,
+from app.research.evidence_index import (
+    EvidenceIndexContractMismatch,
+    ResearchEvidenceIndex,
 )
 
 
 def test_persists_vectors_and_reopens_compatible_collections(tmp_path):
     """같은 설정으로 Chroma를 다시 열어도 저장한 공개 벡터와 출처 정보가 유지되는지 검증한다."""
-    store = ResearchVectorStore(
+    evidence_index = ResearchEvidenceIndex(
         tmp_path / "chroma_db",
         embedding_model="test-model",
         embedding_dimension=3,
         chunk_schema_version="test-schema",
     )
-    store.upsert(
+    evidence_index.store_source_chunks(
         scope="public",
         ids=["chunk-1"],
         documents=["근거 본문"],
@@ -27,30 +27,30 @@ def test_persists_vectors_and_reopens_compatible_collections(tmp_path):
         ],
     )
 
-    reopened = ResearchVectorStore(
+    reopened = ResearchEvidenceIndex(
         tmp_path / "chroma_db",
         embedding_model="test-model",
         embedding_dimension=3,
         chunk_schema_version="test-schema",
     )
 
-    assert reopened.count("public") == 1
-    assert reopened.get("public")["metadatas"][0]["canonical_url"] == (
+    assert reopened.count_chunks("public") == 1
+    assert reopened.read_chunks("public")["metadatas"][0]["canonical_url"] == (
         "https://example.com/source"
     )
 
 
 def test_rejects_collection_with_different_embedding_contract(tmp_path):
     """기존 컬렉션의 모델·차원·청킹 규칙이 다르면 벡터를 섞지 않고 거부하는지 검증한다."""
-    ResearchVectorStore(
+    ResearchEvidenceIndex(
         tmp_path / "chroma_db",
         embedding_model="test-model",
         embedding_dimension=3,
         chunk_schema_version="test-schema",
     )
 
-    with pytest.raises(EmbeddingConfigurationMismatch):
-        ResearchVectorStore(
+    with pytest.raises(EvidenceIndexContractMismatch):
+        ResearchEvidenceIndex(
             tmp_path / "chroma_db",
             embedding_model="other-model",
             embedding_dimension=4,

@@ -27,7 +27,7 @@ class ResearchSourceStatus(str, enum.Enum):
     PENDING = "pending"
     INDEXED = "indexed"
     FAILED = "failed"
-    TOMBSTONED = "tombstoned"
+    EXCLUDED = "excluded"
 
 
 class ResearchJob(Base):
