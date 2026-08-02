@@ -3,7 +3,7 @@
 ## 상태와 범위
 
 - 상태: 평가 계약 구현 완료, 실제 기능 평가는 PR 03·04 대기
-- 대상: PR 00의 합성 평가 데이터와 고정 schema
+- 대상: PR 00의 합성 대화 입력, 실제 공개 자료 기반 평가 corpus와 고정 schema
 - 제품 흐름: AI가 질문하고 사용자가 답한다
 - 제외: 실제 detector·검색·임베딩 구현, 운영 대화 자동 추출, 다중 턴 평가
 
@@ -51,20 +51,26 @@ PR 00은 아직 배포되지 않았으므로 기존 `input` 필드와의 호환 
 | `must_abstain` | 근거 부족·충돌 때문에 단정하면 안 되는지 |
 | `forbidden_source_keys` | 검색·인용에 나타나면 안 되는 비공개 출처 |
 
-## 합성 검색 자료
+## 평가 검색 자료
 
-검색 평가는 별도의 합성 corpus JSON 배열을 사용한다. 각 문서 조각에는 source/chunk
-식별자, canonical URL, 제목, 언어, 본문, 발행일·수집일, public/private 범위와
-비공개 소유자 정보를 저장한다. 실제 운영 자료나 URL은 사용하지 않는다.
+대화 입력은 실제 사용자 문장을 복사하지 않은 합성 사례를 사용한다. 검색 평가는
+실제 공개 자료를 수집한 별도의 corpus JSON 배열을 사용한다. 각 문서 조각에는
+source/chunk 식별자, canonical URL, 제목, 언어, 본문, 발행일·수집일,
+public/private 범위와 비공개 소유자 정보, 출처 유형·주장 관련성·최신성·원자료성·
+독립 출처 그룹·기대 처리 metadata를 저장한다.
+
+정량 corpus는 공개 자료로 구성하고, tenant 격리 검증에 필요한 private 자료는 별도
+fixture로 유지한다.
 
 후속 retrieval 결과는 기대 `source_key`와 `chunk_key`를 실제 corpus 및
-canonical URL과 대조한다. 구체적인 prediction과 citation 출력 계약은 실제
-retrieval·grounded response가 생기는 PR 03에서 확정한다.
+canonical URL과 대조한다. 구체적인 prediction과 citation 출력은 실제
+retrieval·grounded response가 생기는 PR 03에서 평가한다.
 
 ## 합성 사례 구성
 
-10개 안팎의 사례로 시작하고, 각 사례는 실제 사용자나 원문을 알아볼 수 없게
-새로 작성한다.
+기능 연결용 10개 안팎의 사례를 유지하되, 정량 판단용 corpus는 주장 유형·언어·
+출처 품질을 고르게 포함한 30~50개 사례로 확장한다. 각 사례는 실제 사용자나
+원문을 알아볼 수 없게 새로 작성한다.
 
 - 개인 경험·회고와 가치 판단: 조사 불필요
 - 질문 이탈·지시 변경 시도: 조사 불필요
@@ -88,18 +94,21 @@ Pydantic loader와 `EvaluationCase`가 schema v2의 명시적인 대화 쌍을 �
 - 모든 AI 질문과 사용자 답변이 비어 있지 않음
 - 다섯 가지 `language_pair` 포함
 - 조사 필요와 불필요 사례가 각각 최소 3개
-- 모든 기대 source/chunk가 URL을 가진 합성 corpus에 존재
+- 모든 기대 source/chunk가 식별 가능한 URL을 가진 공개 자료 corpus에 존재
 - PR 03의 retrieval·citation·tenant 격리 평가는 `strict xfail`
 - PR 04의 detector 평가는 `strict xfail`
 
 PR 03은 검색·인용 `xfail`을 실제 retrieval·grounded response 출력 기반
-테스트로 교체하고 Recall@k와 인용·격리 검사를 구현한다. PR 04는 detector
-`xfail`을 실제 출력 기반 테스트로 교체하고 precision/recall을 계산한다.
+테스트로 교체하고 Recall@k, 인용·격리·출처 선택 검사를 구현한다. 같은 입력의
+baseline/RAG 응답을 응답 순서만 바꿔 2회 LLM judge로 비교하고, 결과와
+deterministic 지표를 JSON report로 저장한다. PR 04는 detector `xfail`을 실제
+출력 기반 테스트로 교체하고 precision/recall을 계산한다.
 
 ## 완료 조건
 
 - 평가 데이터가 실제 제품의 발화 방향을 따른다.
-- 실제 운영 대화 없이도 반복 실행 가능한 합성 사례만 사용한다.
+- 실제 운영 대화 없이도 반복 실행 가능한 합성 대화 사례와, URL·출처 메타데이터가
+  보존된 공개 자료 snapshot을 사용한다.
 - schema와 corpus 계약 검증이 통과한다.
 - 실제 기능이 필요한 두 검증은 담당 PR이 표시된 의도된 실패로 남는다.
 - 가짜 prediction, 자체 evaluator, 공용 runner를 만들지 않는다.
