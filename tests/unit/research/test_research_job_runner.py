@@ -136,4 +136,6 @@ async def test_run_research_job_stores_baseline_grounded_comparison(db_factory, 
     assert "https://docs.example/timeout" in record.grounded_body
     assert record.overall_winner == "grounded"
     assert record.comparison_error is None
+    assert record.prepared_evidence_json
+    assert "chunk-timeout" in record.prepared_evidence_json
     verify.close()

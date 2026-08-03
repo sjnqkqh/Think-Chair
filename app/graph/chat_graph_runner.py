@@ -24,8 +24,37 @@ class ChatGraphRunner:
         request_db_session,
         model: str,
     ) -> dict:
+        prepared_evidence_text = None
+        prepared_evidence_record_id = None
+        if request_db_session is not None:
+            from app.repositories import research_repo
+            from app.research.prepared_evidence import (
+                format_prepared_evidence_system_text,
+            )
+
+            record = research_repo.find_ready_prepared_evidence(
+                request_db_session,
+                user_id=manuscript.user_id,
+                manuscript_id=manuscript.id,
+            )
+            if record is not None and record.prepared_evidence_json:
+                prepared_evidence_text = format_prepared_evidence_system_text(
+                    record.prepared_evidence_json
+                )
+                prepared_evidence_record_id = str(record.id)
+                research_repo.mark_prepared_evidence_consumed(
+                    request_db_session, record
+                )
+
         return await self._graph.ainvoke(
-            _initial_turn_state(manuscript, user, user_message, user_message_id),
+            _initial_turn_state(
+                manuscript,
+                user,
+                user_message,
+                user_message_id,
+                prepared_evidence_text=prepared_evidence_text,
+                prepared_evidence_record_id=prepared_evidence_record_id,
+            ),
             config=self._run_config(
                 manuscript.id, model, request_db_session=request_db_session
             ),
@@ -80,6 +109,9 @@ def _initial_turn_state(
     user: User | None,
     user_message: str,
     user_message_id: uuid.UUID,
+    *,
+    prepared_evidence_text: str | None = None,
+    prepared_evidence_record_id: str | None = None,
 ) -> dict:
     return {
         "manuscript_id": str(manuscript.id),
@@ -93,4 +125,6 @@ def _initial_turn_state(
         "client_message": None,
         "new_paper": None,
         "document_generation_attempts": 0,
+        "prepared_evidence_text": prepared_evidence_text,
+        "prepared_evidence_record_id": prepared_evidence_record_id,
     }

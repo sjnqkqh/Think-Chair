@@ -160,6 +160,10 @@ class ResponseComparisonRecord(Base):
     generation_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     judge_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     comparison_error: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    prepared_evidence_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    consumed_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=datetime.datetime.utcnow
     )

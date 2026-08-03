@@ -5,14 +5,19 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.auth_deps import require_user
-from app.core.database import get_database_session
 from app.core.config import settings
+from app.core.database import get_database_session
+from app.core.storage import get_file_storage
 from app.models.user import User
 from app.research.indexing import (
     create_research_embeddings,
     create_research_evidence_index,
+    index_research_sources,
 )
+from app.research.page_fetcher import fetch_page
 from app.research.research_job_runner import run_research_job
+from app.research.web_research import expand_evidence_via_web_search
+from app.research.web_search import search_web
 from app.services.manuscript_service import get_manuscript
 from app.services.research_job_service import (
     create_or_get_research_job,
@@ -41,10 +46,27 @@ async def create_research_job(
 
     async def _run(job_id: uuid.UUID):
         embeddings = create_research_embeddings()
+        evidence_index = create_research_evidence_index()
+        storage = get_file_storage()
+
+        async def web_research(*, db, job, query, evidence_index):
+            await expand_evidence_via_web_search(
+                db=db,
+                job=job,
+                query=query,
+                evidence_index=evidence_index,
+                storage=storage,
+                embeddings=embeddings,
+                search_web=search_web,
+                fetch_page=fetch_page,
+                index_research_sources=index_research_sources,
+                admit_source=lambda _source: "public",
+            )
+
         await run_research_job(
             job_id=job_id,
             db_factory=chat_service.db_factory,
-            evidence_index=create_research_evidence_index(),
+            evidence_index=evidence_index,
             embed_query=embeddings.embed_query,
             generate_invoke=_make_invoker(
                 settings.RESPONSE_COMPARISON_GENERATION_MODEL
@@ -52,6 +74,7 @@ async def create_research_job(
             judge_invoke=_make_invoker(settings.RESPONSE_COMPARISON_JUDGE_MODEL),
             generation_model=settings.RESPONSE_COMPARISON_GENERATION_MODEL,
             judge_model=settings.RESPONSE_COMPARISON_JUDGE_MODEL,
+            web_research=web_research,
         )
 
     job, created = create_or_get_research_job(

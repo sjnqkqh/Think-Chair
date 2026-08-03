@@ -1,3 +1,4 @@
+import datetime
 import hashlib
 import uuid
 
@@ -185,6 +186,7 @@ def save_response_comparison_record(
     generation_model: str | None = None,
     judge_model: str | None = None,
     comparison_error: str | None = None,
+    prepared_evidence_json: str | None = None,
 ) -> ResponseComparisonRecord:
     existing = (
         db.query(ResponseComparisonRecord)
@@ -214,7 +216,35 @@ def save_response_comparison_record(
         generation_model=generation_model,
         judge_model=judge_model,
         comparison_error=comparison_error,
+        prepared_evidence_json=prepared_evidence_json,
     )
     db.add(record)
     db.flush()
     return record
+
+
+def find_ready_prepared_evidence(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    manuscript_id: uuid.UUID,
+) -> ResponseComparisonRecord | None:
+    return (
+        db.query(ResponseComparisonRecord)
+        .filter(
+            ResponseComparisonRecord.user_id == user_id,
+            ResponseComparisonRecord.manuscript_id == manuscript_id,
+            ResponseComparisonRecord.prepared_evidence_json.isnot(None),
+            ResponseComparisonRecord.consumed_at.is_(None),
+        )
+        .order_by(ResponseComparisonRecord.created_at.desc())
+        .first()
+    )
+
+
+def mark_prepared_evidence_consumed(
+    db: Session,
+    record: ResponseComparisonRecord,
+) -> None:
+    record.consumed_at = datetime.datetime.utcnow()
+    db.flush()

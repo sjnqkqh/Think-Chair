@@ -17,6 +17,7 @@ from app.research.contracts import (
     GroundedResponseRequest,
 )
 from app.research.grounded_response import generate_grounded_response
+from app.research.prepared_evidence import serialize_evidence_context
 from app.research.retrieval import retrieve_evidence
 
 logger = get_logger(__name__)
@@ -141,6 +142,9 @@ async def run_research_job(
             generation_model=generation_model,
             judge_model=judge_model,
             comparison_error=comparison_error,
+            prepared_evidence_json=(
+                serialize_evidence_context(evidence) if evidence.items else None
+            ),
         )
 
         if evidence.sufficiency.sufficient and grounded.is_grounded:

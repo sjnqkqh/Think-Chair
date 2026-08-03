@@ -7,6 +7,13 @@ from app.graph.prompts.phases.say import SAY_DOCUMENT_GUARD
 from app.graph.state import GraphState
 
 
+def _evidence_messages(state: GraphState) -> list[SystemMessage]:
+    text = state.get("prepared_evidence_text")
+    if not text:
+        return []
+    return [SystemMessage(content=text)]
+
+
 async def converse_node(state: GraphState, config: RunnableConfig) -> dict:
     configuration = config
     language_model = get_language_model(
@@ -22,6 +29,7 @@ async def converse_node(state: GraphState, config: RunnableConfig) -> dict:
     response = await language_model.ainvoke(
         [
             SystemMessage(content=system),
+            *_evidence_messages(state),
             *state["messages"],
             SystemMessage(content=SAY_DOCUMENT_GUARD.text),
         ]
