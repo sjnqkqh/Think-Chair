@@ -1,0 +1,75 @@
+import json
+
+import pytest
+
+from app.evaluation.contracts import PreparedEvidence, ResponseEvalCase
+from app.evaluation.runner import evaluate_case
+
+pytestmark = pytest.mark.unit
+
+
+def test_evaluate_case_runs_safety_and_judgment_with_injected_llms():
+    case = ResponseEvalCase(
+        case_id="case-1",
+        ai_question="수치가 맞나요?",
+        human_response="95%라고 들었어요.",
+        allowed_source_keys=("src-a",),
+        forbidden_source_keys=(),
+        prepared_evidence=(
+            PreparedEvidence(
+                source_key="src-a",
+                url="https://example.com/a",
+                title="공식",
+                text="정확도 92%",
+            ),
+        ),
+    )
+    generate_calls = {"n": 0}
+
+    def generate_invoke(prompt: str) -> str:
+        generate_calls["n"] += 1
+        if "준비된 근거" in prompt:
+            return json.dumps(
+                {
+                    "body": "공개 자료 기준 92%입니다.",
+                    "cited_source_keys": ["src-a"],
+                    "cited_urls": ["https://example.com/a"],
+                },
+                ensure_ascii=False,
+            )
+        return json.dumps(
+            {
+                "body": "정확한 수치는 자료 확인이 필요합니다. 어디서 95%를 보셨나요?",
+                "cited_source_keys": [],
+                "cited_urls": [],
+            },
+            ensure_ascii=False,
+        )
+
+    def judge_invoke(prompt: str) -> str:
+        answer_a = prompt.split("[Answer A]", 1)[1].split("[Answer B]", 1)[0]
+        grounded_is_a = "공개 자료 기준 92%입니다." in answer_a
+        winner = "A" if grounded_is_a else "B"
+        return json.dumps(
+            {
+                "specificity_winner": winner,
+                "naturalness_winner": "tie",
+                "accuracy_winner": winner,
+                "overall_winner": winner,
+                "reason": "근거 답이 더 구체적이다.",
+            },
+            ensure_ascii=False,
+        )
+
+    result = evaluate_case(
+        case,
+        generate_invoke=generate_invoke,
+        judge_invoke=judge_invoke,
+    )
+
+    assert generate_calls["n"] == 2
+    assert result.baseline_safety.passed is True
+    assert result.grounded_safety.passed is True
+    assert result.judgment is not None
+    assert result.judgment.overall_winner == "grounded"
+    assert result.judgment.order_flipped is False
