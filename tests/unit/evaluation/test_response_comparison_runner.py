@@ -31,7 +31,10 @@ def test_compare_case_responses_runs_citation_check_and_judgment_with_injected_m
         if "준비된 근거" in prompt:
             return json.dumps(
                 {
-                    "body": "공개 자료 기준 92%입니다.",
+                    "body": (
+                        "공개 자료 기준 92%입니다. "
+                        "https://example.com/a"
+                    ),
                     "cited_source_keys": ["src-a"],
                     "cited_urls": ["https://example.com/a"],
                 },

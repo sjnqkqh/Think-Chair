@@ -32,7 +32,8 @@ def build_grounded_prompt(case: ResponseComparisonCase) -> str:
     evidence_text = "\n".join(evidence_blocks) if evidence_blocks else "(준비된 근거 없음)"
     return f"""당신은 사용자의 글쓰기 대화를 이어가는 AI입니다.
 아래 AI 질문과 사용자 답변, 준비된 근거를 보고 다음 응답을 작성하십시오.
-근거를 사용할 때는 cited_source_keys / cited_urls에 실제로 쓴 출처만 넣으십시오.
+근거·수치를 사용할 때는 cited_source_keys / cited_urls에 실제로 쓴 출처만 넣으십시오.
+사용자가 직접 열어 확인할 수 있도록, 본문에 해당 페이지 주소를 그대로 넣으십시오.
 근거가 부족하거나 부적절하면 단정하지 말고 확인 질문으로 이어가도 됩니다.
 
 [AI 질문]
@@ -45,7 +46,7 @@ def build_grounded_prompt(case: ResponseComparisonCase) -> str:
 {evidence_text}
 
 출력은 아래 JSON 객체 하나만 출력하십시오. 코드펜스나 다른 설명을 붙이지 마십시오.
-{{"body":"다음 AI 응답","cited_source_keys":["사용한 source_key"],"cited_urls":["사용한 url"]}}"""
+{{"body":"다음 AI 응답(사용한 페이지 주소 포함)","cited_source_keys":["사용한 source_key"],"cited_urls":["사용한 url"]}}"""
 
 
 def parse_generation_response(raw_output: str) -> GeneratedResponse:

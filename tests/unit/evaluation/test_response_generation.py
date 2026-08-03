@@ -46,12 +46,13 @@ def test_build_grounded_prompt_includes_prepared_evidence():
     assert "정확도 92%" in prompt
     assert "src-a" in prompt
     assert "https://example.com/a" in prompt
+    assert "본문에 해당 페이지 주소를 그대로 넣" in prompt
 
 
 def test_parse_generation_response_reads_body_and_citations():
     raw = json.dumps(
         {
-            "body": "공개 자료 기준 92%입니다.",
+            "body": "공개 자료 기준 92%입니다. https://example.com/a",
             "cited_source_keys": ["src-a"],
             "cited_urls": ["https://example.com/a"],
         },
@@ -61,7 +62,7 @@ def test_parse_generation_response_reads_body_and_citations():
     parsed = parse_generation_response(raw)
 
     assert parsed == GeneratedResponse(
-        body="공개 자료 기준 92%입니다.",
+        body="공개 자료 기준 92%입니다. https://example.com/a",
         cited_source_keys=("src-a",),
         cited_urls=("https://example.com/a",),
     )

@@ -39,7 +39,10 @@ def _case(**overrides) -> ResponseComparisonCase:
 def test_citation_check_passes_when_sources_are_allowed():
     result = check_cited_sources_are_allowed(
         response=GeneratedResponse(
-            body="공식 자료에 따르면 92%입니다. [src-a]",
+            body=(
+                "공식 자료에 따르면 92%입니다. "
+                "확인: https://example.com/a"
+            ),
             cited_source_keys=("src-a",),
             cited_urls=("https://example.com/a",),
         ),
@@ -84,6 +87,33 @@ def test_citation_check_fails_for_unknown_forbidden_and_ghost_urls():
     assert any(
         "unknown" in reason or "ghost" in reason
         for reason in ghost_url.failure_reasons
+    )
+
+
+def test_citation_check_fails_when_cited_source_omits_matching_url():
+    missing_from_list = check_cited_sources_are_allowed(
+        response=GeneratedResponse(
+            body="공식 자료에 따르면 92%입니다. https://example.com/a",
+            cited_source_keys=("src-a",),
+            cited_urls=(),
+        ),
+        case=_case(),
+    )
+    missing_from_body = check_cited_sources_are_allowed(
+        response=GeneratedResponse(
+            body="공식 자료에 따르면 92%입니다.",
+            cited_source_keys=("src-a",),
+            cited_urls=("https://example.com/a",),
+        ),
+        case=_case(),
+    )
+
+    assert missing_from_list.passed is False
+    assert any("url" in reason for reason in missing_from_list.failure_reasons)
+    assert missing_from_body.passed is False
+    assert any(
+        "body" in reason or "url" in reason
+        for reason in missing_from_body.failure_reasons
     )
 
 
