@@ -236,3 +236,6 @@ rag_history.db
 pr-docs/
 .hermes/
 .claude/
+
+# AI response comparison run artifacts
+artifacts/

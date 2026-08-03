@@ -65,6 +65,7 @@
 - 답변이 가리킨 출처 ID/URL이 실제 검색·허용 목록에 있는가
 - 금지 출처·다른 사용자 자료를 노출하지 않았는가
 - 출처 표시만 있고 연결 대상이 없는 유령 출처가 아닌가
+- 출처를 인용했다면 해당 페이지 URL을 `cited_urls`와 본문 모두에 넣어, 사용자가 직접 열어 확인할 수 있는가
 
 2단계(나중):
 
@@ -88,15 +89,17 @@
 핵심 로직은 메인에 두되, 채팅·문서 생성 코드와 섞지 않는다.
 
 ```
-app/evaluation/           # 응답 평가 전용 (실제 응답 평가 확장 예정)
-  contracts.py            # 입력·결과 형식
-  safety_checks.py        # 출처 존재·허용 등 규칙 검사
-  pairwise_judge.py       # LLM 나란히 비교
-  report.py               # 집계·리포트
+app/evaluation/                 # 응답 비교 평가 전용 (실제 응답 평가 확장 예정)
+  response_comparison_contracts.py  # 입력·결과 형식
+  citation_allowance.py             # 출처 존재·허용 규칙 검사
+  response_comparison.py            # LLM 나란히 비교
+  case_response_comparison.py       # 사례 단위 생성·검사·비교
+  comparison_report.py              # 집계·리포트
+  run_response_comparison.py        # 개발용 실행기
 
-tests/evaluation/         # 예시 대화·평가용 자료
-scripts/                  # 개발용 실행기
-tests/unit/evaluation/    # 형식·규칙 단위 테스트
+tests/evaluation/               # 예시 대화·평가용 자료
+scripts/run_ai_response_comparison.py
+tests/unit/evaluation/          # 형식·규칙 단위 테스트
 ```
 
 문서 평가(`evaluate_document`)는 현재 위치를 유지한다.

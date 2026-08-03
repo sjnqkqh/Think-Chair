@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     BRAVE_SEARCH_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
 
+    # AI response comparison (separate from document evaluation)
+    RESPONSE_COMPARISON_API_KEY: str = ""
+    RESPONSE_COMPARISON_API_BASE: str = "https://api.openai.com/v1"
+    RESPONSE_COMPARISON_GENERATION_MODEL: str = "gpt-4.1-mini"
+    RESPONSE_COMPARISON_JUDGE_MODEL: str = "gpt-4.1"
+
     # Think Chair
     JWT_SECRET: str = "dev-secret-change-me"
     JWT_TTL_HOURS: int = 24
