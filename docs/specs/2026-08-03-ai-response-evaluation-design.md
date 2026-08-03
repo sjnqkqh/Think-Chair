@@ -1,7 +1,7 @@
 # AI 응답 평가 체제 설계
 
 - 작성일: 2026-08-03
-- 상태: 설계 확정, 구현 계획 대기
+- 상태: 설계 확정, 구현 계획 작성 완료 (`docs/plans/agentic-research-rag/08-ai-response-evaluation.md`)
 - 관련: `docs/specs/2026-07-29-product-aligned-rag-evaluation-design.md`, `docs/plans/agentic-research-rag/07-evaluation-continuation.md`
 
 ## 1. 목적
