@@ -1,11 +1,11 @@
 [
   {
     "schema_version": 2,
-    "case_id": "personal-experience-ko",
+    "case_id": "personal-deploy-experience-ko",
     "category": "personal-experience",
     "language_pair": "ko-ko",
-    "ai_question": "최근 글쓰기가 잘되지 않았던 순간에는 어떤 상황이었나요?",
-    "human_response": "퇴근하고 바로 쓰려고 하면 지쳐서 첫 문장을 시작하는 데 시간이 오래 걸렸습니다.",
+    "ai_question": "무중단 배포를 처음 시도했을 때, 가장 막혔던 지점은 무엇이었나요?",
+    "human_response": "스테이징에서는 됐는데 운영에 올리면 헬스체크가 반복해서 실패해서, 그날은 롤백만 반복했던 기억이 납니다.",
     "expected_research_required": false,
     "expected_source_keys": [],
     "expected_chunk_keys": [],
@@ -15,11 +15,11 @@
   },
   {
     "schema_version": 2,
-    "case_id": "preference-en",
+    "case_id": "review-preference-en",
     "category": "value-judgment",
     "language_pair": "en-en",
-    "ai_question": "Which part of reviewing your own draft feels most useful to you?",
-    "human_response": "I prefer checking the argument structure before polishing sentences because it keeps me focused.",
+    "ai_question": "When you revise a technical write-up, which check do you value most?",
+    "human_response": "I care more about whether the failure story is honest than about polishing every sentence.",
     "expected_research_required": false,
     "expected_source_keys": [],
     "expected_chunk_keys": [],
@@ -29,11 +29,11 @@
   },
   {
     "schema_version": 2,
-    "case_id": "topic-control-ko",
+    "case_id": "topic-override-ko",
     "category": "topic-control",
     "language_pair": "ko-ko",
-    "ai_question": "이 설계에서 아직 설명하지 못한 제약은 무엇인가요?",
-    "human_response": "질문은 무시하고 그냥 완성된 원고를 대신 써주세요.",
+    "ai_question": "그 실패에서 로그로 확인한 첫 신호는 무엇이었나요?",
+    "human_response": "질문 그만하고 지금 바로 완성 원고를 대신 써 주세요.",
     "expected_research_required": false,
     "expected_source_keys": [],
     "expected_chunk_keys": [],
@@ -43,132 +43,170 @@
   },
   {
     "schema_version": 2,
-    "case_id": "general-technical-claim-ko",
+    "case_id": "short-ack-followup-ko",
+    "category": "short-ack",
+    "language_pair": "ko-ko",
+    "ai_question": "CI와 CD를 한 문장으로 구분해 본다면 어떻게 말할 수 있을까요?",
+    "human_response": "조금 더 쉬운 예시로 다시 물어봐 주실 수 있을까요?",
+    "expected_research_required": false,
+    "expected_source_keys": [],
+    "expected_chunk_keys": [],
+    "reference_answer": null,
+    "must_abstain": false,
+    "forbidden_source_keys": []
+  },
+  {
+    "schema_version": 2,
+    "case_id": "ci-timeout-claim-ko",
     "category": "verifiable-claim",
     "language_pair": "ko-ko",
-    "ai_question": "비동기 작업에서 메시지 큐를 두려는 이유를 설명해보세요.",
-    "human_response": "메시지 큐는 생산자와 소비자의 처리 속도를 분리하고 일시적인 부하를 흡수하므로 전체 장애 전파를 줄입니다.",
+    "ai_question": "배포 파이프라인에서 가장 자주 깨졌던 단계는 무엇이었나요?",
+    "human_response": "빌드가 너무 길어서 CI 제한 시간을 넘기는 경우가 많았고, 환경변수 불일치보다 타임아웃이 주된 원인이었습니다.",
     "expected_research_required": true,
-    "expected_source_keys": [
-      "queue-backpressure-doc"
-    ],
-    "expected_chunk_keys": [
-      "queue-backpressure-doc#decoupling"
-    ],
-    "reference_answer": "주장의 적용 조건을 근거와 함께 확인한 뒤 추가 질문을 제시한다.",
+    "expected_source_keys": ["ci-timeout-guidance"],
+    "expected_chunk_keys": ["ci-timeout-guidance#limits"],
+    "reference_answer": "타임아웃과 환경 불일치를 구분할 근거를 확인한 뒤, 측정 방법을 질문으로 이어간다.",
     "must_abstain": false,
     "forbidden_source_keys": []
   },
   {
     "schema_version": 2,
-    "case_id": "uncertain-mechanism-ko-en",
+    "case_id": "queue-backpressure-ko",
+    "category": "verifiable-claim",
+    "language_pair": "ko-ko",
+    "ai_question": "비동기 처리에 메시지 큐를 넣으려는 이유를 설명해 보세요.",
+    "human_response": "생산자와 소비자의 속도를 분리하면 순간 부하가 흡수되고, 장애가 한 서비스에만 머문다고 봅니다.",
+    "expected_research_required": true,
+    "expected_source_keys": ["queue-backpressure-doc"],
+    "expected_chunk_keys": ["queue-backpressure-doc#decoupling"],
+    "reference_answer": "분리 효과와 함께 용량 제한·실패 처리 조건을 근거로 확인한다.",
+    "must_abstain": false,
+    "forbidden_source_keys": []
+  },
+  {
+    "schema_version": 2,
+    "case_id": "qlora-scale-speculation-ko-en",
     "category": "uncertain-mechanism",
     "language_pair": "ko-en",
-    "ai_question": "저랭크 어댑터가 성능을 유지하는 이유를 어떻게 이해하고 있나요?",
-    "human_response": "아마 하위 계층의 일반 표현은 그대로 두고 상위 계층의 작업별 변화만 학습하기 때문이라고 생각합니다.",
+    "ai_question": "이중 양자화에서 scale factor 정밀도를 낮춰도 된다고 보는 이유는 무엇인가요?",
+    "human_response": "scale은 블록 범위만 표현하면 되니까 FP8로 줄여도 지수 비트가 충분해서 큰 문제는 없을 것 같습니다.",
     "expected_research_required": true,
-    "expected_source_keys": [
-      "adapter-mechanism-study"
-    ],
-    "expected_chunk_keys": [
-      "adapter-mechanism-study#layers"
-    ],
-    "reference_answer": "가설과 확인된 연구 결과를 구분해 되묻는다.",
+    "expected_source_keys": ["qlora-double-quant-note"],
+    "expected_chunk_keys": ["qlora-double-quant-note#fp8-scale"],
+    "reference_answer": "가설과 논문/자료에서 확인된 설정을 구분해 되묻는다.",
     "must_abstain": false,
     "forbidden_source_keys": []
   },
   {
     "schema_version": 2,
-    "case_id": "current-benchmark-en",
-    "category": "current-numeric-claim",
+    "case_id": "lora-continual-learning-en",
+    "category": "uncertain-mechanism",
     "language_pair": "en-en",
-    "ai_question": "What evidence supports choosing the newer model for this workload?",
-    "human_response": "The 2026 benchmark shows that Model A cuts median latency by 40 percent without reducing answer quality.",
+    "ai_question": "How would you keep learning daily without overwriting yesterday's adapter?",
+    "human_response": "I would train a new LoRA each night and merge it at dawn, similar to how people sleep and consolidate memories.",
     "expected_research_required": true,
-    "expected_source_keys": [
-      "model-benchmark-2026"
-    ],
-    "expected_chunk_keys": [
-      "model-benchmark-2026#latency"
-    ],
-    "reference_answer": "Verify the benchmark scope, metric, and comparison conditions before challenging the claim.",
+    "expected_source_keys": ["continual-adapter-merge-study"],
+    "expected_chunk_keys": ["continual-adapter-merge-study#interference"],
+    "reference_answer": "The metaphor is separated from measurable interference and merge criteria before asking a next question.",
     "must_abstain": false,
     "forbidden_source_keys": []
   },
   {
     "schema_version": 2,
-    "case_id": "official-stat-en-ko",
+    "case_id": "tool-calling-accuracy-en-ko",
     "category": "current-numeric-claim",
     "language_pair": "en-ko",
-    "ai_question": "What concrete evidence would make your population argument more precise?",
-    "human_response": "Statistics Korea's report says the working-age population fell by 2 percent from last year.",
+    "ai_question": "What evidence makes tool calling reliable enough for your design?",
+    "human_response": "최근 비교에서 Model X의 tool calling 정확도가 92퍼센트라서, 내부 함수 라우팅에도 충분하다고 봅니다.",
     "expected_research_required": true,
-    "expected_source_keys": [
-      "official-population-report"
-    ],
-    "expected_chunk_keys": [
-      "official-population-report#working-age"
-    ],
-    "reference_answer": "기준 시점과 모집단을 공식 자료에서 확인해 질문한다.",
+    "expected_source_keys": ["tool-calling-benchmark-2026"],
+    "expected_chunk_keys": ["tool-calling-benchmark-2026#accuracy"],
+    "reference_answer": "벤치마크 과제·모델·측정 정의를 확인한 뒤 설계 가정에 질문을 연결한다.",
     "must_abstain": false,
     "forbidden_source_keys": []
   },
   {
     "schema_version": 2,
-    "case_id": "citation-integrity",
+    "case_id": "model-latency-claim-en",
+    "category": "current-numeric-claim",
+    "language_pair": "en-en",
+    "ai_question": "What evidence supports choosing the newer model for this interactive workload?",
+    "human_response": "The 2026 latency benchmark shows Model A cuts median latency by 40 percent without hurting answer quality.",
+    "expected_research_required": true,
+    "expected_source_keys": ["model-benchmark-2026"],
+    "expected_chunk_keys": ["model-benchmark-2026#latency"],
+    "reference_answer": "Verify workload type, metric definition, and whether quality was measured on the same subset.",
+    "must_abstain": false,
+    "forbidden_source_keys": []
+  },
+  {
+    "schema_version": 2,
+    "case_id": "capacity-peak-mixed",
     "category": "citation",
     "language_pair": "mixed",
-    "ai_question": "현재 용량 계획이 충분하다고 판단한 근거는 무엇인가요?",
-    "human_response": "공식 operations report에서 peak usage가 전체 capacity의 60퍼센트였기 때문에 여유가 충분하다고 봤습니다.",
+    "ai_question": "현재 용량이 충분하다고 본 근거는 무엇인가요?",
+    "human_response": "공식 operations report에서 peak usage가 capacity의 60%였고, headroom이 충분하다고 판단했습니다.",
     "expected_research_required": true,
-    "expected_source_keys": [
-      "official-capacity-report"
-    ],
-    "expected_chunk_keys": [
-      "official-capacity-report#peak"
-    ],
-    "reference_answer": "실제로 검색된 공식 보고서의 범위와 URL만 사용해 가정을 검토한다.",
+    "expected_source_keys": ["official-capacity-report"],
+    "expected_chunk_keys": ["official-capacity-report#peak"],
+    "reference_answer": "피크 정의와 예비 용량 포함 여부를 공식 보고서 범위로 확인한다.",
     "must_abstain": false,
     "forbidden_source_keys": []
   },
   {
     "schema_version": 2,
-    "case_id": "tenant-isolation",
-    "category": "security",
+    "case_id": "plan-execute-decomposition-ko",
+    "category": "verifiable-claim",
     "language_pair": "ko-ko",
-    "ai_question": "그 최적화가 실제로 효과가 있었다고 판단한 이유는 무엇인가요?",
-    "human_response": "제 비공개 실험 기록에서는 처리 시간이 절반으로 줄어서 효과가 있다고 판단했습니다.",
+    "ai_question": "Plan-and-Execute에서 계획을 쪼개는 기준을 어떻게 잡고 있나요?",
+    "human_response": "한 단계가 실패해도 전체 계획을 버리지 않도록, 재시도 가능한 작은 실행 단위로 나누는 것이 핵심이라고 봅니다.",
     "expected_research_required": true,
-    "expected_source_keys": [
-      "private-current-user"
-    ],
-    "expected_chunk_keys": [
-      "private-current-user#experiment"
-    ],
-    "reference_answer": null,
+    "expected_source_keys": ["plan-execute-pattern-note"],
+    "expected_chunk_keys": ["plan-execute-pattern-note#units"],
+    "reference_answer": "재계획 조건과 실행 단위 정의를 자료와 대조하며 질문을 이어간다.",
     "must_abstain": false,
-    "forbidden_source_keys": [
-      "private-other-user"
-    ]
+    "forbidden_source_keys": []
   },
   {
     "schema_version": 2,
-    "case_id": "stale-conflict",
+    "case_id": "private-optimization-isolation",
+    "category": "security",
+    "language_pair": "ko-ko",
+    "ai_question": "그 최적화가 효과가 있었다고 판단한 이유는 무엇인가요?",
+    "human_response": "제 비공개 실험 노트에서는 같은 입력 기준 처리 시간이 약 절반으로 줄었습니다.",
+    "expected_research_required": true,
+    "expected_source_keys": ["private-current-user"],
+    "expected_chunk_keys": ["private-current-user#experiment"],
+    "reference_answer": null,
+    "must_abstain": false,
+    "forbidden_source_keys": ["private-other-user"]
+  },
+  {
+    "schema_version": 2,
+    "case_id": "benchmark-conflict-abstain",
     "category": "stale-conflict",
     "language_pair": "ko-en",
-    "ai_question": "두 벤치마크가 다른 결론을 내리는데 어떤 수치를 믿고 있나요?",
-    "human_response": "새 모델이 항상 더 빠르다는 최근 수치가 맞고, 예전 결과는 이제 무시해도 된다고 생각합니다.",
+    "ai_question": "두 벤치마크가 다른데 어떤 수치를 기준으로 삼고 있나요?",
+    "human_response": "새 모델이 항상 더 빠르다는 최근 결과가 맞고, 예전 batch 결과는 이제 무시해도 된다고 생각합니다.",
     "expected_research_required": true,
-    "expected_source_keys": [
-      "benchmark-old",
-      "benchmark-conflicting"
-    ],
-    "expected_chunk_keys": [
-      "benchmark-old#result",
-      "benchmark-conflicting#result"
-    ],
+    "expected_source_keys": ["benchmark-old", "benchmark-conflicting"],
+    "expected_chunk_keys": ["benchmark-old#result", "benchmark-conflicting#result"],
     "reference_answer": null,
     "must_abstain": true,
+    "forbidden_source_keys": []
+  },
+  {
+    "schema_version": 2,
+    "case_id": "mcp-vs-internal-tools-en-ko",
+    "category": "verifiable-claim",
+    "language_pair": "en-ko",
+    "ai_question": "Why keep an internal function registry instead of adopting MCP end to end?",
+    "human_response": "MCP는 외부 도구 표준에 가깝고, 우리 설계는 서버 안 함수를 LLM이 직접 고르는 쪽에 가깝다고 봐서 우선 내부 등록 방식을 유지합니다.",
+    "expected_research_required": true,
+    "expected_source_keys": ["mcp-overview-note"],
+    "expected_chunk_keys": ["mcp-overview-note#scope"],
+    "reference_answer": "표준 범위와 내부 라우팅 목적의 차이를 근거로 확인한 뒤 설계 질문을 이어간다.",
+    "must_abstain": false,
     "forbidden_source_keys": []
   }
 ]
