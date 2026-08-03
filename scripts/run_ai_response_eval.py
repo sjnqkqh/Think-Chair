@@ -7,6 +7,10 @@ import argparse
 import sys
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
@@ -14,7 +18,6 @@ from app.evaluation.report import summarize_results, write_report
 from app.evaluation.runner import evaluate_case
 from tests.evaluation.response_eval_bridge import load_response_eval_cases
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CASES = PROJECT_ROOT / "tests/evaluation/agentic_rag_cases.json"
 DEFAULT_CORPUS = PROJECT_ROOT / "tests/evaluation/agentic_rag_corpus.json"
 DEFAULT_OUTPUT = PROJECT_ROOT / "artifacts/ai_response_eval"
