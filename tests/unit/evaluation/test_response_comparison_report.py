@@ -189,3 +189,51 @@ def test_render_comparison_markdown_shows_both_answers_and_judgment_reason():
     assert "근거 참고 응답" in text
     assert "타임아웃 설정까지 언급해 구체성이 높다." in text
     assert "구체성: 근거 참고 응답" in text
+
+
+def test_evidence_text_in_report_is_truncated_to_200_characters():
+    long_text = "가" * 250
+    summary = ComparisonSummary(
+        case_count=1,
+        fatal_failure_count=0,
+        wins=1,
+        losses=0,
+        ties=0,
+        specificity_win_rate=1.0,
+        naturalness_win_rate=0.0,
+        accuracy_win_rate=1.0,
+        order_flip_rate=0.0,
+        win_rate_threshold=None,
+    )
+    result = CaseComparisonResult(
+        case_id="long-evidence",
+        ai_question="질문",
+        human_response="답변",
+        prepared_evidence=(
+            PreparedEvidence(
+                source_key="src-long",
+                url="https://example.com/long",
+                title="긴 본문",
+                text=long_text,
+            ),
+        ),
+        baseline_response=_response("짧은 질문"),
+        grounded_response=GeneratedResponse(
+            body="근거 답",
+            cited_source_keys=("src-long",),
+            cited_urls=(),
+        ),
+        baseline_citation_check=_citation_check(),
+        grounded_citation_check=_citation_check(),
+        judgment=_judgment(),
+    )
+
+    text = render_comparison_summary_markdown(summary, [result])
+    content_lines = [line for line in text.splitlines() if "내용:" in line]
+
+    assert content_lines
+    for line in content_lines:
+        body = line.split("내용:", 1)[1].strip().rstrip("…")
+        assert len(body) <= 200
+    assert ("가" * 200) + "…" in text
+    assert "가" * 250 not in text

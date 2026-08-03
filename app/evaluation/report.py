@@ -13,6 +13,7 @@ _WINNER_LABELS = {
     "grounded": "근거 참고 응답",
     "tie": "무승부",
 }
+_EVIDENCE_TEXT_PREVIEW_LIMIT = 200
 
 
 def summarize_comparison_results(
@@ -178,7 +179,7 @@ def _format_prepared_evidence(
             [
                 f"- `{item.source_key}` | {item.title}",
                 f"  - URL: {url}",
-                f"  - 내용: {item.text}",
+                f"  - 내용: {_preview_evidence_text(item.text)}",
             ]
         )
     return lines
@@ -203,10 +204,17 @@ def _format_cited_evidence(
             [
                 f"  - `{item.source_key}` | {item.title}",
                 f"    - URL: {url}",
-                f"    - 내용: {item.text}",
+                f"    - 내용: {_preview_evidence_text(item.text)}",
             ]
         )
     return lines
+
+
+def _preview_evidence_text(text: str) -> str:
+    compact = " ".join(text.split())
+    if len(compact) <= _EVIDENCE_TEXT_PREVIEW_LIMIT:
+        return compact
+    return compact[:_EVIDENCE_TEXT_PREVIEW_LIMIT] + "…"
 
 
 def _format_citation_check(
