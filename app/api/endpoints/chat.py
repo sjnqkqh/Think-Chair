@@ -26,12 +26,24 @@ async def send_message(
 ):
     manuscript = get_manuscript(database_session, user, manuscript_id)
     chat_service = request.app.state.chat_service
-    action = await chat_service.begin_turn(database_session, manuscript, content)
+    turn = await chat_service.begin_turn(database_session, manuscript, content)
 
     async def sse_events():
         try:
+            if turn.research_required:
+                yield {
+                    "event": SseEvent.RESEARCH_REQUIRED,
+                    "data": json.dumps(
+                        {
+                            "manuscript_id": str(manuscript_id),
+                            "message_id": str(turn.message_id),
+                            "claim_or_query": turn.claim_or_query,
+                        },
+                        ensure_ascii=False,
+                    ),
+                }
             async for event_name, payload in chat_service.stream_response(
-                manuscript_id, action
+                manuscript_id, turn.action
             ):
                 yield {
                     "event": event_name,

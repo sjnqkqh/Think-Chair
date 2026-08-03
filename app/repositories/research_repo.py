@@ -7,9 +7,11 @@ from app.models.manuscript import Manuscript
 from app.models.research import (
     ResearchJob,
     ResearchJobSource,
+    ResearchJobStatus,
     ResearchSource,
     ResearchSourceScope,
     ResearchSourceUrl,
+    ResponseComparisonRecord,
 )
 
 _SOURCE_NAMESPACE = uuid.UUID("e9a6eb1a-54d1-49bd-8bca-2a17d0394630")
@@ -120,3 +122,99 @@ def link_source_to_research_job(
                 manuscript_id=job.manuscript_id,
             )
         )
+
+
+def find_research_job_by_message(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    manuscript_id: uuid.UUID,
+    message_id: uuid.UUID,
+) -> ResearchJob | None:
+    return (
+        db.query(ResearchJob)
+        .filter(
+            ResearchJob.user_id == user_id,
+            ResearchJob.manuscript_id == manuscript_id,
+            ResearchJob.message_id == message_id,
+        )
+        .first()
+    )
+
+
+def create_research_job(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    manuscript_id: uuid.UUID,
+    message_id: uuid.UUID | None,
+    claim_or_query: str | None,
+) -> ResearchJob:
+    job = ResearchJob(
+        user_id=user_id,
+        manuscript_id=manuscript_id,
+        message_id=message_id,
+        claim_or_query=claim_or_query,
+        status=ResearchJobStatus.QUEUED,
+    )
+    db.add(job)
+    db.flush()
+    return job
+
+
+def save_response_comparison_record(
+    db: Session,
+    *,
+    research_job_id: uuid.UUID,
+    user_id: uuid.UUID,
+    manuscript_id: uuid.UUID,
+    message_id: uuid.UUID | None,
+    baseline_body: str,
+    grounded_body: str,
+    baseline_cited_urls: str = "[]",
+    grounded_cited_urls: str = "[]",
+    baseline_citation_passed: bool = True,
+    grounded_citation_passed: bool = True,
+    citation_failure_reasons: str | None = None,
+    specificity_winner: str | None = None,
+    naturalness_winner: str | None = None,
+    accuracy_winner: str | None = None,
+    overall_winner: str | None = None,
+    judgment_reason: str | None = None,
+    order_flipped: bool | None = None,
+    generation_model: str | None = None,
+    judge_model: str | None = None,
+    comparison_error: str | None = None,
+) -> ResponseComparisonRecord:
+    existing = (
+        db.query(ResponseComparisonRecord)
+        .filter(ResponseComparisonRecord.research_job_id == research_job_id)
+        .first()
+    )
+    if existing is not None:
+        return existing
+    record = ResponseComparisonRecord(
+        research_job_id=research_job_id,
+        user_id=user_id,
+        manuscript_id=manuscript_id,
+        message_id=message_id,
+        baseline_body=baseline_body,
+        grounded_body=grounded_body,
+        baseline_cited_urls=baseline_cited_urls,
+        grounded_cited_urls=grounded_cited_urls,
+        baseline_citation_passed=baseline_citation_passed,
+        grounded_citation_passed=grounded_citation_passed,
+        citation_failure_reasons=citation_failure_reasons,
+        specificity_winner=specificity_winner,
+        naturalness_winner=naturalness_winner,
+        accuracy_winner=accuracy_winner,
+        overall_winner=overall_winner,
+        judgment_reason=judgment_reason,
+        order_flipped=order_flipped,
+        generation_model=generation_model,
+        judge_model=judge_model,
+        comparison_error=comparison_error,
+    )
+    db.add(record)
+    db.flush()
+    return record

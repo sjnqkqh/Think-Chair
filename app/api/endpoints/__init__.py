@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from app.api.endpoints.auth import router as auth_router
 from app.api.endpoints.chat import router as chat_router
 from app.api.endpoints.manuscripts import router as manuscripts_router
+from app.api.endpoints.research import router as research_router
 
 router = APIRouter()
 
@@ -15,3 +16,4 @@ async def root(request: Request):
 router.include_router(auth_router)
 router.include_router(chat_router)
 router.include_router(manuscripts_router)
+router.include_router(research_router)

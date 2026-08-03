@@ -8,3 +8,4 @@ class SseEvent(StrEnum):
     CHUNK = "chunk"
     DONE = "done"
     ERROR = "error"
+    RESEARCH_REQUIRED = "research_required"

@@ -14,6 +14,7 @@ from app.models.research import (
     ResearchSourceScope,
     ResearchSourceStatus,
     ResearchSourceUrl,
+    ResponseComparisonRecord,
 )
 from app.models.user import User
 
@@ -32,5 +33,6 @@ __all__ = [
     "ResearchSourceScope",
     "ResearchSourceStatus",
     "ResearchSourceUrl",
+    "ResponseComparisonRecord",
     "User",
 ]

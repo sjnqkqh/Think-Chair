@@ -20,6 +20,7 @@ from app.pages.debug_pages import router as debug_pages_router
 from app.pages.workspace_pages import router as workspace_pages_router
 from app.services.background_tasks import BackgroundTaskRegistry
 from app.services.chat_service import ChatService
+from app.research.schema_ensure import ensure_research_schema
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
@@ -27,6 +28,7 @@ logging.basicConfig(
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+ensure_research_schema(engine)
 
 llm_registry.bootstrap(settings)
 

@@ -1,11 +1,13 @@
 import uuid
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 
 from app.graph.chat_graph_runner import ChatGraphRunner
 from app.models.chat import ChatMessage
 from app.models.manuscript import Manuscript
 from app.models.user import User
 from app.repositories import chat_repo
+from app.research.evidence_need import detect_evidence_need
 from app.services.background_tasks import BackgroundTaskRegistry
 from app.utils.sse import SseEvent
 
@@ -13,6 +15,14 @@ DOCUMENT_GENERATION_ACTIONS = {"outline", "generate_document"}
 DOCUMENT_GENERATION_ACK = (
     "문서 작성을 시작했습니다. 완료되면 오른쪽 문서 목록에 표시됩니다."
 )
+
+
+@dataclass(frozen=True)
+class TurnStart:
+    action: str | None
+    message_id: uuid.UUID
+    research_required: bool
+    claim_or_query: str | None
 
 
 def is_document_generation(action: str | None) -> bool:
@@ -47,7 +57,7 @@ class ChatService:
         manuscript: Manuscript,
         user_message: str,
         model: str = "default",
-    ) -> str | None:
+    ) -> TurnStart:
         """사용자 메시지를 기록하고 router 노드까지 그래프를 실행해 action을 반환한다."""
         user = database_session.get(User, manuscript.user_id)
         user_chat_message = self._save_chat_message(
@@ -75,7 +85,21 @@ class ChatService:
                 content=DOCUMENT_GENERATION_ACK,
                 phase=action,
             )
-        return action
+            database_session.commit()
+            return TurnStart(
+                action=action,
+                message_id=user_chat_message.id,
+                research_required=False,
+                claim_or_query=None,
+            )
+
+        evidence_need = detect_evidence_need(user_message)
+        return TurnStart(
+            action=action,
+            message_id=user_chat_message.id,
+            research_required=evidence_need.required,
+            claim_or_query=evidence_need.claim_or_query,
+        )
 
     async def stream_response(
         self,

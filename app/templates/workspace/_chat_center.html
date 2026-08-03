@@ -45,9 +45,13 @@
   <span id="chat-spinner" class="hidden text-xs text-[#787671]">전송 중…</span>
   <button type="submit" class="rounded-[8px] bg-[#e5e7eb] text-[#1f1f1f] px-5 py-3 text-base disabled:opacity-50 hover:bg-[#d1d5db]">→</button>
 </form>
+<p id="research-status" class="hidden border-t border-[#e5e3df] px-5 py-2 text-sm text-[#5f5e5b] bg-[#f7f6f3]"></p>
 <script>
 (function () {
   const log = document.getElementById('chat-log');
+  const researchStatus = document.getElementById('research-status');
+  const manuscriptId = {{ active_manuscript.id | tojson }};
+  let researchPollTimer = null;
   const form = document.getElementById('chat-form');
   const spinner = document.getElementById('chat-spinner');
   let isSubmitting = false;
@@ -120,6 +124,52 @@
     versionPollStopAfterCount = previousCount;
   }
 
+  function stopResearchPolling() {
+    if (!researchPollTimer) return;
+    window.clearInterval(researchPollTimer);
+    researchPollTimer = null;
+  }
+
+  function showResearchStatus(text) {
+    if (!researchStatus) return;
+    researchStatus.textContent = text;
+    researchStatus.classList.remove('hidden');
+  }
+
+  async function startResearchJob(messageId, claimOrQuery) {
+    showResearchStatus('근거를 조사하는 중입니다…');
+    const response = await fetch('/api/research/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        manuscript_id: manuscriptId,
+        message_id: messageId,
+        claim_or_query: claimOrQuery || '',
+      }),
+    });
+    if (!response.ok) {
+      showResearchStatus('조사 요청에 실패했습니다.');
+      return;
+    }
+    const payload = await response.json();
+    const jobId = payload.id;
+    stopResearchPolling();
+    researchPollTimer = window.setInterval(async () => {
+      const statusResponse = await fetch(
+        `/api/research/jobs/${jobId}?manuscript_id=${encodeURIComponent(manuscriptId)}`
+      );
+      if (!statusResponse.ok) return;
+      const statusPayload = await statusResponse.json();
+      if (statusPayload.evidence_ready) {
+        stopResearchPolling();
+        showResearchStatus('근거 준비됨. 다음 메시지부터 참고합니다.');
+      } else if (statusPayload.status === 'failed' || statusPayload.status === 'cancelled') {
+        stopResearchPolling();
+        showResearchStatus('조사에 실패했거나 취소되었습니다.');
+      }
+    }, 2000);
+  }
+
   async function streamChat(content, aiBubble) {
     const response = await fetch(form.action, {
       method: 'POST',
@@ -148,6 +198,9 @@
         const dataLine = rawEvent.match(/^data: (.*)$/m)?.[1] || '{}';
         const payload = JSON.parse(dataLine);
 
+        if (eventName === 'research_required') {
+          startResearchJob(payload.message_id, payload.claim_or_query);
+        }
         if (eventName === 'chunk') {
           aiText += payload.content || '';
           aiBubble.textContent = aiText;

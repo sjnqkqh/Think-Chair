@@ -41,6 +41,7 @@ class ResearchJob(Base):
     message_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("chat_messages.id"), unique=True, nullable=True
     )
+    claim_or_query: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[ResearchJobStatus] = mapped_column(
         SAEnum(ResearchJobStatus), default=ResearchJobStatus.QUEUED
     )
@@ -125,3 +126,40 @@ class ResearchJobSource(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     manuscript_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("manuscripts.id"))
+
+
+class ResponseComparisonRecord(Base):
+    """조사 job 완료 시 baseline/grounded 쌍과 LLM 비교 결과를 저장한다."""
+
+    __tablename__ = "response_comparison_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    research_job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("research_jobs.id"), unique=True, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    manuscript_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("manuscripts.id"), index=True
+    )
+    message_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("chat_messages.id"), nullable=True
+    )
+    baseline_body: Mapped[str] = mapped_column(Text)
+    grounded_body: Mapped[str] = mapped_column(Text)
+    baseline_cited_urls: Mapped[str] = mapped_column(Text, default="[]")
+    grounded_cited_urls: Mapped[str] = mapped_column(Text, default="[]")
+    baseline_citation_passed: Mapped[bool] = mapped_column(default=True)
+    grounded_citation_passed: Mapped[bool] = mapped_column(default=True)
+    citation_failure_reasons: Mapped[str | None] = mapped_column(Text, nullable=True)
+    specificity_winner: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    naturalness_winner: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    accuracy_winner: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    overall_winner: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    judgment_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    order_flipped: Mapped[bool | None] = mapped_column(nullable=True)
+    generation_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    judge_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    comparison_error: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=datetime.datetime.utcnow
+    )
