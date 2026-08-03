@@ -92,7 +92,14 @@ def test_generated_response_and_citation_and_judgment_contracts():
             "case_id": "case-1",
             "ai_question": "그 수치가 맞나요?",
             "human_response": "정확도 95%라고 들었어요.",
-            "prepared_evidence_keys": ["src-a"],
+            "prepared_evidence": [
+                {
+                    "source_key": "src-a",
+                    "url": "https://example.com/a",
+                    "title": "공식 수치",
+                    "text": "정확도는 92%입니다.",
+                }
+            ],
             "baseline_response": response,
             "grounded_response": response,
             "baseline_citation_check": citation_check,

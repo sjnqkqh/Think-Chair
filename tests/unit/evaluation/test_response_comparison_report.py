@@ -6,6 +6,7 @@ from app.evaluation.contracts import (
     ComparisonSummary,
     GeneratedResponse,
     PairwiseJudgment,
+    PreparedEvidence,
 )
 from app.evaluation.report import (
     render_comparison_summary_markdown,
@@ -38,7 +39,16 @@ def _result(
         case_id=case_id,
         ai_question="질문이 무엇인가요?",
         human_response="사용자 답변입니다.",
-        prepared_evidence_keys=("src-a",) if grounded_citation_passed else (),
+        prepared_evidence=(
+            PreparedEvidence(
+                source_key="src-a",
+                url="https://example.com/a",
+                title="공식 가이드",
+                text="타임아웃과 환경 불일치는 로그 신호가 다르다.",
+            ),
+        )
+        if grounded_citation_passed
+        else (),
         baseline_response=_response(baseline),
         grounded_response=_response(grounded),
         baseline_citation_check=_citation_check(),
@@ -159,6 +169,9 @@ def test_render_comparison_markdown_shows_both_answers_and_judgment_reason():
     assert "치명 실수: 0" in text
     assert "승률 기준: 미정" in text
     assert "### ci-timeout-claim-ko" in text
+    assert "참고용으로 준비한 근거" in text
+    assert "공식 가이드" in text
+    assert "타임아웃과 환경 불일치는 로그 신호가 다르다." in text
     assert "캐싱을 써 보셨나요?" in text
     assert "타임아웃 설정 조정도 고려해 보셨나요?" in text
     assert "근거 없는 응답" in text

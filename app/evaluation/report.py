@@ -5,6 +5,7 @@ from app.evaluation.contracts import (
     CaseComparisonResult,
     ComparisonSummary,
     ComparisonWinner,
+    PreparedEvidence,
 )
 
 _WINNER_LABELS = {
@@ -102,28 +103,39 @@ def write_comparison_report(
 
 
 def _render_case_section(result: CaseComparisonResult) -> list[str]:
-    evidence = (
-        ", ".join(result.prepared_evidence_keys)
-        if result.prepared_evidence_keys
-        else "(없음)"
-    )
     lines = [
         f"### {result.case_id}",
         "",
         "**대화**",
         f"- AI 질문: {result.ai_question}",
         f"- 사용자 답변: {result.human_response}",
-        f"- 준비된 근거: {evidence}",
+        "",
+        "**참고용으로 준비한 근거**",
+        *_format_prepared_evidence(result.prepared_evidence),
         "",
         "**근거 없는 응답**",
         result.baseline_response.body,
-        _format_citations(result.baseline_response.cited_source_keys),
-        _format_citation_check("근거 없는 응답", result.baseline_citation_check.passed, result.baseline_citation_check.failure_reasons),
+        _format_citations(
+            result.baseline_response.cited_source_keys,
+            result.prepared_evidence,
+        ),
+        _format_citation_check(
+            "근거 없는 응답",
+            result.baseline_citation_check.passed,
+            result.baseline_citation_check.failure_reasons,
+        ),
         "",
         "**근거 참고 응답**",
         result.grounded_response.body,
-        _format_citations(result.grounded_response.cited_source_keys),
-        _format_citation_check("근거 참고 응답", result.grounded_citation_check.passed, result.grounded_citation_check.failure_reasons),
+        _format_citations(
+            result.grounded_response.cited_source_keys,
+            result.prepared_evidence,
+        ),
+        _format_citation_check(
+            "근거 참고 응답",
+            result.grounded_citation_check.passed,
+            result.grounded_citation_check.failure_reasons,
+        ),
         "",
     ]
     if result.judgment is None:
@@ -135,7 +147,11 @@ def _render_case_section(result: CaseComparisonResult) -> list[str]:
         [
             "**판정**",
             f"- 전체: {_winner_label(judgment.overall_winner)}"
-            + (" (순서 바꿔 평가 시 뒤집힘 → 무승부 처리)" if judgment.order_flipped else ""),
+            + (
+                " (순서 바꿔 평가 시 뒤집힘 → 무승부 처리)"
+                if judgment.order_flipped
+                else ""
+            ),
             f"- 구체성: {_winner_label(judgment.specificity_winner)}",
             f"- 자연스러움: {_winner_label(judgment.naturalness_winner)}",
             f"- 정확성: {_winner_label(judgment.accuracy_winner)}",
@@ -150,10 +166,39 @@ def _winner_label(winner: ComparisonWinner) -> str:
     return _WINNER_LABELS[winner]
 
 
-def _format_citations(cited_source_keys: tuple[str, ...]) -> str:
+def _format_prepared_evidence(
+    evidence_items: tuple[PreparedEvidence, ...],
+) -> list[str]:
+    if not evidence_items:
+        return ["- (없음)"]
+    lines: list[str] = []
+    for item in evidence_items:
+        url = item.url or "(URL 없음)"
+        lines.extend(
+            [
+                f"- `{item.source_key}` | {item.title}",
+                f"  - URL: {url}",
+                f"  - 내용: {item.text}",
+            ]
+        )
+    return lines
+
+
+def _format_citations(
+    cited_source_keys: tuple[str, ...],
+    prepared_evidence: tuple[PreparedEvidence, ...],
+) -> str:
     if not cited_source_keys:
-        return "- 인용 출처: (없음)"
-    return f"- 인용 출처: {', '.join(cited_source_keys)}"
+        return "- 응답이 인용한 출처: (없음)"
+    by_key = {item.source_key: item for item in prepared_evidence}
+    details = []
+    for key in cited_source_keys:
+        item = by_key.get(key)
+        if item is None:
+            details.append(f"`{key}`(준비 목록에 없음)")
+        else:
+            details.append(f"`{key}` — {item.title}")
+    return f"- 응답이 인용한 출처: {'; '.join(details)}"
 
 
 def _format_citation_check(

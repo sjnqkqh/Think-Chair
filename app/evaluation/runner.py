@@ -45,9 +45,7 @@ def compare_case_responses(
         case_id=case.case_id,
         ai_question=case.ai_question,
         human_response=case.human_response,
-        prepared_evidence_keys=tuple(
-            evidence.source_key for evidence in case.prepared_evidence
-        ),
+        prepared_evidence=case.prepared_evidence,
         baseline_response=baseline,
         grounded_response=grounded,
         baseline_citation_check=baseline_citation_check,

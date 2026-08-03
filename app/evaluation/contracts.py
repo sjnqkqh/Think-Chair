@@ -86,7 +86,7 @@ class CaseComparisonResult(FrozenModel):
     case_id: str = Field(min_length=1)
     ai_question: str = Field(min_length=1)
     human_response: str = Field(min_length=1)
-    prepared_evidence_keys: tuple[str, ...] = ()
+    prepared_evidence: tuple[PreparedEvidence, ...] = ()
     baseline_response: GeneratedResponse
     grounded_response: GeneratedResponse
     baseline_citation_check: CitationCheckResult

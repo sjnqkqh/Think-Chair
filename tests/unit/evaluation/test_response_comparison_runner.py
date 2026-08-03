@@ -70,7 +70,8 @@ def test_compare_case_responses_runs_citation_check_and_judgment_with_injected_m
     assert generate_calls["n"] == 2
     assert result.ai_question == "수치가 맞나요?"
     assert result.human_response == "95%라고 들었어요."
-    assert result.prepared_evidence_keys == ("src-a",)
+    assert result.prepared_evidence[0].source_key == "src-a"
+    assert "정확도 92%" in result.prepared_evidence[0].text
     assert result.baseline_citation_check.passed is True
     assert result.grounded_citation_check.passed is True
     assert result.judgment is not None
