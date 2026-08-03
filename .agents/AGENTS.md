@@ -43,7 +43,17 @@ When your changes create orphans:
 
 The test: Every changed line should trace directly to the user's request.
 
-## 4. Thin Endpoints, Logic in Services
+## 4. Name the Intent, Not the Mechanism
+
+**Functions, variables, classes, and files should reveal their domain purpose, not merely the steps or technology they use.**
+
+- Prefer the intended outcome: `find_evidence_for_claim()` over `execute_vector_search()`.
+- Prefer the decision being represented: `research_needed` over `similarity_below_threshold`.
+- Prefer the responsibility: `research_evidence.py` over `vector_store_utils.py`.
+- Avoid vague names such as `process`, `handle`, `manage`, `data`, and `utils` when a domain term is available.
+- Include implementation details in a name only when they are part of the public contract or needed to distinguish implementations.
+
+## 5. Thin Endpoints, Logic in Services
 
 **API 엔드포인트 함수(`app/api/endpoints/**`, `app/pages/**`)에 비즈니스 로직을 직접 작성하지 않는다.**
 
@@ -51,7 +61,7 @@ The test: Every changed line should trace directly to the user's request.
 - DB 쿼리, 조건 분기, 비밀번호 해싱/토큰 발급 같은 도메인 로직은 `app/services/`에 함수로 분리한다.
 - 새 라우터를 추가할 때도 동일하게: 라우터 파일은 얇게, 로직은 서비스 모듈로.
 
-## 5. Goal-Driven Execution
+## 6. Goal-Driven Execution
 
 **Define success criteria. Loop until verified.**
 

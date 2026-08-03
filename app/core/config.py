@@ -14,12 +14,20 @@ class Settings(BaseSettings):
     DEEPSEEK_API_BASE: str = "https://api.deepseek.com"
     DEEPSEEK_MODEL: str = "deepseek-chat"
     BRAVE_SEARCH_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
+
+    # AI response comparison (separate from document evaluation)
+    RESPONSE_COMPARISON_API_KEY: str = ""
+    RESPONSE_COMPARISON_API_BASE: str = "https://api.openai.com/v1"
+    RESPONSE_COMPARISON_GENERATION_MODEL: str = "gpt-4.1-mini"
+    RESPONSE_COMPARISON_JUDGE_MODEL: str = "gpt-4.1"
 
     # Think Chair
     JWT_SECRET: str = "dev-secret-change-me"
     JWT_TTL_HOURS: int = 24
     DATA_ROOT: Path = PROJECT_ROOT
     STORAGE_ROOT: Path = Path.home() / "storage"
+    CHROMA_ROOT: Path = PROJECT_ROOT / "chroma_db"
 
     @property
     def BASE_DIR(self) -> str:

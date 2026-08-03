@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from tests.evaluation.agentic_rag_eval_contracts import (
+from app.evaluation.research_dialogue_schema import (
     EVALUATION_SCHEMA_VERSION,
     load_evaluation_cases,
     load_evaluation_corpus,
