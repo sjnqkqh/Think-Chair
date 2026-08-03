@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.evaluation.contracts import PreparedEvidence, ResponseComparisonCase
+from app.evaluation.response_comparison_contracts import PreparedEvidence, ResponseComparisonCase
 from app.evaluation.research_dialogue_schema import (
     EvaluationCase,
     EvaluationCorpusChunk,

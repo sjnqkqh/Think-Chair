@@ -20,7 +20,7 @@
 **만들 것**
 
 - `app/evaluation/__init__.py`
-- `app/evaluation/contracts.py`
+- `app/evaluation/response_comparison_contracts.py`
 
 **내용**
 
@@ -95,7 +95,7 @@
 
 **만들 것**
 
-- `app/evaluation/report.py`
+- `app/evaluation/comparison_report.py`
 
 **출력**
 

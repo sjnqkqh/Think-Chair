@@ -1,7 +1,7 @@
 import pytest
 
 from app.evaluation.citation_allowance import check_cited_sources_are_allowed
-from app.evaluation.contracts import (
+from app.evaluation.response_comparison_contracts import (
     GeneratedResponse,
     PreparedEvidence,
     ResponseComparisonCase,

@@ -1,6 +1,6 @@
 import pytest
 
-from app.evaluation.contracts import GeneratedResponse, PairwiseJudgment
+from app.evaluation.response_comparison_contracts import GeneratedResponse, PairwiseJudgment
 from app.evaluation.response_comparison import (
     build_comparison_prompt,
     combine_order_swapped_judgments,

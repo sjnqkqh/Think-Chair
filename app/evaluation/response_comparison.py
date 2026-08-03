@@ -1,7 +1,7 @@
 import json
 from typing import Callable
 
-from app.evaluation.contracts import (
+from app.evaluation.response_comparison_contracts import (
     ComparisonWinner,
     GeneratedResponse,
     PairwiseJudgment,

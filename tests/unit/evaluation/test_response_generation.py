@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from app.evaluation.contracts import GeneratedResponse, PreparedEvidence, ResponseComparisonCase
+from app.evaluation.response_comparison_contracts import GeneratedResponse, PreparedEvidence, ResponseComparisonCase
 from app.evaluation.response_generation import (
     build_baseline_prompt,
     build_grounded_prompt,

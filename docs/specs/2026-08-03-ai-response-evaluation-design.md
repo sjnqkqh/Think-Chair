@@ -90,11 +90,12 @@
 
 ```
 app/evaluation/                 # 응답 비교 평가 전용 (실제 응답 평가 확장 예정)
-  contracts.py                  # 입력·결과 형식
-  citation_allowance.py         # 출처 존재·허용 규칙 검사
-  response_comparison.py        # LLM 나란히 비교
-  report.py                     # 집계·리포트
-  run_response_comparison.py    # 개발용 실행기
+  response_comparison_contracts.py  # 입력·결과 형식
+  citation_allowance.py             # 출처 존재·허용 규칙 검사
+  response_comparison.py            # LLM 나란히 비교
+  case_response_comparison.py       # 사례 단위 생성·검사·비교
+  comparison_report.py              # 집계·리포트
+  run_response_comparison.py        # 개발용 실행기
 
 tests/evaluation/               # 예시 대화·평가용 자료
 scripts/run_ai_response_comparison.py

@@ -1,7 +1,7 @@
 from typing import Callable
 
 from app.evaluation.citation_allowance import check_cited_sources_are_allowed
-from app.evaluation.contracts import CaseComparisonResult, ResponseComparisonCase
+from app.evaluation.response_comparison_contracts import CaseComparisonResult, ResponseComparisonCase
 from app.evaluation.response_comparison import compare_response_pair
 from app.evaluation.response_generation import (
     build_baseline_prompt,

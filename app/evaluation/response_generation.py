@@ -1,7 +1,7 @@
 import json
 from typing import Callable
 
-from app.evaluation.contracts import GeneratedResponse, ResponseComparisonCase
+from app.evaluation.response_comparison_contracts import GeneratedResponse, ResponseComparisonCase
 from app.evaluation.text_parsing import strip_code_fence
 
 PromptInvoker = Callable[[str], str]

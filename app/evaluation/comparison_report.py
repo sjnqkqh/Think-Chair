@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from app.evaluation.contracts import (
+from app.evaluation.response_comparison_contracts import (
     CaseComparisonResult,
     ComparisonSummary,
     ComparisonWinner,

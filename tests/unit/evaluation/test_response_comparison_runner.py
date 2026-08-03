@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from app.evaluation.contracts import PreparedEvidence, ResponseComparisonCase
-from app.evaluation.runner import compare_case_responses
+from app.evaluation.response_comparison_contracts import PreparedEvidence, ResponseComparisonCase
+from app.evaluation.case_response_comparison import compare_case_responses
 
 pytestmark = pytest.mark.unit
 

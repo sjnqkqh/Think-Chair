@@ -11,8 +11,8 @@ from langchain_openai import ChatOpenAI
 
 from app.core.config import PROJECT_ROOT, settings
 from app.evaluation.comparison_case_loading import load_response_comparison_cases
-from app.evaluation.report import summarize_comparison_results, write_comparison_report
-from app.evaluation.runner import compare_case_responses
+from app.evaluation.comparison_report import summarize_comparison_results, write_comparison_report
+from app.evaluation.case_response_comparison import compare_case_responses
 
 DEFAULT_CASES = PROJECT_ROOT / "tests/evaluation/agentic_rag_cases.json"
 DEFAULT_CORPUS = PROJECT_ROOT / "tests/evaluation/agentic_rag_corpus.json"

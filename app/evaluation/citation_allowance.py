@@ -1,4 +1,4 @@
-from app.evaluation.contracts import (
+from app.evaluation.response_comparison_contracts import (
     CitationCheckResult,
     GeneratedResponse,
     ResponseComparisonCase,

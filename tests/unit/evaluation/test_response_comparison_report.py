@@ -1,6 +1,6 @@
 import pytest
 
-from app.evaluation.contracts import (
+from app.evaluation.response_comparison_contracts import (
     CaseComparisonResult,
     CitationCheckResult,
     ComparisonSummary,
@@ -8,7 +8,7 @@ from app.evaluation.contracts import (
     PairwiseJudgment,
     PreparedEvidence,
 )
-from app.evaluation.report import (
+from app.evaluation.comparison_report import (
     render_comparison_summary_markdown,
     summarize_comparison_results,
 )

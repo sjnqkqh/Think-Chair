@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.evaluation.contracts import (
+from app.evaluation.response_comparison_contracts import (
     CaseComparisonResult,
     CitationCheckResult,
     ComparisonSummary,
