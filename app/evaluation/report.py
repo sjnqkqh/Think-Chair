@@ -115,7 +115,7 @@ def _render_case_section(result: CaseComparisonResult) -> list[str]:
         "",
         "**근거 없는 응답**",
         result.baseline_response.body,
-        _format_citations(
+        *_format_cited_evidence(
             result.baseline_response.cited_source_keys,
             result.prepared_evidence,
         ),
@@ -127,7 +127,7 @@ def _render_case_section(result: CaseComparisonResult) -> list[str]:
         "",
         "**근거 참고 응답**",
         result.grounded_response.body,
-        _format_citations(
+        *_format_cited_evidence(
             result.grounded_response.cited_source_keys,
             result.prepared_evidence,
         ),
@@ -184,21 +184,29 @@ def _format_prepared_evidence(
     return lines
 
 
-def _format_citations(
+def _format_cited_evidence(
     cited_source_keys: tuple[str, ...],
     prepared_evidence: tuple[PreparedEvidence, ...],
-) -> str:
+) -> list[str]:
     if not cited_source_keys:
-        return "- 응답이 인용한 출처: (없음)"
+        return ["- 응답이 인용한 출처: (없음)"]
+
     by_key = {item.source_key: item for item in prepared_evidence}
-    details = []
+    lines = ["- 응답이 인용한 출처:"]
     for key in cited_source_keys:
         item = by_key.get(key)
         if item is None:
-            details.append(f"`{key}`(준비 목록에 없음)")
-        else:
-            details.append(f"`{key}` — {item.title}")
-    return f"- 응답이 인용한 출처: {'; '.join(details)}"
+            lines.append(f"  - `{key}` (준비 목록에 없음 — 본문 확인 불가)")
+            continue
+        url = item.url or "(URL 없음)"
+        lines.extend(
+            [
+                f"  - `{item.source_key}` | {item.title}",
+                f"    - URL: {url}",
+                f"    - 내용: {item.text}",
+            ]
+        )
+    return lines
 
 
 def _format_citation_check(

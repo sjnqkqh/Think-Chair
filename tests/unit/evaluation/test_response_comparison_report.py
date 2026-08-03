@@ -34,12 +34,10 @@ def _result(
     judgment: PairwiseJudgment | None,
     grounded_citation_passed: bool = True,
     grounded_citation_reasons: tuple[str, ...] = (),
+    grounded_cited_keys: tuple[str, ...] = (),
 ) -> CaseComparisonResult:
-    return CaseComparisonResult(
-        case_id=case_id,
-        ai_question="질문이 무엇인가요?",
-        human_response="사용자 답변입니다.",
-        prepared_evidence=(
+    evidence = (
+        (
             PreparedEvidence(
                 source_key="src-a",
                 url="https://example.com/a",
@@ -47,10 +45,20 @@ def _result(
                 text="타임아웃과 환경 불일치는 로그 신호가 다르다.",
             ),
         )
-        if grounded_citation_passed
-        else (),
+        if grounded_citation_passed or grounded_cited_keys
+        else ()
+    )
+    return CaseComparisonResult(
+        case_id=case_id,
+        ai_question="질문이 무엇인가요?",
+        human_response="사용자 답변입니다.",
+        prepared_evidence=evidence,
         baseline_response=_response(baseline),
-        grounded_response=_response(grounded),
+        grounded_response=GeneratedResponse(
+            body=grounded,
+            cited_source_keys=grounded_cited_keys,
+            cited_urls=(),
+        ),
         baseline_citation_check=_citation_check(),
         grounded_citation_check=_citation_check(
             grounded_citation_passed, grounded_citation_reasons
@@ -158,6 +166,7 @@ def test_render_comparison_markdown_shows_both_answers_and_judgment_reason():
             "ci-timeout-claim-ko",
             baseline="캐싱을 써 보셨나요?",
             grounded="타임아웃 설정 조정도 고려해 보셨나요?",
+            grounded_cited_keys=("src-a",),
             judgment=_judgment(
                 reason="타임아웃 설정까지 언급해 구체성이 높다."
             ),
@@ -172,6 +181,8 @@ def test_render_comparison_markdown_shows_both_answers_and_judgment_reason():
     assert "참고용으로 준비한 근거" in text
     assert "공식 가이드" in text
     assert "타임아웃과 환경 불일치는 로그 신호가 다르다." in text
+    assert "응답이 인용한 출처" in text
+    assert "내용: 타임아웃과 환경 불일치는 로그 신호가 다르다." in text
     assert "캐싱을 써 보셨나요?" in text
     assert "타임아웃 설정 조정도 고려해 보셨나요?" in text
     assert "근거 없는 응답" in text
