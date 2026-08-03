@@ -68,6 +68,7 @@ def _build_chunk_metadata(
         "source_id": str(source.id),
         "canonical_url": source.canonical_url,
         "source_url": chunk.source_url,
+        "title": source.title,
         "content_hash": source.content_hash,
         "language": chunk.language,
         "section_kind": chunk.section_kind,
