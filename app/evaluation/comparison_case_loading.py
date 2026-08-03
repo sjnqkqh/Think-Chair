@@ -1,20 +1,20 @@
 from pathlib import Path
 
-from app.evaluation.agentic_case_schema import (
+from app.evaluation.contracts import PreparedEvidence, ResponseComparisonCase
+from app.evaluation.research_dialogue_schema import (
     EvaluationCase,
     EvaluationCorpusChunk,
     load_evaluation_cases,
     load_evaluation_corpus,
 )
-from app.evaluation.contracts import PreparedEvidence, ResponseEvalCase
 
 
-def load_response_eval_cases(
+def load_response_comparison_cases(
     *,
     cases_path: Path,
     corpus_path: Path,
     research_required_only: bool = True,
-) -> list[ResponseEvalCase]:
+) -> list[ResponseComparisonCase]:
     cases = load_evaluation_cases(cases_path)
     corpus = load_evaluation_corpus(corpus_path)
     selected = [
@@ -22,13 +22,13 @@ def load_response_eval_cases(
         for case in cases
         if not research_required_only or case.expected_research_required
     ]
-    return [to_response_eval_case(case, corpus) for case in selected]
+    return [to_response_comparison_case(case, corpus) for case in selected]
 
 
-def to_response_eval_case(
+def to_response_comparison_case(
     case: EvaluationCase,
     corpus: list[EvaluationCorpusChunk],
-) -> ResponseEvalCase:
+) -> ResponseComparisonCase:
     allowed = tuple(case.expected_source_keys)
     forbidden = tuple(case.forbidden_source_keys)
     evidence = tuple(
@@ -41,7 +41,7 @@ def to_response_eval_case(
         for chunk in corpus
         if chunk.source_key in allowed
     )
-    return ResponseEvalCase(
+    return ResponseComparisonCase(
         case_id=case.case_id,
         ai_question=case.ai_question,
         human_response=case.human_response,

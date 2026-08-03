@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-Winner = Literal["baseline", "grounded", "tie"]
+ComparisonWinner = Literal["baseline", "grounded", "tie"]
 
 
 class FrozenModel(BaseModel):
@@ -32,7 +32,7 @@ class PreparedEvidence(FrozenModel):
         return value
 
 
-class ResponseEvalCase(FrozenModel):
+class ResponseComparisonCase(FrozenModel):
     case_id: str = Field(min_length=1)
     ai_question: str
     human_response: str
@@ -61,16 +61,16 @@ class GeneratedResponse(FrozenModel):
         return value
 
 
-class SafetyCheckResult(FrozenModel):
+class CitationCheckResult(FrozenModel):
     passed: bool
     failure_reasons: tuple[str, ...] = ()
 
 
 class PairwiseJudgment(FrozenModel):
-    specificity_winner: Winner
-    naturalness_winner: Winner
-    accuracy_winner: Winner
-    overall_winner: Winner
+    specificity_winner: ComparisonWinner
+    naturalness_winner: ComparisonWinner
+    accuracy_winner: ComparisonWinner
+    overall_winner: ComparisonWinner
     reason: str = Field(min_length=1)
     order_flipped: bool
 
@@ -82,16 +82,16 @@ class PairwiseJudgment(FrozenModel):
         return value
 
 
-class CaseEvalResult(FrozenModel):
+class CaseComparisonResult(FrozenModel):
     case_id: str = Field(min_length=1)
     baseline_response: GeneratedResponse
     grounded_response: GeneratedResponse
-    baseline_safety: SafetyCheckResult
-    grounded_safety: SafetyCheckResult
+    baseline_citation_check: CitationCheckResult
+    grounded_citation_check: CitationCheckResult
     judgment: PairwiseJudgment | None = None
 
 
-class EvalSummary(FrozenModel):
+class ComparisonSummary(FrozenModel):
     case_count: int = Field(ge=0)
     fatal_failure_count: int = Field(ge=0)
     wins: int = Field(ge=0)

@@ -31,7 +31,7 @@
 
 **확인**
 
-- `tests/unit/evaluation/test_response_eval_contracts.py`: 필수 필드·잘못된 JSON 거부
+- `tests/unit/evaluation/test_response_comparison_contracts.py`: 필수 필드·잘못된 JSON 거부
 
 기존 `tests/evaluation/agentic_rag_cases.json` / `agentic_rag_corpus.json`은 **입력 데이터로 연결**만 하고, PR 00 schema를 깨지 않는다. 응답 평가 전용 필드가 더 필요하면 `tests/evaluation/`에 응답 평가용 fixture를 추가한다.
 
@@ -39,7 +39,7 @@
 
 **만들 것**
 
-- `app/evaluation/safety_checks.py`
+- `app/evaluation/citation_allowance.py`
 
 **검사**
 
@@ -49,7 +49,7 @@
 
 **확인**
 
-- `tests/unit/evaluation/test_response_safety_checks.py`: 통과/실패 사례 각각
+- `tests/unit/evaluation/test_citation_allowance.py`: 통과/실패 사례 각각
 
 내용 일치 검사(2단계)는 구현하지 않는다.
 
@@ -75,7 +75,7 @@
 
 **만들 것**
 
-- `app/evaluation/pairwise_judge.py`
+- `app/evaluation/response_comparison.py`
 - 판정용 프롬프트 (같은 디렉터리 또는 `app/evaluation/prompts.py`)
 
 **동작**
@@ -87,7 +87,7 @@
 
 **확인**
 
-- `tests/unit/evaluation/test_pairwise_judge.py`: JSON 파싱, 순서 뒤집힘 → 무승부 처리 (가짜 LLM 응답 사용)
+- `tests/unit/evaluation/test_response_comparison.py`: JSON 파싱, 순서 뒤집힘 → 무승부 처리 (가짜 LLM 응답 사용)
 
 ### 5. 리포트
 
@@ -110,13 +110,13 @@
 
 **만들 것**
 
-- `scripts/run_ai_response_eval.py` (디렉터리 없으면 생성)
+- `scripts/run_ai_response_comparison.py` (디렉터리 없으면 생성)
 
 **동작**
 
 1. fixture 로드
 2. 사례마다 두 답 생성 → 규칙 검사 → 나란히 비교
-3. `artifacts/ai_response_eval/`(또는 동일 목적 경로)에 결과 저장
+3. `artifacts/ai_response_comparison/`(또는 동일 목적 경로)에 결과 저장
 4. 치명 실수 건수를 종료 코드/요약에 명시 (0이 아니면 실패로 볼 수 있게)
 
 **확인**

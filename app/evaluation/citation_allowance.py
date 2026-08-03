@@ -1,15 +1,15 @@
 from app.evaluation.contracts import (
+    CitationCheckResult,
     GeneratedResponse,
-    ResponseEvalCase,
-    SafetyCheckResult,
+    ResponseComparisonCase,
 )
 
 
-def check_response_citations(
+def check_cited_sources_are_allowed(
     *,
     response: GeneratedResponse,
-    case: ResponseEvalCase,
-) -> SafetyCheckResult:
+    case: ResponseComparisonCase,
+) -> CitationCheckResult:
     """출처 존재·허용 여부만 검사한다. 내용 일치는 검사하지 않는다."""
     allowed = set(case.allowed_source_keys)
     forbidden = set(case.forbidden_source_keys)
@@ -30,4 +30,4 @@ def check_response_citations(
         if url not in allowed_urls:
             reasons.append(f"unknown or ghost url cited: {url}")
 
-    return SafetyCheckResult(passed=not reasons, failure_reasons=tuple(reasons))
+    return CitationCheckResult(passed=not reasons, failure_reasons=tuple(reasons))

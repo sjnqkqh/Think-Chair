@@ -1,13 +1,18 @@
 import json
-import re
-from typing import Any
+from typing import Callable
 
-from app.evaluation.contracts import GeneratedResponse, PairwiseJudgment, Winner
+from app.evaluation.contracts import (
+    ComparisonWinner,
+    GeneratedResponse,
+    PairwiseJudgment,
+)
+from app.evaluation.text_parsing import strip_code_fence
 
 _LABEL_WINNERS = {"A", "B", "tie"}
+PromptInvoker = Callable[[str], str]
 
 
-def build_judge_prompt(
+def build_comparison_prompt(
     *,
     ai_question: str,
     human_response: str,
@@ -42,10 +47,10 @@ def build_judge_prompt(
 {{"specificity_winner":"A|B|tie","naturalness_winner":"A|B|tie","accuracy_winner":"A|B|tie","overall_winner":"A|B|tie","reason":"짧은 판정 이유"}}"""
 
 
-def parse_judge_response(raw_output: str) -> dict[str, str]:
-    data = json.loads(_strip_code_fence(raw_output))
+def parse_comparison_judgment(raw_output: str) -> dict[str, str]:
+    data = json.loads(strip_code_fence(raw_output))
     if not isinstance(data, dict):
-        raise ValueError("judge response must be a JSON object")
+        raise ValueError("comparison judgment must be a JSON object")
 
     parsed: dict[str, str] = {}
     for key in (
@@ -66,7 +71,7 @@ def parse_judge_response(raw_output: str) -> dict[str, str]:
     return parsed
 
 
-def combine_ordered_judgments(
+def combine_order_swapped_judgments(
     first_pass: dict[str, str],
     second_pass: dict[str, str],
 ) -> PairwiseJudgment:
@@ -96,8 +101,35 @@ def combine_ordered_judgments(
     )
 
 
-def _map_pass(payload: dict[str, str], *, a_role: Winner) -> dict[str, Winner]:
-    b_role: Winner = "grounded" if a_role == "baseline" else "baseline"
+def compare_response_pair(
+    *,
+    ai_question: str,
+    human_response: str,
+    baseline: GeneratedResponse,
+    grounded: GeneratedResponse,
+    invoke: PromptInvoker,
+) -> PairwiseJudgment:
+    first_prompt = build_comparison_prompt(
+        ai_question=ai_question,
+        human_response=human_response,
+        answer_a=baseline,
+        answer_b=grounded,
+    )
+    second_prompt = build_comparison_prompt(
+        ai_question=ai_question,
+        human_response=human_response,
+        answer_a=grounded,
+        answer_b=baseline,
+    )
+    first = parse_comparison_judgment(invoke(first_prompt))
+    second = parse_comparison_judgment(invoke(second_prompt))
+    return combine_order_swapped_judgments(first, second)
+
+
+def _map_pass(
+    payload: dict[str, str], *, a_role: ComparisonWinner
+) -> dict[str, ComparisonWinner]:
+    b_role: ComparisonWinner = "grounded" if a_role == "baseline" else "baseline"
     return {
         key: _map_label(payload[key], a_role=a_role, b_role=b_role)
         for key in (
@@ -109,7 +141,9 @@ def _map_pass(payload: dict[str, str], *, a_role: Winner) -> dict[str, Winner]:
     }
 
 
-def _map_label(label: str, *, a_role: Winner, b_role: Winner) -> Winner:
+def _map_label(
+    label: str, *, a_role: ComparisonWinner, b_role: ComparisonWinner
+) -> ComparisonWinner:
     if label == "tie":
         return "tie"
     if label == "A":
@@ -119,39 +153,9 @@ def _map_label(label: str, *, a_role: Winner, b_role: Winner) -> Winner:
     raise ValueError(f"invalid winner label: {label!r}")
 
 
-def _stable_winner(first: Winner, second: Winner) -> Winner:
+def _stable_winner(
+    first: ComparisonWinner, second: ComparisonWinner
+) -> ComparisonWinner:
     if first == second:
         return first
     return "tie"
-
-
-def _strip_code_fence(raw_output: str) -> str:
-    text = raw_output.strip()
-    match = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", text, flags=re.DOTALL)
-    return match.group(1) if match else text
-
-
-def judge_pair(
-    *,
-    ai_question: str,
-    human_response: str,
-    baseline: GeneratedResponse,
-    grounded: GeneratedResponse,
-    invoke: Any,
-) -> PairwiseJudgment:
-    """invoke(prompt: str) -> str 형태의 판정 LLM 호출을 두 번 수행한다."""
-    first_prompt = build_judge_prompt(
-        ai_question=ai_question,
-        human_response=human_response,
-        answer_a=baseline,
-        answer_b=grounded,
-    )
-    second_prompt = build_judge_prompt(
-        ai_question=ai_question,
-        human_response=human_response,
-        answer_a=grounded,
-        answer_b=baseline,
-    )
-    first = parse_judge_response(invoke(first_prompt))
-    second = parse_judge_response(invoke(second_prompt))
-    return combine_ordered_judgments(first, second)

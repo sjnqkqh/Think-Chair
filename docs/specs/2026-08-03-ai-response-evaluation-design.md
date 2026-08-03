@@ -88,15 +88,16 @@
 핵심 로직은 메인에 두되, 채팅·문서 생성 코드와 섞지 않는다.
 
 ```
-app/evaluation/           # 응답 평가 전용 (실제 응답 평가 확장 예정)
-  contracts.py            # 입력·결과 형식
-  safety_checks.py        # 출처 존재·허용 등 규칙 검사
-  pairwise_judge.py       # LLM 나란히 비교
-  report.py               # 집계·리포트
+app/evaluation/                 # 응답 비교 평가 전용 (실제 응답 평가 확장 예정)
+  contracts.py                  # 입력·결과 형식
+  citation_allowance.py         # 출처 존재·허용 규칙 검사
+  response_comparison.py        # LLM 나란히 비교
+  report.py                     # 집계·리포트
+  run_response_comparison.py    # 개발용 실행기
 
-tests/evaluation/         # 예시 대화·평가용 자료
-scripts/                  # 개발용 실행기
-tests/unit/evaluation/    # 형식·규칙 단위 테스트
+tests/evaluation/               # 예시 대화·평가용 자료
+scripts/run_ai_response_comparison.py
+tests/unit/evaluation/          # 형식·규칙 단위 테스트
 ```
 
 문서 평가(`evaluate_document`)는 현재 위치를 유지한다.

@@ -1,10 +1,13 @@
 import json
-import re
+from typing import Callable
 
-from app.evaluation.contracts import GeneratedResponse, ResponseEvalCase
+from app.evaluation.contracts import GeneratedResponse, ResponseComparisonCase
+from app.evaluation.text_parsing import strip_code_fence
+
+PromptInvoker = Callable[[str], str]
 
 
-def build_baseline_prompt(case: ResponseEvalCase) -> str:
+def build_baseline_prompt(case: ResponseComparisonCase) -> str:
     return f"""당신은 사용자의 글쓰기 대화를 이어가는 AI입니다.
 아래 AI 질문과 사용자 답변을 보고 다음 응답을 작성하십시오.
 외부 검색 자료는 없습니다. 근거가 부족하면 단정하지 말고 확인 질문으로 이어가도 됩니다.
@@ -19,7 +22,7 @@ def build_baseline_prompt(case: ResponseEvalCase) -> str:
 {{"body":"다음 AI 응답","cited_source_keys":[],"cited_urls":[]}}"""
 
 
-def build_grounded_prompt(case: ResponseEvalCase) -> str:
+def build_grounded_prompt(case: ResponseComparisonCase) -> str:
     evidence_blocks = []
     for item in case.prepared_evidence:
         url = item.url or ""
@@ -46,7 +49,7 @@ def build_grounded_prompt(case: ResponseEvalCase) -> str:
 
 
 def parse_generation_response(raw_output: str) -> GeneratedResponse:
-    data = json.loads(_strip_code_fence(raw_output))
+    data = json.loads(strip_code_fence(raw_output))
     if not isinstance(data, dict):
         raise ValueError("generation response must be a JSON object")
     body = data.get("body")
@@ -69,11 +72,5 @@ def parse_generation_response(raw_output: str) -> GeneratedResponse:
     )
 
 
-def generate_response(*, prompt: str, invoke) -> GeneratedResponse:
+def generate_response(*, prompt: str, invoke: PromptInvoker) -> GeneratedResponse:
     return parse_generation_response(invoke(prompt))
-
-
-def _strip_code_fence(raw_output: str) -> str:
-    text = raw_output.strip()
-    match = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", text, flags=re.DOTALL)
-    return match.group(1) if match else text

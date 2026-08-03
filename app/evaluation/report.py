@@ -1,15 +1,22 @@
-from pathlib import Path
 import json
+from pathlib import Path
 
-from app.evaluation.contracts import CaseEvalResult, EvalSummary, Winner
+from app.evaluation.contracts import (
+    CaseComparisonResult,
+    ComparisonSummary,
+    ComparisonWinner,
+)
 
 
-def summarize_results(results: list[CaseEvalResult]) -> EvalSummary:
+def summarize_comparison_results(
+    results: list[CaseComparisonResult],
+) -> ComparisonSummary:
     judged = [result for result in results if result.judgment is not None]
     fatal_failure_count = sum(
         1
         for result in results
-        if not result.baseline_safety.passed or not result.grounded_safety.passed
+        if not result.baseline_citation_check.passed
+        or not result.grounded_citation_check.passed
     )
 
     wins = sum(1 for result in judged if result.judgment.overall_winner == "grounded")
@@ -17,7 +24,7 @@ def summarize_results(results: list[CaseEvalResult]) -> EvalSummary:
     ties = sum(1 for result in judged if result.judgment.overall_winner == "tie")
     judged_count = len(judged) or 1
 
-    return EvalSummary(
+    return ComparisonSummary(
         case_count=len(results),
         fatal_failure_count=fatal_failure_count,
         wins=wins,
@@ -32,7 +39,7 @@ def summarize_results(results: list[CaseEvalResult]) -> EvalSummary:
     )
 
 
-def render_markdown_summary(summary: EvalSummary) -> str:
+def render_comparison_summary_markdown(summary: ComparisonSummary) -> str:
     threshold = (
         "미정"
         if summary.win_rate_threshold is None
@@ -40,7 +47,7 @@ def render_markdown_summary(summary: EvalSummary) -> str:
     )
     return "\n".join(
         [
-            "# AI 응답 평가 요약",
+            "# AI 응답 비교 평가 요약",
             "",
             f"- 사례 수: {summary.case_count}",
             f"- 치명 실수: {summary.fatal_failure_count}",
@@ -57,16 +64,16 @@ def render_markdown_summary(summary: EvalSummary) -> str:
     )
 
 
-def write_report(
+def write_comparison_report(
     *,
     output_dir: Path,
-    results: list[CaseEvalResult],
-    summary: EvalSummary | None = None,
+    results: list[CaseComparisonResult],
+    summary: ComparisonSummary | None = None,
 ) -> tuple[Path, Path]:
-    summary = summary or summarize_results(results)
+    summary = summary or summarize_comparison_results(results)
     output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "results.json"
-    md_path = output_dir / "summary.md"
+    markdown_path = output_dir / "summary.md"
     payload = {
         "summary": summary.model_dump(mode="json"),
         "cases": [result.model_dump(mode="json") for result in results],
@@ -75,16 +82,18 @@ def write_report(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    md_path.write_text(render_markdown_summary(summary), encoding="utf-8")
-    return json_path, md_path
+    markdown_path.write_text(
+        render_comparison_summary_markdown(summary), encoding="utf-8"
+    )
+    return json_path, markdown_path
 
 
-def _criterion_rate(judged: list[CaseEvalResult], field_name: str) -> float:
+def _criterion_rate(judged: list[CaseComparisonResult], field_name: str) -> float:
     if not judged:
         return 0.0
     wins = 0
     for result in judged:
-        winner: Winner = getattr(result.judgment, field_name)
+        winner: ComparisonWinner = getattr(result.judgment, field_name)
         if winner == "grounded":
             wins += 1
     return wins / len(judged)

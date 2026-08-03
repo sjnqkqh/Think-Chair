@@ -237,5 +237,5 @@ pr-docs/
 .hermes/
 .claude/
 
-# AI response evaluation run artifacts
+# AI response comparison run artifacts
 artifacts/

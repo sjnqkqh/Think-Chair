@@ -2,14 +2,14 @@ import json
 
 import pytest
 
-from app.evaluation.contracts import PreparedEvidence, ResponseEvalCase
-from app.evaluation.runner import evaluate_case
+from app.evaluation.contracts import PreparedEvidence, ResponseComparisonCase
+from app.evaluation.runner import compare_case_responses
 
 pytestmark = pytest.mark.unit
 
 
-def test_evaluate_case_runs_safety_and_judgment_with_injected_llms():
-    case = ResponseEvalCase(
+def test_compare_case_responses_runs_citation_check_and_judgment_with_injected_models():
+    case = ResponseComparisonCase(
         case_id="case-1",
         ai_question="수치가 맞나요?",
         human_response="95%라고 들었어요.",
@@ -61,15 +61,15 @@ def test_evaluate_case_runs_safety_and_judgment_with_injected_llms():
             ensure_ascii=False,
         )
 
-    result = evaluate_case(
+    result = compare_case_responses(
         case,
         generate_invoke=generate_invoke,
         judge_invoke=judge_invoke,
     )
 
     assert generate_calls["n"] == 2
-    assert result.baseline_safety.passed is True
-    assert result.grounded_safety.passed is True
+    assert result.baseline_citation_check.passed is True
+    assert result.grounded_citation_check.passed is True
     assert result.judgment is not None
     assert result.judgment.overall_winner == "grounded"
     assert result.judgment.order_flipped is False

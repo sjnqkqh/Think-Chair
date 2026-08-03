@@ -1,13 +1,16 @@
 import pytest
 
 from app.evaluation.contracts import (
-    CaseEvalResult,
-    EvalSummary,
+    CaseComparisonResult,
+    CitationCheckResult,
+    ComparisonSummary,
     GeneratedResponse,
     PairwiseJudgment,
-    SafetyCheckResult,
 )
-from app.evaluation.report import render_markdown_summary, summarize_results
+from app.evaluation.report import (
+    render_comparison_summary_markdown,
+    summarize_comparison_results,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -16,8 +19,10 @@ def _response(body: str = "답변") -> GeneratedResponse:
     return GeneratedResponse(body=body, cited_source_keys=(), cited_urls=())
 
 
-def _safety(passed: bool = True, reasons: tuple[str, ...] = ()) -> SafetyCheckResult:
-    return SafetyCheckResult(passed=passed, failure_reasons=reasons)
+def _citation_check(
+    passed: bool = True, reasons: tuple[str, ...] = ()
+) -> CitationCheckResult:
+    return CitationCheckResult(passed=passed, failure_reasons=reasons)
 
 
 def _judgment(
@@ -38,45 +43,63 @@ def _judgment(
     )
 
 
-def test_summarize_results_counts_wins_fatals_and_rates():
+def test_summarize_comparison_results_counts_wins_fatals_and_rates():
     results = [
-        CaseEvalResult(
+        CaseComparisonResult(
             case_id="win",
             baseline_response=_response("b1"),
             grounded_response=_response("g1"),
-            baseline_safety=_safety(),
-            grounded_safety=_safety(),
-            judgment=_judgment("grounded", specificity="grounded", naturalness="grounded", accuracy="grounded"),
+            baseline_citation_check=_citation_check(),
+            grounded_citation_check=_citation_check(),
+            judgment=_judgment(
+                "grounded",
+                specificity="grounded",
+                naturalness="grounded",
+                accuracy="grounded",
+            ),
         ),
-        CaseEvalResult(
+        CaseComparisonResult(
             case_id="loss",
             baseline_response=_response("b2"),
             grounded_response=_response("g2"),
-            baseline_safety=_safety(),
-            grounded_safety=_safety(),
-            judgment=_judgment("baseline", specificity="baseline", naturalness="baseline", accuracy="tie"),
+            baseline_citation_check=_citation_check(),
+            grounded_citation_check=_citation_check(),
+            judgment=_judgment(
+                "baseline",
+                specificity="baseline",
+                naturalness="baseline",
+                accuracy="tie",
+            ),
         ),
-        CaseEvalResult(
+        CaseComparisonResult(
             case_id="tie",
             baseline_response=_response("b3"),
             grounded_response=_response("g3"),
-            baseline_safety=_safety(),
-            grounded_safety=_safety(),
-            judgment=_judgment("tie", order_flipped=True, specificity="tie", naturalness="tie", accuracy="tie"),
+            baseline_citation_check=_citation_check(),
+            grounded_citation_check=_citation_check(),
+            judgment=_judgment(
+                "tie",
+                order_flipped=True,
+                specificity="tie",
+                naturalness="tie",
+                accuracy="tie",
+            ),
         ),
-        CaseEvalResult(
+        CaseComparisonResult(
             case_id="fatal",
             baseline_response=_response("b4"),
             grounded_response=_response("g4"),
-            baseline_safety=_safety(),
-            grounded_safety=_safety(False, ("unknown source cited: x",)),
+            baseline_citation_check=_citation_check(),
+            grounded_citation_check=_citation_check(
+                False, ("unknown source cited: x",)
+            ),
             judgment=None,
         ),
     ]
 
-    summary = summarize_results(results)
+    summary = summarize_comparison_results(results)
 
-    assert summary == EvalSummary(
+    assert summary == ComparisonSummary(
         case_count=4,
         fatal_failure_count=1,
         wins=1,
@@ -90,8 +113,8 @@ def test_summarize_results_counts_wins_fatals_and_rates():
     )
 
 
-def test_render_markdown_summary_mentions_fatal_and_undecided_threshold():
-    summary = EvalSummary(
+def test_render_comparison_summary_mentions_fatal_and_undecided_threshold():
+    summary = ComparisonSummary(
         case_count=2,
         fatal_failure_count=1,
         wins=1,
@@ -104,7 +127,7 @@ def test_render_markdown_summary_mentions_fatal_and_undecided_threshold():
         win_rate_threshold=None,
     )
 
-    text = render_markdown_summary(summary)
+    text = render_comparison_summary_markdown(summary)
 
     assert "치명 실수: 1" in text
     assert "승률 기준: 미정" in text

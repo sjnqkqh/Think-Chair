@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.scripts]
-run-ai-response-eval = "app.evaluation.cli:main"
+run-ai-response-comparison = "app.evaluation.run_response_comparison:main"
 
 [build-system]
 requires = ["hatchling"]

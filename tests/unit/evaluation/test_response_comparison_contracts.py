@@ -2,20 +2,20 @@ import pytest
 from pydantic import ValidationError
 
 from app.evaluation.contracts import (
-    CaseEvalResult,
-    EvalSummary,
+    CaseComparisonResult,
+    CitationCheckResult,
+    ComparisonSummary,
     GeneratedResponse,
     PairwiseJudgment,
     PreparedEvidence,
-    ResponseEvalCase,
-    SafetyCheckResult,
+    ResponseComparisonCase,
 )
 
 pytestmark = pytest.mark.unit
 
 
-def test_response_eval_case_requires_dialogue_and_evidence_lists():
-    case = ResponseEvalCase.model_validate(
+def test_response_comparison_case_requires_dialogue_and_evidence_lists():
+    case = ResponseComparisonCase.model_validate(
         {
             "case_id": "case-1",
             "ai_question": "그 수치가 맞나요?",
@@ -39,9 +39,9 @@ def test_response_eval_case_requires_dialogue_and_evidence_lists():
         case.case_id = "changed"
 
 
-def test_response_eval_case_rejects_blank_dialogue_and_unknown_fields():
+def test_response_comparison_case_rejects_blank_dialogue_and_unknown_fields():
     with pytest.raises(ValidationError):
-        ResponseEvalCase.model_validate(
+        ResponseComparisonCase.model_validate(
             {
                 "case_id": "case-1",
                 "ai_question": "   ",
@@ -53,7 +53,7 @@ def test_response_eval_case_rejects_blank_dialogue_and_unknown_fields():
         )
 
     with pytest.raises(ValidationError):
-        ResponseEvalCase.model_validate(
+        ResponseComparisonCase.model_validate(
             {
                 "case_id": "case-1",
                 "ai_question": "질문",
@@ -66,7 +66,7 @@ def test_response_eval_case_rejects_blank_dialogue_and_unknown_fields():
         )
 
 
-def test_generated_response_and_safety_and_judgment_contracts():
+def test_generated_response_and_citation_and_judgment_contracts():
     response = GeneratedResponse.model_validate(
         {
             "body": "공식 자료에 따르면 92%입니다.",
@@ -74,7 +74,7 @@ def test_generated_response_and_safety_and_judgment_contracts():
             "cited_urls": ["https://example.com/a"],
         }
     )
-    safety = SafetyCheckResult.model_validate(
+    citation_check = CitationCheckResult.model_validate(
         {"passed": True, "failure_reasons": []}
     )
     judgment = PairwiseJudgment.model_validate(
@@ -87,17 +87,17 @@ def test_generated_response_and_safety_and_judgment_contracts():
             "order_flipped": False,
         }
     )
-    case_result = CaseEvalResult.model_validate(
+    case_result = CaseComparisonResult.model_validate(
         {
             "case_id": "case-1",
             "baseline_response": response,
             "grounded_response": response,
-            "baseline_safety": safety,
-            "grounded_safety": safety,
+            "baseline_citation_check": citation_check,
+            "grounded_citation_check": citation_check,
             "judgment": judgment,
         }
     )
-    summary = EvalSummary.model_validate(
+    summary = ComparisonSummary.model_validate(
         {
             "case_count": 1,
             "fatal_failure_count": 0,

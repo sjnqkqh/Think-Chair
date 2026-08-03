@@ -2,11 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from tests.evaluation.agentic_rag_eval_contracts import (
+from app.evaluation.comparison_case_loading import load_response_comparison_cases
+from app.evaluation.research_dialogue_schema import (
     load_evaluation_cases,
     load_evaluation_corpus,
 )
-from tests.evaluation.response_eval_bridge import load_response_eval_cases
 
 pytestmark = pytest.mark.unit
 
@@ -14,8 +14,8 @@ CASES_PATH = Path("tests/evaluation/agentic_rag_cases.json")
 CORPUS_PATH = Path("tests/evaluation/agentic_rag_corpus.json")
 
 
-def test_load_response_eval_cases_from_agentic_fixtures_keeps_research_needed_only():
-    cases = load_response_eval_cases(
+def test_load_response_comparison_cases_keeps_research_needed_only():
+    cases = load_response_comparison_cases(
         cases_path=CASES_PATH,
         corpus_path=CORPUS_PATH,
         research_required_only=True,

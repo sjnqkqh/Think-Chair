@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from app.evaluation.contracts import GeneratedResponse, PreparedEvidence, ResponseEvalCase
+from app.evaluation.contracts import GeneratedResponse, PreparedEvidence, ResponseComparisonCase
 from app.evaluation.response_generation import (
     build_baseline_prompt,
     build_grounded_prompt,
@@ -12,8 +12,8 @@ from app.evaluation.response_generation import (
 pytestmark = pytest.mark.unit
 
 
-def _case() -> ResponseEvalCase:
-    return ResponseEvalCase(
+def _case() -> ResponseComparisonCase:
+    return ResponseComparisonCase(
         case_id="case-1",
         ai_question="수치가 맞나요?",
         human_response="95%라고 들었어요.",
@@ -69,4 +69,6 @@ def test_parse_generation_response_reads_body_and_citations():
 
 def test_parse_generation_response_rejects_blank_body():
     with pytest.raises(ValueError):
-        parse_generation_response('{"body":"   ","cited_source_keys":[],"cited_urls":[]}')
+        parse_generation_response(
+            '{"body":"   ","cited_source_keys":[],"cited_urls":[]}'
+        )

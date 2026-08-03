@@ -1,16 +1,16 @@
 import pytest
 
 from app.evaluation.contracts import GeneratedResponse, PairwiseJudgment
-from app.evaluation.pairwise_judge import (
-    build_judge_prompt,
-    combine_ordered_judgments,
-    parse_judge_response,
+from app.evaluation.response_comparison import (
+    build_comparison_prompt,
+    combine_order_swapped_judgments,
+    parse_comparison_judgment,
 )
 
 pytestmark = pytest.mark.unit
 
 
-def test_parse_judge_response_reads_winners_and_reason():
+def test_parse_comparison_judgment_reads_winners_and_reason():
     raw = """{
       "specificity_winner": "B",
       "naturalness_winner": "tie",
@@ -19,7 +19,7 @@ def test_parse_judge_response_reads_winners_and_reason():
       "reason": "B가 더 구체적이다."
     }"""
 
-    parsed = parse_judge_response(raw)
+    parsed = parse_comparison_judgment(raw)
 
     assert parsed["specificity_winner"] == "B"
     assert parsed["naturalness_winner"] == "tie"
@@ -28,7 +28,7 @@ def test_parse_judge_response_reads_winners_and_reason():
     assert "구체적" in parsed["reason"]
 
 
-def test_combine_ordered_judgments_maps_labels_and_detects_flip():
+def test_combine_order_swapped_judgments_maps_labels_and_detects_flip():
     first = {
         "specificity_winner": "B",
         "naturalness_winner": "A",
@@ -51,8 +51,8 @@ def test_combine_ordered_judgments_maps_labels_and_detects_flip():
         "reason": "이번엔 반대.",
     }
 
-    consistent = combine_ordered_judgments(first, second_consistent)
-    flipped = combine_ordered_judgments(first, second_flipped)
+    consistent = combine_order_swapped_judgments(first, second_consistent)
+    flipped = combine_order_swapped_judgments(first, second_flipped)
 
     assert consistent == PairwiseJudgment(
         specificity_winner="grounded",
@@ -66,11 +66,15 @@ def test_combine_ordered_judgments_maps_labels_and_detects_flip():
     assert flipped.order_flipped is True
 
 
-def test_build_judge_prompt_includes_both_answers_without_system_labels():
-    prompt = build_judge_prompt(
+def test_build_comparison_prompt_includes_both_answers_without_system_labels():
+    prompt = build_comparison_prompt(
         ai_question="수치가 맞나요?",
         human_response="95%라고 들었어요.",
-        answer_a=GeneratedResponse(body="잘 모르겠어요. 근거가 있나요?", cited_source_keys=(), cited_urls=()),
+        answer_a=GeneratedResponse(
+            body="잘 모르겠어요. 근거가 있나요?",
+            cited_source_keys=(),
+            cited_urls=(),
+        ),
         answer_b=GeneratedResponse(
             body="공개 자료 기준으로는 92%입니다.",
             cited_source_keys=("src-a",),

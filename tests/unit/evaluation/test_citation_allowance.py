@@ -1,12 +1,16 @@
 import pytest
 
-from app.evaluation.contracts import GeneratedResponse, PreparedEvidence, ResponseEvalCase
-from app.evaluation.safety_checks import check_response_citations
+from app.evaluation.citation_allowance import check_cited_sources_are_allowed
+from app.evaluation.contracts import (
+    GeneratedResponse,
+    PreparedEvidence,
+    ResponseComparisonCase,
+)
 
 pytestmark = pytest.mark.unit
 
 
-def _case(**overrides) -> ResponseEvalCase:
+def _case(**overrides) -> ResponseComparisonCase:
     payload = {
         "case_id": "case-1",
         "ai_question": "수치가 맞나요?",
@@ -29,11 +33,11 @@ def _case(**overrides) -> ResponseEvalCase:
         ],
     }
     payload.update(overrides)
-    return ResponseEvalCase.model_validate(payload)
+    return ResponseComparisonCase.model_validate(payload)
 
 
 def test_citation_check_passes_when_sources_are_allowed():
-    result = check_response_citations(
+    result = check_cited_sources_are_allowed(
         response=GeneratedResponse(
             body="공식 자료에 따르면 92%입니다. [src-a]",
             cited_source_keys=("src-a",),
@@ -47,7 +51,7 @@ def test_citation_check_passes_when_sources_are_allowed():
 
 
 def test_citation_check_fails_for_unknown_forbidden_and_ghost_urls():
-    unknown = check_response_citations(
+    unknown = check_cited_sources_are_allowed(
         response=GeneratedResponse(
             body="다른 자료를 인용합니다.",
             cited_source_keys=("src-unknown",),
@@ -55,7 +59,7 @@ def test_citation_check_fails_for_unknown_forbidden_and_ghost_urls():
         ),
         case=_case(),
     )
-    forbidden = check_response_citations(
+    forbidden = check_cited_sources_are_allowed(
         response=GeneratedResponse(
             body="비공개 자료를 인용합니다.",
             cited_source_keys=("src-private",),
@@ -63,7 +67,7 @@ def test_citation_check_fails_for_unknown_forbidden_and_ghost_urls():
         ),
         case=_case(),
     )
-    ghost_url = check_response_citations(
+    ghost_url = check_cited_sources_are_allowed(
         response=GeneratedResponse(
             body="없는 URL을 붙입니다.",
             cited_source_keys=(),
@@ -77,11 +81,14 @@ def test_citation_check_fails_for_unknown_forbidden_and_ghost_urls():
     assert forbidden.passed is False
     assert any("forbidden" in reason for reason in forbidden.failure_reasons)
     assert ghost_url.passed is False
-    assert any("unknown" in reason or "ghost" in reason for reason in ghost_url.failure_reasons)
+    assert any(
+        "unknown" in reason or "ghost" in reason
+        for reason in ghost_url.failure_reasons
+    )
 
 
 def test_citation_check_allows_empty_citations():
-    result = check_response_citations(
+    result = check_cited_sources_are_allowed(
         response=GeneratedResponse(
             body="지금은 질문을 이어가겠습니다. 어떤 기준으로 95%를 들으셨나요?",
             cited_source_keys=(),
