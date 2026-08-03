@@ -90,6 +90,9 @@ def test_generated_response_and_citation_and_judgment_contracts():
     case_result = CaseComparisonResult.model_validate(
         {
             "case_id": "case-1",
+            "ai_question": "그 수치가 맞나요?",
+            "human_response": "정확도 95%라고 들었어요.",
+            "prepared_evidence_keys": ["src-a"],
             "baseline_response": response,
             "grounded_response": response,
             "baseline_citation_check": citation_check,

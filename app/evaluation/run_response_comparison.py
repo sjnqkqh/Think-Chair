@@ -17,6 +17,8 @@ from app.evaluation.runner import compare_case_responses
 DEFAULT_CASES = PROJECT_ROOT / "tests/evaluation/agentic_rag_cases.json"
 DEFAULT_CORPUS = PROJECT_ROOT / "tests/evaluation/agentic_rag_corpus.json"
 DEFAULT_OUTPUT = PROJECT_ROOT / "artifacts/ai_response_comparison"
+# 사례당 대략 생성 2회 + 판정 2회. 한도는 fixture 개수이며 코드상 상한은 없다.
+API_CALLS_PER_CASE = 4
 
 PromptInvoker = Callable[[str], str]
 
@@ -74,6 +76,12 @@ def main(argv: list[str] | None = None) -> int:
         cases = cases[: args.limit]
     if not cases:
         raise SystemExit("평가할 사례가 없습니다.")
+
+    estimated_calls = len(cases) * API_CALLS_PER_CASE
+    print(
+        f"cases={len(cases)} estimated_llm_calls≈{estimated_calls} "
+        f"(약 {API_CALLS_PER_CASE}회/사례, 상한은 fixture 수·API 한도)"
+    )
 
     generate_invoke = _make_prompt_invoker(
         settings.RESPONSE_COMPARISON_GENERATION_MODEL, api_key

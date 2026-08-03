@@ -25,6 +25,30 @@ def _citation_check(
     return CitationCheckResult(passed=passed, failure_reasons=reasons)
 
 
+def _result(
+    case_id: str,
+    *,
+    baseline: str,
+    grounded: str,
+    judgment: PairwiseJudgment | None,
+    grounded_citation_passed: bool = True,
+    grounded_citation_reasons: tuple[str, ...] = (),
+) -> CaseComparisonResult:
+    return CaseComparisonResult(
+        case_id=case_id,
+        ai_question="질문이 무엇인가요?",
+        human_response="사용자 답변입니다.",
+        prepared_evidence_keys=("src-a",) if grounded_citation_passed else (),
+        baseline_response=_response(baseline),
+        grounded_response=_response(grounded),
+        baseline_citation_check=_citation_check(),
+        grounded_citation_check=_citation_check(
+            grounded_citation_passed, grounded_citation_reasons
+        ),
+        judgment=judgment,
+    )
+
+
 def _judgment(
     overall: str = "grounded",
     *,
@@ -32,25 +56,24 @@ def _judgment(
     specificity: str = "grounded",
     naturalness: str = "tie",
     accuracy: str = "grounded",
+    reason: str = "근거 참고 응답이 더 구체적이다.",
 ) -> PairwiseJudgment:
     return PairwiseJudgment(
         specificity_winner=specificity,  # type: ignore[arg-type]
         naturalness_winner=naturalness,  # type: ignore[arg-type]
         accuracy_winner=accuracy,  # type: ignore[arg-type]
         overall_winner=overall,  # type: ignore[arg-type]
-        reason="판정 이유",
+        reason=reason,
         order_flipped=order_flipped,
     )
 
 
 def test_summarize_comparison_results_counts_wins_fatals_and_rates():
     results = [
-        CaseComparisonResult(
-            case_id="win",
-            baseline_response=_response("b1"),
-            grounded_response=_response("g1"),
-            baseline_citation_check=_citation_check(),
-            grounded_citation_check=_citation_check(),
+        _result(
+            "win",
+            baseline="b1",
+            grounded="g1",
             judgment=_judgment(
                 "grounded",
                 specificity="grounded",
@@ -58,12 +81,10 @@ def test_summarize_comparison_results_counts_wins_fatals_and_rates():
                 accuracy="grounded",
             ),
         ),
-        CaseComparisonResult(
-            case_id="loss",
-            baseline_response=_response("b2"),
-            grounded_response=_response("g2"),
-            baseline_citation_check=_citation_check(),
-            grounded_citation_check=_citation_check(),
+        _result(
+            "loss",
+            baseline="b2",
+            grounded="g2",
             judgment=_judgment(
                 "baseline",
                 specificity="baseline",
@@ -71,12 +92,10 @@ def test_summarize_comparison_results_counts_wins_fatals_and_rates():
                 accuracy="tie",
             ),
         ),
-        CaseComparisonResult(
-            case_id="tie",
-            baseline_response=_response("b3"),
-            grounded_response=_response("g3"),
-            baseline_citation_check=_citation_check(),
-            grounded_citation_check=_citation_check(),
+        _result(
+            "tie",
+            baseline="b3",
+            grounded="g3",
             judgment=_judgment(
                 "tie",
                 order_flipped=True,
@@ -85,15 +104,13 @@ def test_summarize_comparison_results_counts_wins_fatals_and_rates():
                 accuracy="tie",
             ),
         ),
-        CaseComparisonResult(
-            case_id="fatal",
-            baseline_response=_response("b4"),
-            grounded_response=_response("g4"),
-            baseline_citation_check=_citation_check(),
-            grounded_citation_check=_citation_check(
-                False, ("unknown source cited: x",)
-            ),
+        _result(
+            "fatal",
+            baseline="b4",
+            grounded="g4",
             judgment=None,
+            grounded_citation_passed=False,
+            grounded_citation_reasons=("unknown source cited: x",),
         ),
     ]
 
@@ -113,10 +130,10 @@ def test_summarize_comparison_results_counts_wins_fatals_and_rates():
     )
 
 
-def test_render_comparison_summary_mentions_fatal_and_undecided_threshold():
+def test_render_comparison_markdown_shows_both_answers_and_judgment_reason():
     summary = ComparisonSummary(
-        case_count=2,
-        fatal_failure_count=1,
+        case_count=1,
+        fatal_failure_count=0,
         wins=1,
         losses=0,
         ties=0,
@@ -126,9 +143,25 @@ def test_render_comparison_summary_mentions_fatal_and_undecided_threshold():
         order_flip_rate=0.0,
         win_rate_threshold=None,
     )
+    results = [
+        _result(
+            "ci-timeout-claim-ko",
+            baseline="캐싱을 써 보셨나요?",
+            grounded="타임아웃 설정 조정도 고려해 보셨나요?",
+            judgment=_judgment(
+                reason="타임아웃 설정까지 언급해 구체성이 높다."
+            ),
+        )
+    ]
 
-    text = render_comparison_summary_markdown(summary)
+    text = render_comparison_summary_markdown(summary, results)
 
-    assert "치명 실수: 1" in text
+    assert "치명 실수: 0" in text
     assert "승률 기준: 미정" in text
-    assert "승: 1" in text
+    assert "### ci-timeout-claim-ko" in text
+    assert "캐싱을 써 보셨나요?" in text
+    assert "타임아웃 설정 조정도 고려해 보셨나요?" in text
+    assert "근거 없는 응답" in text
+    assert "근거 참고 응답" in text
+    assert "타임아웃 설정까지 언급해 구체성이 높다." in text
+    assert "구체성: 근거 참고 응답" in text
