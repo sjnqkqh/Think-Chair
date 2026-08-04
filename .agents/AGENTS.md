@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
@@ -55,11 +55,11 @@ The test: Every changed line should trace directly to the user's request.
 
 ## 5. Thin Endpoints, Logic in Services
 
-**API 엔드포인트 함수(`app/api/endpoints/**`, `app/pages/**`)에 비즈니스 로직을 직접 작성하지 않는다.**
+**Do not put business logic directly in API endpoint handlers (`app/api/endpoints/**`, `app/pages/**`).**
 
-- 엔드포인트 함수는 요청 파싱 → 서비스 호출 → 응답 변환만 담당한다.
-- DB 쿼리, 조건 분기, 비밀번호 해싱/토큰 발급 같은 도메인 로직은 `app/services/`에 함수로 분리한다.
-- 새 라우터를 추가할 때도 동일하게: 라우터 파일은 얇게, 로직은 서비스 모듈로.
+- Endpoint handlers only parse the request, call a service, and shape the response.
+- Domain work (DB queries, branching, password hashing, token issuance, etc.) lives in functions under `app/services/`.
+- Same rule for new routers: keep the router thin; put logic in a service module.
 
 ## 6. Goal-Driven Execution
 
@@ -81,20 +81,29 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 7. No Runtime Schema Migrations
 
-**테이블 구조 변경은 애플리케이션 코드에서 하지 않는다.**
+**Do not change table structure from application runtime code.**
 
-- `ALTER TABLE`, `PRAGMA table_info`로 컬럼 유무를 검사해 보정하는 런타임 마이그레이션 코드를 넣지 않는다.
-- 스키마는 SQLAlchemy ORM 모델(`app/models/`)에만 정의하고, 신규·개발 환경은 `Base.metadata.create_all`로 테이블을 만든다.
-- 기존 DB에 컬럼·테이블 변경이 필요하면 별도 마이그레이션 절차(수동 SQL, 전용 마이그레이션 도구 등)로 처리하고, 앱 기동 시 자동 적용하지 않는다.
+- Do not ship runtime migration helpers that probe columns with `ALTER TABLE` / `PRAGMA table_info` and patch the DB.
+- Define schema only on SQLAlchemy ORM models (`app/models/`). New and local DBs use `Base.metadata.create_all`.
+- Column or table changes on existing DBs go through a separate migration process (manual SQL, a migration tool, etc.)—never auto-applied on app startup.
 
 ## 8. Shared Vocabulary in Conversation
 
-**대화에서 스스로 만든 이름·축약을 일상 용어인 것처럼 쓰지 않는다.**
+**Do not treat names or abbreviations you invented as shared everyday terms.**
 
-- 이번 세션에서 새로 만든 클래스·모듈·패턴 이름을 설명 없이 고유명사처럼 던지지 않는다. (예: “상태 전이는 Context만” — 상대가 모르는 로컬 명칭)
-- 설계·리팩터를 말할 때는 **역할·동작을 도메인 말로 먼저** 쓰고, 코드 식별자가 필요하면 그다음에 경로·전체 이름을 붙인다.
-- 팀/업계에 이미 공유된 용어(HTTP, ORM, job status 등)와, 이 대화·이 PR에서만 생긴 이름을 구분한다. 후자는 매번 짧게 다시 풀어 쓴다.
-- 지나친 축약(`ctx`, `Runner`, `stages`만 단독으로)으로 컴포넌트 이름만 덜렁 제시하지 않는다.
+- Do not drop newly coined class/module/pattern names as if the reader already knows them (e.g. “state transitions only go through Context”—a local label they have not seen).
+- When discussing design or refactors, **lead with role and behavior in domain language**, then attach paths or full identifiers if needed.
+- Distinguish industry-shared terms (HTTP, ORM, job status, etc.) from names that exist only in this chat or PR. Re-expand the latter briefly each time.
+- Avoid dangling shorthand (`ctx`, `Runner`, `stages` alone) as if it named a known component.
+
+## 9. Commit Messages in Korean
+
+**When the user asks for a commit, write the commit message in Korean.**
+
+- Subject and body in Korean. (e.g. `fix: FakeList e2e에서 턴 근거 embeddings 실호출 차단`)
+- English conventional prefixes (`feat:`, `fix:`, `docs:`, …) are fine; the text after the prefix must be Korean.
+- Prefer why over what; keep it to 1–2 sentences.
+- Do not commit unless the user explicitly asks.
 
 ---
 
