@@ -18,6 +18,7 @@ from app.research.page_fetcher import fetch_page
 from app.research.research_job_runner import run_research_job
 from app.research.web_research import expand_evidence_via_web_search
 from app.research.web_search import search_web
+from app.repositories import research_repo
 from app.services.manuscript_service import get_manuscript
 from app.services.research_job_service import (
     create_or_get_research_job,
@@ -50,7 +51,7 @@ async def create_research_job(
         storage = get_file_storage()
 
         async def web_research(*, db, job, query, evidence_index):
-            await expand_evidence_via_web_search(
+            return await expand_evidence_via_web_search(
                 db=db,
                 job=job,
                 query=query,
@@ -110,12 +111,17 @@ async def get_research_job(
     )
     if job is None:
         return {"error": "not_found"}
-    ready = job.status.value in {"completed", "partial"}
+    comparison = research_repo.find_comparison_record_for_job(
+        database_session, research_job_id=job.id
+    )
+    evidence_ready = bool(
+        comparison is not None and comparison.prepared_evidence_json
+    )
     return {
         "id": str(job.id),
         "status": job.status.value,
         "terminal_error": job.terminal_error,
-        "evidence_ready": ready,
+        "evidence_ready": evidence_ready,
     }
 
 

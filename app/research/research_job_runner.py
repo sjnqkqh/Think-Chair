@@ -60,9 +60,10 @@ async def run_research_job(
             query_embedding=embed_query(query),
         )
 
+        web_error: str | None = None
         if not evidence.sufficiency.sufficient and web_research is not None:
             try:
-                await web_research(
+                web_error = await web_research(
                     db=db,
                     job=job,
                     query=query,
@@ -79,7 +80,14 @@ async def run_research_job(
                     query_embedding=embed_query(query),
                 )
             except Exception:
+                web_error = "web_research_failed"
                 logger.exception("research.web_research_failed", job_id=str(job_id))
+                db.rollback()
+                job = db.get(ResearchJob, job_id)
+                if job is None or job.status == ResearchJobStatus.CANCELLED:
+                    return
+                job.status = ResearchJobStatus.RUNNING
+                db.commit()
 
         baseline = _generate_baseline(
             conversation_context=query,
@@ -149,15 +157,18 @@ async def run_research_job(
 
         if evidence.sufficiency.sufficient and grounded.is_grounded:
             job.status = ResearchJobStatus.COMPLETED
-        elif evidence.items or grounded.text:
+            job.terminal_error = None
+        elif evidence.items:
             job.status = ResearchJobStatus.PARTIAL
+            job.terminal_error = None
         else:
             job.status = ResearchJobStatus.FAILED
-            job.terminal_error = "insufficient_evidence"
+            job.terminal_error = web_error or "insufficient_evidence"
         db.commit()
     except Exception:
         logger.exception("research.job_failed", job_id=str(job_id))
         try:
+            db.rollback()
             job = db.get(ResearchJob, job_id)
             if job is not None:
                 job.status = ResearchJobStatus.FAILED

@@ -191,6 +191,41 @@ async def test_reuses_public_source_and_adds_redirect_alias(db_session, tmp_path
     assert any(item["source_url"].endswith("#comment-1") for item in metadata)
 
 
+async def test_indexes_source_when_requested_url_matches_canonical(db_session, tmp_path):
+    """요청 URL과 canonical URL이 같아도 URL alias UNIQUE 충돌 없이 인덱싱한다."""
+    user, manuscript = _create_user_and_manuscript(db_session, "same-url")
+    job = _create_research_job(db_session, user, manuscript)
+    evidence_index = ResearchEvidenceIndex(
+        tmp_path / "chroma_db_same_url",
+        embedding_model="test-model",
+        embedding_dimension=8,
+        chunk_schema_version="chunk-600-100-v1",
+    )
+    url = "https://example.com/same-url"
+    result = await _index_request(
+        db_session,
+        tmp_path,
+        ResearchIndexRequest(
+            research_job_id=job.id,
+            user_id=user.id,
+            manuscript_id=manuscript.id,
+            sources=[
+                _make_fetched_source(
+                    requested_url=url,
+                    canonical_url=url,
+                )
+            ],
+        ),
+        scope="public",
+        evidence_index=evidence_index,
+    )
+
+    assert result.status == "completed"
+    assert result.chunk_count > 0
+    assert db_session.query(ResearchSource).count() == 1
+    assert db_session.query(ResearchSourceUrl).count() == 1
+
+
 async def test_isolates_private_sources_by_owner_and_manuscript(db_session, tmp_path):
     """같은 URL의 비공개 자료도 다른 사용자·원고 사이에서는 별도 자료로 저장하는지 검증한다."""
     first_user, first_manuscript = _create_user_and_manuscript(

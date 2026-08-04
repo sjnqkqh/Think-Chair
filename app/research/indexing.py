@@ -206,14 +206,15 @@ async def index_research_sources(
             request.manuscript_id,
             is_canonical=True,
         )
-        research_repo.add_source_url_alias(
-            db,
-            source,
-            fetched_source.requested_url,
-            request.user_id,
-            request.manuscript_id,
-            is_canonical=fetched_source.requested_url == fetched_source.canonical_url,
-        )
+        if fetched_source.requested_url != fetched_source.canonical_url:
+            research_repo.add_source_url_alias(
+                db,
+                source,
+                fetched_source.requested_url,
+                request.user_id,
+                request.manuscript_id,
+                is_canonical=False,
+            )
         db.commit()
 
         chunks = split_source_for_retrieval(

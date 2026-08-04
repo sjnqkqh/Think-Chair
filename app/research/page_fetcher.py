@@ -109,6 +109,19 @@ def _fingerprint(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _html_charset(headers: httpx.Headers | None) -> str:
+    if headers is None:
+        return "utf-8"
+    content_type = headers.get("Content-Type", "")
+    for part in content_type.split(";"):
+        part = part.strip()
+        if part.lower().startswith("charset="):
+            charset = part.split("=", 1)[1].strip().strip("'\"")
+            if charset:
+                return charset
+    return "utf-8"
+
+
 async def fetch_page(
     request: FetchRequest,
     *,
@@ -160,12 +173,9 @@ async def fetch_page(
             if media_type not in {"text/html", "application/xhtml+xml"}:
                 return FetchResponse(error_code="unsupported_media_type")
 
-            encoding = httpx.Response(
-                200,
-                headers=result.headers,
-                content=result.body,
-            ).encoding
-            html = result.body.decode(encoding or "utf-8", errors="replace")
+            # aiter_bytes() already yields decompressed body; do not rebuild an
+            # httpx.Response with Content-Encoding or it tries to decompress twice.
+            html = result.body.decode(_html_charset(result.headers), errors="replace")
             try:
                 page = parse_html_page(html, current_url)
             except (ValueError, TypeError, etree.LxmlError):

@@ -50,7 +50,7 @@
 (function () {
   const log = document.getElementById('chat-log');
   const researchStatus = document.getElementById('research-status');
-  const manuscriptId = {{ active_manuscript.id | tojson }};
+  const manuscriptId = {{ active_manuscript.id | string | tojson }};
   let researchPollTimer = null;
   const form = document.getElementById('chat-form');
   const spinner = document.getElementById('chat-spinner');
@@ -165,7 +165,10 @@
         showResearchStatus('근거 준비됨. 다음 메시지부터 참고합니다.');
       } else if (statusPayload.status === 'failed' || statusPayload.status === 'cancelled') {
         stopResearchPolling();
-        showResearchStatus('조사에 실패했거나 취소되었습니다.');
+        const reason = statusPayload.terminal_error
+          ? ` (${statusPayload.terminal_error})`
+          : '';
+        showResearchStatus(`조사에 실패했거나 취소되었습니다.${reason}`);
       }
     }, 2000);
   }

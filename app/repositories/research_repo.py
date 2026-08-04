@@ -85,6 +85,14 @@ def add_source_url_alias(
         .filter(ResearchSourceUrl.identity_key == identity_key)
         .first()
     )
+    if alias is None:
+        for pending in db.new:
+            if (
+                isinstance(pending, ResearchSourceUrl)
+                and pending.identity_key == identity_key
+            ):
+                alias = pending
+                break
     if alias is not None:
         alias.is_canonical = alias.is_canonical or is_canonical
         return
@@ -221,6 +229,18 @@ def save_response_comparison_record(
     db.add(record)
     db.flush()
     return record
+
+
+def find_comparison_record_for_job(
+    db: Session,
+    *,
+    research_job_id: uuid.UUID,
+) -> ResponseComparisonRecord | None:
+    return (
+        db.query(ResponseComparisonRecord)
+        .filter(ResponseComparisonRecord.research_job_id == research_job_id)
+        .first()
+    )
 
 
 def find_ready_prepared_evidence(

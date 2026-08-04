@@ -139,3 +139,74 @@ async def test_run_research_job_stores_baseline_grounded_comparison(db_factory, 
     assert record.prepared_evidence_json
     assert "chunk-timeout" in record.prepared_evidence_json
     verify.close()
+
+
+@pytest.mark.asyncio
+async def test_run_research_job_fails_when_web_research_yields_no_evidence(
+    db_factory, tmp_path
+):
+    session = db_factory()
+    user = User(login_id="research-empty", password_hash="x", nickname="r")
+    session.add(user)
+    session.flush()
+    manuscript = Manuscript(
+        user_id=user.id,
+        topic="timeout",
+        concept=ConceptType.TECH_DEEPDIVE,
+        status=ManuscriptStatus.DRAFTING,
+    )
+    session.add(manuscript)
+    session.flush()
+    job = ResearchJob(
+        user_id=user.id,
+        manuscript_id=manuscript.id,
+        message_id=uuid4(),
+        claim_or_query="timeout이 60분이라고 했습니다.",
+        status=ResearchJobStatus.QUEUED,
+    )
+    session.add(job)
+    session.commit()
+    job_id = job.id
+    session.close()
+
+    evidence_index = ResearchEvidenceIndex(
+        tmp_path / "chroma-empty",
+        embedding_model="test-model",
+        embedding_dimension=3,
+        chunk_schema_version="test-schema",
+    )
+
+    async def web_research(**_kwargs):
+        return "search_not_configured"
+
+    def generate_invoke(_prompt: str) -> str:
+        return json.dumps(
+            {
+                "body": "정확한 기본값을 확인해 볼까요?",
+                "cited_source_keys": [],
+                "cited_urls": [],
+            },
+            ensure_ascii=False,
+        )
+
+    await run_research_job(
+        job_id=job_id,
+        db_factory=db_factory,
+        evidence_index=evidence_index,
+        embed_query=lambda _: [0.0, 1.0, 0.0],
+        generate_invoke=generate_invoke,
+        judge_invoke=generate_invoke,
+        web_research=web_research,
+    )
+
+    verify = db_factory()
+    refreshed = verify.get(ResearchJob, job_id)
+    record = (
+        verify.query(ResponseComparisonRecord)
+        .filter(ResponseComparisonRecord.research_job_id == job_id)
+        .one()
+    )
+    assert refreshed.status == ResearchJobStatus.FAILED
+    assert refreshed.terminal_error == "search_not_configured"
+    assert record.prepared_evidence_json is None
+    verify.close()
