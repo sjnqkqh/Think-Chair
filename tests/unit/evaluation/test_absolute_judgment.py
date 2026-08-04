@@ -20,8 +20,8 @@ def test_absolute_judgment_prompt_prioritizes_reference_suggestion():
     assert "근거" in prompt
     assert "reference_suggestion" in prompt
     assert "knowledge_depth" in prompt
-    assert "점수 밴드" in prompt
-    assert "41~60" in prompt
+    assert "연속" in prompt or "인위적인 등급" in prompt
+    assert "41~60" not in prompt and "점수 밴드" not in prompt
     assert "reference_suggestion" in prompt
     assert "knowledge_depth" in prompt
     assert "주입된 근거" not in prompt

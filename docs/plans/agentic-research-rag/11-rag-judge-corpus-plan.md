@@ -63,7 +63,7 @@ job 끝 pairwise와 예전 `run_response_comparison`은 **한 시점의 근거 �
    사용자가 **더 깊은 지식을 쌓고 명확한 근거를 갖도록** 도왔는지  
    - 핵심 고득점 축: **문맥에 맞는 참고자료·검증 경로 제안** (`reference_suggestion`)  
    - 그외: claim_sharpening / knowledge_depth / dialogue_fit / next_step_clarity / overall  
-   - 점수 밴드 사용. 같은 claim+응답은 같은 점수대. RAG 내부 사용 여부는 비채점  
+   - 무난한 답에 관대하지 말 것. 0~100 연속 척도(등급 밴드 없음). 같은 claim+응답은 점수 안정. RAG 내부 사용 여부는 비채점  
 4. 기록: 응답 본문, 점수, (관측용) 주입 근거 유무, 생성·Judge 모델명, 실행 시각
 
 ### 집계·산출물
@@ -110,7 +110,7 @@ job 끝 pairwise와 예전 `run_response_comparison`은 **한 시점의 근거 �
 - [x] 사례 JSON 스키마 (`ServiceGrowthCase`)
 - [x] 50개 일반론 (say:feedback 40:10; domain 필드 없음)
 - [x] 실행기: 공용 인덱스만 + thin graph(converse/feedback) + LangFeather + 절대 Judge + MD
-- [x] Judge 프롬프트: **근거·참고 제안으로 지식 심화** 채점 (정답 제공 비목표, 세분 지표·점수 밴드)
+- [x] Judge 프롬프트: **근거·참고 제안으로 지식 심화** 채점 (정답 제공 비목표, 세분 지표, 연속 점수·밴드 없음)
 - [x] pairwise runner / `ResponseComparisonRecord`와 경계 유지
 - [x] Judge 모델 설정키 `SERVICE_GROWTH_JUDGE_MODEL` (기본 DeepSeek)
 - [x] 평가 인덱스: 제품과 같은 **공용(public) 실인덱스**
