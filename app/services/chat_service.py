@@ -8,6 +8,7 @@ from app.models.manuscript import Manuscript
 from app.models.user import User
 from app.repositories import chat_repo
 from app.research.evidence_need import detect_evidence_need
+from app.research.research_eligibility import concept_allows_web_research
 from app.services.background_tasks import BackgroundTaskRegistry
 from app.utils.sse import SseEvent
 
@@ -94,11 +95,15 @@ class ChatService:
             )
 
         evidence_need = detect_evidence_need(user_message)
+        research_required = (
+            evidence_need.required
+            and concept_allows_web_research(manuscript.concept)
+        )
         return TurnStart(
             action=action,
             message_id=user_chat_message.id,
-            research_required=evidence_need.required,
-            claim_or_query=evidence_need.claim_or_query,
+            research_required=research_required,
+            claim_or_query=evidence_need.claim_or_query if research_required else None,
         )
 
     async def stream_response(

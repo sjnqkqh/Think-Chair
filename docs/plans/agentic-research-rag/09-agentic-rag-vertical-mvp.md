@@ -3,12 +3,18 @@
 - 작성일: 2026-08-03
 - 근거 설계: `docs/specs/2026-08-03-agentic-rag-vertical-mvp-design.md`
 - 목표: 채팅에서 비동기 웹 조사를 쓰고, job 완료 시 baseline/grounded 쌍과 LLM 비교를 DB에 남긴다.
+- 적용 범위: 원고 컨셉이 **딥다이브**(`TECH_DEEPDIVE`) 또는 **수업 자료**(`TEACHING`)일 때만 웹 조사 트리거·job 생성. TIL/에세이/회고 등은 감지해도 `research_required`를 내지 않는다.
 
 ## 완료 기준
 
 설계 §7과 동일. 승률 게이트 없음.
 
 ## 작업 순서
+
+### 0. 컨셉 게이트
+
+- `concept_allows_web_research` — 딥다이브·수업 자료만 허용
+- 채팅 `begin_turn`과 job 생성 서비스에서 동일 규칙 적용
 
 ### 1. 근거 검색
 

@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
 import app.services.chat_service as chat_service_module
+from app.models.manuscript import ConceptType
 from app.services.chat_service import (
     DOCUMENT_GENERATION_ACK,
     ChatService,
@@ -88,6 +89,102 @@ async def test_stream_response_dispatches_assistant_reply():
     assert "".join(chunks) == "안녕하세요"
     assert events[-1] == (SseEvent.DONE, {})
     assert background.started == []
+
+
+async def test_begin_turn_skips_research_for_non_enabled_concepts(monkeypatch):
+    message_id = uuid.uuid4()
+
+    class FakeRunner:
+        async def route_turn(self, **kwargs):
+            return {"user_action": "say"}
+
+    class Session:
+        def get(self, *_args):
+            return SimpleNamespace(id=uuid.uuid4())
+
+        def commit(self):
+            return None
+
+    monkeypatch.setattr(
+        chat_service_module.chat_repo,
+        "create_message",
+        lambda *args, **kwargs: SimpleNamespace(id=message_id),
+    )
+    monkeypatch.setattr(
+        chat_service_module,
+        "detect_evidence_need",
+        lambda _text: SimpleNamespace(
+            required=True,
+            claim_or_query="보통 CPU 점유율을 봅니다.",
+        ),
+    )
+    service = ChatService(
+        graph_runner=FakeRunner(),
+        db_factory=_NullSession,
+        background_tasks=RecordingBackgroundTasks(),
+    )
+    manuscript = SimpleNamespace(
+        id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        concept=ConceptType.TIL,
+    )
+
+    turn = await service.begin_turn(
+        Session(),
+        manuscript,
+        "보통 CPU 점유율을 봅니다.",
+    )
+
+    assert turn.research_required is False
+    assert turn.claim_or_query is None
+
+
+async def test_begin_turn_keeps_research_for_deepdive(monkeypatch):
+    message_id = uuid.uuid4()
+
+    class FakeRunner:
+        async def route_turn(self, **kwargs):
+            return {"user_action": "say"}
+
+    class Session:
+        def get(self, *_args):
+            return SimpleNamespace(id=uuid.uuid4())
+
+        def commit(self):
+            return None
+
+    monkeypatch.setattr(
+        chat_service_module.chat_repo,
+        "create_message",
+        lambda *args, **kwargs: SimpleNamespace(id=message_id),
+    )
+    monkeypatch.setattr(
+        chat_service_module,
+        "detect_evidence_need",
+        lambda _text: SimpleNamespace(
+            required=True,
+            claim_or_query="보통 CPU 점유율을 봅니다.",
+        ),
+    )
+    service = ChatService(
+        graph_runner=FakeRunner(),
+        db_factory=_NullSession,
+        background_tasks=RecordingBackgroundTasks(),
+    )
+    manuscript = SimpleNamespace(
+        id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        concept=ConceptType.TECH_DEEPDIVE,
+    )
+
+    turn = await service.begin_turn(
+        Session(),
+        manuscript,
+        "보통 CPU 점유율을 봅니다.",
+    )
+
+    assert turn.research_required is True
+    assert turn.claim_or_query == "보통 CPU 점유율을 봅니다."
 
 
 def test_save_chat_message_propagates_db_error(monkeypatch):

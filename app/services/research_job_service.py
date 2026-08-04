@@ -8,8 +8,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError
+from app.models.manuscript import ConceptType
 from app.models.research import ResearchJob, ResearchJobStatus
 from app.repositories import research_repo
+from app.research.research_eligibility import concept_allows_web_research
 from app.services.background_tasks import BackgroundTaskRegistry
 
 MAX_RESEARCH_JOBS_PER_MANUSCRIPT = 5
@@ -24,11 +26,18 @@ def create_or_get_research_job(
     claim_or_query: str,
     background_tasks: BackgroundTaskRegistry,
     run_job,
+    concept: ConceptType,
 ) -> tuple[ResearchJob, bool]:
     """message당 job 1개. 새로 만들면 백그라운드 실행을 예약한다.
 
     원고당 신규 job은 최대 MAX_RESEARCH_JOBS_PER_MANUSCRIPT개까지 허용한다.
+    딥다이브·수업 자료 외 컨셉에서는 생성하지 않는다.
     """
+    if not concept_allows_web_research(concept):
+        raise ConflictError(
+            "웹 조사는 딥다이브·수업 자료 원고에서만 사용할 수 있습니다."
+        )
+
     existing = research_repo.find_research_job_by_message(
         db,
         user_id=user_id,

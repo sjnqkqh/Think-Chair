@@ -84,6 +84,7 @@ async def create_research_job(
         claim_or_query=body.claim_or_query,
         background_tasks=chat_service.background_tasks,
         run_job=_run,
+        concept=manuscript.concept,
     )
     return {
         "id": str(job.id),

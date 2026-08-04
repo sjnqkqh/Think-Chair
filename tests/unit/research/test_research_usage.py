@@ -93,6 +93,7 @@ def test_create_research_job_rejects_when_manuscript_job_limit_reached(db_sessio
             claim_or_query="일반론 주장",
             background_tasks=background,
             run_job=run_job,
+            concept=manuscript.concept,
         )
         assert created is True
         assert job.id is not None
@@ -113,6 +114,7 @@ def test_create_research_job_rejects_when_manuscript_job_limit_reached(db_sessio
             claim_or_query="여섯 번째 조사",
             background_tasks=background,
             run_job=run_job,
+            concept=manuscript.concept,
         )
 
     assert usage.job_count == MAX_RESEARCH_JOBS_PER_MANUSCRIPT
@@ -142,6 +144,7 @@ def test_existing_message_job_does_not_consume_extra_quota(db_session):
         claim_or_query="같은 메시지",
         background_tasks=background,
         run_job=run_job,
+        concept=manuscript.concept,
     )
     second, created_second = create_or_get_research_job(
         db_session,
@@ -151,6 +154,7 @@ def test_existing_message_job_does_not_consume_extra_quota(db_session):
         claim_or_query="같은 메시지",
         background_tasks=background,
         run_job=run_job,
+        concept=manuscript.concept,
     )
 
     assert created_first is True
@@ -203,3 +207,31 @@ def test_increment_search_count_on_usage_row(db_session):
 
     assert usage.job_count == 1
     assert usage.search_count == 1
+
+
+def test_create_research_job_rejects_non_research_concepts(db_session):
+    user, manuscript = _seed_user_and_manuscript(db_session)
+    manuscript.concept = ConceptType.TIL
+    db_session.commit()
+
+    class _Background:
+        def start(self, coroutine):
+            coroutine.close()
+
+    def run_job(_job_id):
+        async def _run():
+            return None
+
+        return _run()
+
+    with pytest.raises(ConflictError, match="딥다이브·수업 자료"):
+        create_or_get_research_job(
+            db_session,
+            user_id=user.id,
+            manuscript_id=manuscript.id,
+            message_id=uuid4(),
+            claim_or_query="일반론",
+            background_tasks=_Background(),
+            run_job=run_job,
+            concept=manuscript.concept,
+        )
