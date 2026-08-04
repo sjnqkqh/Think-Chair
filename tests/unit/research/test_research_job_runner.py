@@ -5,14 +5,12 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import app.models  # noqa: F401
-from app.core.database import Base
 from app.models.manuscript import ConceptType, Manuscript, ManuscriptStatus
 from app.models.research import ResearchJob, ResearchJobStatus, ResponseComparisonRecord
 from app.models.user import User
 from app.research.evidence_index import ResearchEvidenceIndex
 from app.research.research_job_runner import run_research_job
-from app.research.schema_ensure import ensure_research_schema
+from tests.db_setup import prepare_test_database
 
 pytestmark = pytest.mark.unit
 
@@ -20,8 +18,7 @@ pytestmark = pytest.mark.unit
 @pytest.fixture
 def db_factory(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
-    Base.metadata.create_all(bind=engine)
-    ensure_research_schema(engine)
+    prepare_test_database(engine)
     return sessionmaker(bind=engine)
 
 
@@ -209,4 +206,89 @@ async def test_run_research_job_fails_when_web_research_yields_no_evidence(
     assert refreshed.status == ResearchJobStatus.FAILED
     assert refreshed.terminal_error == "search_not_configured"
     assert record.prepared_evidence_json is None
+    verify.close()
+
+
+@pytest.mark.asyncio
+async def test_run_research_job_keeps_cancelled_status_at_finish(db_factory, tmp_path):
+    session = db_factory()
+    user = User(login_id="research-cancel", password_hash="x", nickname="r")
+    session.add(user)
+    session.flush()
+    manuscript = Manuscript(
+        user_id=user.id,
+        topic="timeout",
+        concept=ConceptType.TECH_DEEPDIVE,
+        status=ManuscriptStatus.DRAFTING,
+    )
+    session.add(manuscript)
+    session.flush()
+    job = ResearchJob(
+        user_id=user.id,
+        manuscript_id=manuscript.id,
+        message_id=uuid4(),
+        claim_or_query="timeout이 60분이라고 했습니다.",
+        status=ResearchJobStatus.QUEUED,
+    )
+    session.add(job)
+    session.commit()
+    job_id = job.id
+    session.close()
+
+    evidence_index = ResearchEvidenceIndex(
+        tmp_path / "chroma-cancel",
+        embedding_model="test-model",
+        embedding_dimension=3,
+        chunk_schema_version="test-schema",
+    )
+    evidence_index.store_source_chunks(
+        scope="public",
+        ids=["chunk-timeout"],
+        documents=["기본 job timeout은 360분이다."],
+        embeddings=[[1.0, 0.0, 0.0]],
+        metadatas=[
+            {
+                "chunk_id": "chunk-timeout",
+                "source_id": "src-timeout",
+                "canonical_url": "https://docs.example/timeout",
+                "title": "Timeout",
+                "language": "ko",
+            }
+        ],
+    )
+
+    def generate_invoke(prompt: str) -> str:
+        if "chunk_id" not in prompt:
+            cancel_session = db_factory()
+            cancelled = cancel_session.get(ResearchJob, job_id)
+            cancelled.status = ResearchJobStatus.CANCELLED
+            cancel_session.commit()
+            cancel_session.close()
+        return json.dumps(
+            {
+                "body": "placeholder",
+                "cited_source_keys": [],
+                "cited_urls": [],
+            },
+            ensure_ascii=False,
+        )
+
+    await run_research_job(
+        job_id=job_id,
+        db_factory=db_factory,
+        evidence_index=evidence_index,
+        embed_query=lambda _: [1.0, 0.0, 0.0],
+        generate_invoke=generate_invoke,
+        judge_invoke=generate_invoke,
+    )
+
+    verify = db_factory()
+    refreshed = verify.get(ResearchJob, job_id)
+    record_count = (
+        verify.query(ResponseComparisonRecord)
+        .filter(ResponseComparisonRecord.research_job_id == job_id)
+        .count()
+    )
+    assert refreshed.status == ResearchJobStatus.CANCELLED
+    assert record_count == 0
     verify.close()

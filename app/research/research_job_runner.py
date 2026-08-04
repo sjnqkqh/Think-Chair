@@ -26,6 +26,12 @@ EmbedQuery = Callable[[str], list[float]]
 PromptInvoker = Callable[[str], str]
 WebResearchHook = Callable[..., Awaitable[None]]
 
+def _job_cancelled(db, job_id: uuid.UUID) -> bool:
+    status = (
+        db.query(ResearchJob.status).filter(ResearchJob.id == job_id).scalar()
+    )
+    return status is None or status == ResearchJobStatus.CANCELLED
+
 
 async def run_research_job(
     *,
@@ -124,6 +130,18 @@ async def run_research_job(
             comparison_error = type(exc).__name__
             logger.exception("research.comparison_failed", job_id=str(job_id))
 
+        if _job_cancelled(db, job_id):
+            logger.info("research.job_cancelled_before_persist", job_id=str(job_id))
+            return
+
+        job = db.get(ResearchJob, job_id)
+        if job is None:
+            return
+        db.refresh(job)
+        if job.status == ResearchJobStatus.CANCELLED:
+            logger.info("research.job_cancelled_before_persist", job_id=str(job_id))
+            return
+
         research_repo.save_response_comparison_record(
             db,
             research_job_id=job.id,
@@ -170,10 +188,12 @@ async def run_research_job(
         try:
             db.rollback()
             job = db.get(ResearchJob, job_id)
-            if job is not None:
-                job.status = ResearchJobStatus.FAILED
-                job.terminal_error = "job_execution_error"
-                db.commit()
+            if job is not None and not _job_cancelled(db, job_id):
+                db.refresh(job)
+                if job.status != ResearchJobStatus.CANCELLED:
+                    job.status = ResearchJobStatus.FAILED
+                    job.terminal_error = "job_execution_error"
+                    db.commit()
         except Exception:
             db.rollback()
     finally:

@@ -102,9 +102,10 @@ async def index_research_sources(
     if job is None:
         return ResearchIndexResult(status="failed", error_codes=["job_not_found"])
 
-    job.status = ResearchJobStatus.RUNNING
-    job.terminal_error = None
-    db.commit()
+    if job.status != ResearchJobStatus.CANCELLED:
+        job.status = ResearchJobStatus.RUNNING
+        job.terminal_error = None
+        db.commit()
 
     indexed_source_ids = []
     skipped_source_keys = []
@@ -236,9 +237,7 @@ async def index_research_sources(
                 ids=chunk_ids,
                 documents=[chunk.text for chunk in chunks],
                 embeddings=vectors,
-                metadatas=[
-                    _build_chunk_metadata(chunk, source) for chunk in chunks
-                ],
+                metadatas=[_build_chunk_metadata(chunk, source) for chunk in chunks],
             )
         except Exception:
             logger.exception("research.source_index_failed", source_id=str(source.id))
