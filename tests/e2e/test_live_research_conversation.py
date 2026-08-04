@@ -1,14 +1,13 @@
-"""실제 DB 계정으로 ‘일반론 주장 → 근거 보강 조사’ 한 바퀴를 검증하는 live E2E.
+"""격리된 test DB·Chroma에서 ‘일반론 주장 → 근거 보강 조사’ live E2E.
 
 제품 의도: 사용자가 “확인해 주세요”를 요청해서가 아니라,
 대화 중 일반론·모범 사례·대략적 수치 주장을 했을 때 에이전트가 조사를 걸고
-더 구체적인 근거(벤치마크·설정 사례·공식 가이드)를 모아 주장을 보강한다.
+더 구체적인 근거를 모아 주장을 보강한다.
 
-실패는 버그 리포트라기보다 트리거(`detect_evidence_need`)·검색 품질 신호다.
-기본 테스트에서는 건너뛴다. 필요할 때마다:
+저장소는 pytest tmp 경로의 SQLite·Chroma·파일 스토리지를 쓰고,
+Brave/OpenAI만 실호출한다. 기본 테스트에서는 건너뛴다.
 
     RUN_LIVE_RESEARCH_E2E=1 \\
-      LIVE_RESEARCH_LOGIN_ID=admin \\
       uv run pytest tests/e2e/test_live_research_conversation.py -v -s
 """
 
@@ -18,16 +17,21 @@ import asyncio
 import json
 import os
 import uuid
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import sessionmaker
 
+import app.models  # noqa: F401
+from app.core import storage as storage_module
 from app.core.config import settings
-from app.core.database import SessionLocal, get_database_session
-from app.core.security import create_jwt
+from app.core.database import Base, get_database_session
+from app.core.security import hash_password
 from app.main import app as fastapi_app
 from app.models.manuscript import Manuscript
 from app.models.research import (
@@ -38,8 +42,8 @@ from app.models.research import (
     ResearchSourceStatus,
 )
 from app.models.user import User
-from app.repositories import research_repo
 from app.research.indexing import create_research_evidence_index
+from app.research.schema_ensure import ensure_research_schema
 
 TERMINAL_STATUSES = {
     ResearchJobStatus.COMPLETED.value,
@@ -47,6 +51,9 @@ TERMINAL_STATUSES = {
     ResearchJobStatus.FAILED.value,
     ResearchJobStatus.CANCELLED.value,
 }
+
+LIVE_E2E_LOGIN_ID = "live-e2e-user"
+LIVE_E2E_PASSWORD = "live-e2e-password-123"
 
 
 @dataclass(frozen=True)
@@ -61,6 +68,15 @@ class LiveResearchCase:
     topic: str
     claim: str
     evidence_hope: str
+
+
+@dataclass(frozen=True)
+class LiveResearchEnv:
+    client: AsyncClient
+    db_factory: Any
+    user_id: uuid.UUID
+    login_id: str
+    password: str
 
 
 LIVE_RESEARCH_CASES = [
@@ -118,7 +134,7 @@ pytestmark = [
     pytest.mark.live_web,
     pytest.mark.skipif(
         os.getenv("RUN_LIVE_RESEARCH_E2E") != "1",
-        reason="RUN_LIVE_RESEARCH_E2E=1일 때만 실제 계정·검색·인덱싱 E2E를 돌린다.",
+        reason="RUN_LIVE_RESEARCH_E2E=1일 때만 실제 검색·임베딩 E2E를 돌린다.",
     ),
     pytest.mark.skipif(
         not settings.BRAVE_SEARCH_API_KEY,
@@ -150,33 +166,12 @@ def _parse_sse_events(body: str) -> list[tuple[str, dict]]:
     return events
 
 
-def _resolve_stored_user(db: Session) -> User:
-    login_id = os.getenv("LIVE_RESEARCH_LOGIN_ID", "admin")
-    user = db.query(User).filter(User.login_id == login_id).one_or_none()
-    if user is None:
-        raise AssertionError(
-            f"DB에 login_id={login_id!r} 사용자가 없다. "
-            "LIVE_RESEARCH_LOGIN_ID로 실제 계정을 지정하라."
-        )
-    return user
-
-
-async def _authenticate(
-    client: AsyncClient,
-    *,
-    user_id: uuid.UUID,
-    login_id: str,
-) -> None:
-    password = os.getenv("LIVE_RESEARCH_PASSWORD")
-    if password:
-        login_res = await client.post(
-            "/api/auth/login",
-            json={"login_id": login_id, "password": password},
-        )
-        assert login_res.status_code == 200, login_res.text
-        return
-    # 로컬 live 검증용: DB에 있는 실 계정으로 JWT를 발급해 쿠키에 넣는다.
-    client.cookies.set("access_token", create_jwt(str(user_id)))
+async def _authenticate(client: AsyncClient, *, login_id: str, password: str) -> None:
+    login_res = await client.post(
+        "/api/auth/login",
+        json={"login_id": login_id, "password": password},
+    )
+    assert login_res.status_code == 200, login_res.text
 
 
 async def _poll_research_job(
@@ -203,10 +198,13 @@ async def _poll_research_job(
         await asyncio.sleep(2)
 
 
-async def _soft_delete_manuscript(client: AsyncClient, manuscript_id: str) -> None:
-    delete_res = await client.delete(f"/api/manuscripts/{manuscript_id}")
+async def _soft_delete_manuscript(
+    env: LiveResearchEnv,
+    manuscript_id: str,
+) -> None:
+    delete_res = await env.client.delete(f"/api/manuscripts/{manuscript_id}")
     assert delete_res.status_code == 204, delete_res.text
-    db = SessionLocal()
+    db = env.db_factory()
     try:
         manuscript = db.get(Manuscript, uuid.UUID(manuscript_id))
         assert manuscript is not None
@@ -216,14 +214,13 @@ async def _soft_delete_manuscript(client: AsyncClient, manuscript_id: str) -> No
 
 
 async def _run_research_conversation_case(
-    client: AsyncClient,
+    env: LiveResearchEnv,
     *,
-    user_id: uuid.UUID,
     case: LiveResearchCase,
 ) -> None:
     manuscript_id: str | None = None
     try:
-        create_res = await client.post(
+        create_res = await env.client.post(
             "/api/manuscripts",
             json={
                 "topic": f"live-research-e2e-{case.case_id}-{uuid.uuid4().hex[:8]}",
@@ -233,7 +230,7 @@ async def _run_research_conversation_case(
         assert create_res.status_code == 201, create_res.text
         manuscript_id = create_res.json()["id"]
 
-        message_res = await client.post(
+        message_res = await env.client.post(
             f"/api/chat/{manuscript_id}/message",
             data={"content": case.claim},
         )
@@ -253,7 +250,7 @@ async def _run_research_conversation_case(
         assert research_payload["message_id"]
         assert research_payload["claim_or_query"]
 
-        job_res = await client.post(
+        job_res = await env.client.post(
             "/api/research/jobs",
             json={
                 "manuscript_id": manuscript_id,
@@ -267,7 +264,7 @@ async def _run_research_conversation_case(
         assert job_body["created"] is True
 
         final_status = await _poll_research_job(
-            client,
+            env.client,
             job_id=job_id,
             manuscript_id=manuscript_id,
         )
@@ -278,11 +275,11 @@ async def _run_research_conversation_case(
         assert not final_status.get("terminal_error"), f"[{case.case_id}] {final_status}"
         assert final_status["evidence_ready"] is True, f"[{case.case_id}] {final_status}"
 
-        db = SessionLocal()
+        db = env.db_factory()
         try:
             job = db.get(ResearchJob, job_id)
             assert job is not None
-            assert job.user_id == user_id
+            assert job.user_id == env.user_id
 
             links = (
                 db.query(ResearchJobSource)
@@ -319,42 +316,84 @@ async def _run_research_conversation_case(
             db.close()
     finally:
         if manuscript_id is not None:
-            await _soft_delete_manuscript(client, manuscript_id)
+            await _soft_delete_manuscript(env, manuscript_id)
 
 
 @pytest.fixture
-async def live_research_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """실 DB·실 lifespan ChatService로 ASGI 클라이언트를 연다.
+async def live_research_env(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> AsyncIterator[LiveResearchEnv]:
+    """실 API만 쓰고 DB·Chroma·스토리지·체크포인트는 tmp로 격리한다."""
+    import app.core.database as database_module
+    import app.main as main_module
 
-    1) 기존 chroma_db 청크 때문에 웹 검색이 생략되지 않도록 케이스마다 빈 Chroma를 쓴다.
-    2) 이전 live 실행으로 DB에 남은 INDEXED 원문은 벡터를 건너뛰므로,
-       이 테스트의 빈 Chroma에 다시 심도록 재인덱싱을 강제한다.
-    """
-    # conftest autouse가 메모리 DB로 덮어쓰므로 실 DB로 되돌린다.
-    fastapi_app.dependency_overrides.pop(get_database_session, None)
-    monkeypatch.setattr(settings, "CHROMA_ROOT", tmp_path / "chroma_live_research")
-
-    original_find = research_repo.find_source_by_url
-
-    def find_source_and_force_reindex(*args, **kwargs):
-        source = original_find(*args, **kwargs)
-        if source is not None and source.status == ResearchSourceStatus.INDEXED:
-            source.status = ResearchSourceStatus.FAILED
-        return source
-
-    monkeypatch.setattr(
-        "app.research.indexing.research_repo.find_source_by_url",
-        find_source_and_force_reindex,
+    db_path = tmp_path / "rag_history.test.db"
+    engine = create_engine(
+        f"sqlite:///{db_path}",
+        connect_args={"check_same_thread": False, "timeout": 10},
     )
 
-    async with fastapi_app.router.lifespan_context(fastapi_app):
-        transport = ASGITransport(app=fastapi_app)
-        async with AsyncClient(
-            transport=transport,
-            base_url="http://testserver",
-            timeout=120.0,
-        ) as client:
-            yield client
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, _connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=10000")
+        cursor.close()
+
+    Base.metadata.create_all(bind=engine)
+    ensure_research_schema(engine)
+    test_session_factory = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine
+    )
+
+    monkeypatch.setattr(settings, "DATA_ROOT", tmp_path)
+    monkeypatch.setattr(settings, "CHROMA_ROOT", tmp_path / "chroma")
+    monkeypatch.setattr(settings, "STORAGE_ROOT", tmp_path / "storage")
+    storage_module.get_file_storage.cache_clear()
+
+    monkeypatch.setattr(database_module, "SessionLocal", test_session_factory)
+    monkeypatch.setattr(main_module, "SessionLocal", test_session_factory)
+
+    seed_db = test_session_factory()
+    try:
+        user = User(
+            login_id=LIVE_E2E_LOGIN_ID,
+            password_hash=hash_password(LIVE_E2E_PASSWORD),
+            nickname="live-e2e",
+        )
+        seed_db.add(user)
+        seed_db.commit()
+        user_id = user.id
+    finally:
+        seed_db.close()
+
+    def override_get_db():
+        session = test_session_factory()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    fastapi_app.dependency_overrides[get_database_session] = override_get_db
+
+    try:
+        async with fastapi_app.router.lifespan_context(fastapi_app):
+            transport = ASGITransport(app=fastapi_app)
+            async with AsyncClient(
+                transport=transport,
+                base_url="http://testserver",
+                timeout=120.0,
+            ) as client:
+                yield LiveResearchEnv(
+                    client=client,
+                    db_factory=test_session_factory,
+                    user_id=user_id,
+                    login_id=LIVE_E2E_LOGIN_ID,
+                    password=LIVE_E2E_PASSWORD,
+                )
+    finally:
+        storage_module.get_file_storage.cache_clear()
 
 
 @pytest.mark.parametrize(
@@ -362,28 +401,16 @@ async def live_research_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     LIVE_RESEARCH_CASES,
     ids=[case.case_id for case in LIVE_RESEARCH_CASES],
 )
-async def test_stored_user_general_claim_triggers_evidence_research(
-    live_research_client: AsyncClient,
+async def test_general_claim_triggers_evidence_research_in_isolated_env(
+    live_research_env: LiveResearchEnv,
     case: LiveResearchCase,
 ):
-    """일반론 주장 → 조사 job → 웹 검색·수집·청킹으로 근거를 보강하는지 검증한다."""
+    """격리 환경에서 일반론 주장 → 조사 job → 웹 검색·수집·청킹을 검증한다."""
     assert len(LIVE_RESEARCH_CASES) >= 5
 
-    db = SessionLocal()
-    try:
-        user = _resolve_stored_user(db)
-        user_id = user.id
-        login_id = user.login_id
-    finally:
-        db.close()
-
     await _authenticate(
-        live_research_client,
-        user_id=user_id,
-        login_id=login_id,
+        live_research_env.client,
+        login_id=live_research_env.login_id,
+        password=live_research_env.password,
     )
-    await _run_research_conversation_case(
-        live_research_client,
-        user_id=user_id,
-        case=case,
-    )
+    await _run_research_conversation_case(live_research_env, case=case)
