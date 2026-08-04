@@ -22,12 +22,13 @@ from app.graph.checkpointer import make_checkpointer
 from app.services.background_tasks import BackgroundTaskRegistry
 from app.services.chat_service import ChatService
 from app.main import app as fastapi_app
+from tests.db_setup import prepare_test_database
 
 test_engine = create_engine(
     "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
 )
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-Base.metadata.create_all(bind=test_engine)
+prepare_test_database(test_engine)
 
 
 @pytest.fixture

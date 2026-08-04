@@ -6,18 +6,16 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import app.models  # noqa: F401
-from app.core.database import Base
 from app.core.exceptions import ConflictError
 from app.models.manuscript import ConceptType, Manuscript, ManuscriptStatus
 from app.models.research import ResearchUsage
 from app.models.user import User
 from app.repositories import research_repo
-from app.research.schema_ensure import ensure_research_schema
 from app.services.research_job_service import (
     MAX_RESEARCH_JOBS_PER_MANUSCRIPT,
     create_or_get_research_job,
 )
+from tests.db_setup import prepare_test_database
 
 pytestmark = pytest.mark.unit
 
@@ -25,8 +23,7 @@ pytestmark = pytest.mark.unit
 @pytest.fixture
 def db_session(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'usage.db'}")
-    Base.metadata.create_all(bind=engine)
-    ensure_research_schema(engine)
+    prepare_test_database(engine)
     session = sessionmaker(bind=engine)()
     yield session
     session.close()

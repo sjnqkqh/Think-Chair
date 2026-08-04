@@ -27,10 +27,9 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-import app.models  # noqa: F401
 from app.core import storage as storage_module
 from app.core.config import settings
-from app.core.database import Base, get_database_session
+from app.core.database import get_database_session
 from app.core.security import hash_password
 from app.main import app as fastapi_app
 from app.models.manuscript import Manuscript
@@ -43,7 +42,7 @@ from app.models.research import (
 )
 from app.models.user import User
 from app.research.indexing import create_research_evidence_index
-from app.research.schema_ensure import ensure_research_schema
+from tests.db_setup import prepare_test_database
 
 TERMINAL_STATUSES = {
     ResearchJobStatus.COMPLETED.value,
@@ -345,8 +344,7 @@ async def live_research_env(
         cursor.execute("PRAGMA busy_timeout=10000")
         cursor.close()
 
-    Base.metadata.create_all(bind=engine)
-    ensure_research_schema(engine)
+    prepare_test_database(engine)
     test_session_factory = sessionmaker(
         autocommit=False, autoflush=False, bind=engine
     )
