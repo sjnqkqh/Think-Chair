@@ -12,6 +12,7 @@ from app.models.research import (
     ResearchSource,
     ResearchSourceScope,
     ResearchSourceUrl,
+    ResearchUsage,
     ResponseComparisonRecord,
 )
 
@@ -169,6 +170,65 @@ def create_research_job(
     db.add(job)
     db.flush()
     return job
+
+
+def get_or_create_research_usage(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    manuscript_id: uuid.UUID,
+) -> ResearchUsage:
+    usage = (
+        db.query(ResearchUsage)
+        .filter(ResearchUsage.manuscript_id == manuscript_id)
+        .first()
+    )
+    if usage is not None:
+        return usage
+    existing_jobs = (
+        db.query(ResearchJob)
+        .filter(ResearchJob.manuscript_id == manuscript_id)
+        .count()
+    )
+    usage = ResearchUsage(
+        user_id=user_id,
+        manuscript_id=manuscript_id,
+        job_count=existing_jobs,
+        search_count=0,
+    )
+    db.add(usage)
+    db.flush()
+    return usage
+
+
+def increment_research_job_count(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    manuscript_id: uuid.UUID,
+) -> ResearchUsage:
+    usage = get_or_create_research_usage(
+        db, user_id=user_id, manuscript_id=manuscript_id
+    )
+    usage.job_count += 1
+    usage.updated_at = datetime.datetime.utcnow()
+    db.flush()
+    return usage
+
+
+def increment_research_search_count(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    manuscript_id: uuid.UUID,
+) -> ResearchUsage:
+    usage = get_or_create_research_usage(
+        db, user_id=user_id, manuscript_id=manuscript_id
+    )
+    usage.search_count += 1
+    usage.updated_at = datetime.datetime.utcnow()
+    db.flush()
+    return usage
 
 
 def save_response_comparison_record(

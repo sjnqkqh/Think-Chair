@@ -3,7 +3,14 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
+import app.models  # noqa: F401
+from app.core.database import Base
+from app.models.manuscript import ConceptType, Manuscript, ManuscriptStatus
+from app.models.research import ResearchUsage
+from app.models.user import User
 from app.research.contracts import (
     FetchResponse,
     FetchedSource,
@@ -12,13 +19,14 @@ from app.research.contracts import (
     SearchHit,
     SearchResponse,
 )
+from app.research.schema_ensure import ensure_research_schema
 from app.research.web_research import expand_evidence_via_web_search
 
 pytestmark = pytest.mark.unit
 
 
 @pytest.mark.asyncio
-async def test_expand_evidence_via_web_search_indexes_fetched_hits():
+async def test_expand_evidence_via_web_search_indexes_fetched_hits(monkeypatch):
     search = AsyncMock(
         return_value=SearchResponse(
             results=[
@@ -61,9 +69,17 @@ async def test_expand_evidence_via_web_search_indexes_fetched_hits():
             "manuscript_id": uuid4(),
         },
     )()
+    monkeypatch.setattr(
+        "app.research.web_research.research_repo.increment_research_search_count",
+        lambda *args, **kwargs: None,
+    )
+
+    class _Db:
+        def commit(self):
+            return None
 
     await expand_evidence_via_web_search(
-        db=object(),
+        db=_Db(),
         job=job,
         query="timeout 기본값",
         evidence_index=object(),
@@ -82,3 +98,51 @@ async def test_expand_evidence_via_web_search_indexes_fetched_hits():
     request = index.await_args.args[0]
     assert isinstance(request, ResearchIndexRequest)
     assert request.sources[0].canonical_url == "https://docs.example/timeout"
+
+
+@pytest.mark.asyncio
+async def test_expand_evidence_increments_manuscript_search_count(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'web.db'}")
+    Base.metadata.create_all(bind=engine)
+    ensure_research_schema(engine)
+    db = sessionmaker(bind=engine)()
+    user = User(login_id="search-count", password_hash="x", nickname="s")
+    db.add(user)
+    db.flush()
+    manuscript = Manuscript(
+        user_id=user.id,
+        topic="search",
+        concept=ConceptType.TECH_DEEPDIVE,
+        status=ManuscriptStatus.DRAFTING,
+    )
+    db.add(manuscript)
+    db.commit()
+
+    search = AsyncMock(return_value=SearchResponse(results=[]))
+    job = type(
+        "Job",
+        (),
+        {"id": uuid4(), "user_id": user.id, "manuscript_id": manuscript.id},
+    )()
+
+    error = await expand_evidence_via_web_search(
+        db=db,
+        job=job,
+        query="일반론",
+        evidence_index=object(),
+        storage=object(),
+        embeddings=object(),
+        search_web=search,
+        fetch_page=AsyncMock(),
+        index_research_sources=AsyncMock(),
+        admit_source=lambda _source: "public",
+    )
+
+    assert error == "search_empty"
+    usage = (
+        db.query(ResearchUsage)
+        .filter(ResearchUsage.manuscript_id == manuscript.id)
+        .one()
+    )
+    assert usage.search_count == 1
+    db.close()

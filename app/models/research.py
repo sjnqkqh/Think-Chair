@@ -128,6 +128,28 @@ class ResearchJobSource(Base):
     manuscript_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("manuscripts.id"))
 
 
+class ResearchUsage(Base):
+    """원고별 조사 job·웹 검색 사용량. 상한·관측용 카운터만 둔다."""
+
+    __tablename__ = "research_usage"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    manuscript_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("manuscripts.id"), unique=True, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    job_count: Mapped[int] = mapped_column(Integer, default=0)
+    search_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=datetime.datetime.utcnow
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime,
+        default=datetime.datetime.utcnow,
+        onupdate=datetime.datetime.utcnow,
+    )
+
+
 class ResponseComparisonRecord(Base):
     """조사 job 완료 시 baseline/grounded 쌍과 LLM 비교 결과를 저장한다."""
 

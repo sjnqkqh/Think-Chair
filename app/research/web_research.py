@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.logging import get_logger
+from app.repositories import research_repo
 from app.research.contracts import (
     FetchRequest,
     FetchedSource,
@@ -37,6 +38,12 @@ async def expand_evidence_via_web_search(
 ) -> str | None:
     """웹 검색·수집·인덱싱. 성공하면 None, 실패하면 error_code를 반환한다."""
     search_response = await search_web(SearchRequest(query=query, max_results=max_fetches))
+    research_repo.increment_research_search_count(
+        db,
+        user_id=job.user_id,
+        manuscript_id=job.manuscript_id,
+    )
+    db.commit()
     if search_response.error_code or not search_response.results:
         error_code = search_response.error_code or "search_empty"
         logger.info(
