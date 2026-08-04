@@ -7,6 +7,7 @@ from app.models.manuscript import Manuscript
 from app.models.user import User
 
 USER_VISIBLE_CHAT_NODES = {"opening", "converse", "feedback", "reject_documentation"}
+_PREPARED_EVIDENCE_ACTIONS = frozenset({"say", "feedback"})
 
 
 class ChatGraphRunner:
@@ -26,27 +27,28 @@ class ChatGraphRunner:
     ) -> dict:
         prepared_evidence_text = None
         prepared_evidence_record_id = None
+        prepared_evidence_record = None
         if request_db_session is not None:
             from app.repositories import research_repo
             from app.research.prepared_evidence import (
                 format_prepared_evidence_system_text,
             )
 
-            record = research_repo.find_ready_prepared_evidence(
+            prepared_evidence_record = research_repo.find_ready_prepared_evidence(
                 request_db_session,
                 user_id=manuscript.user_id,
                 manuscript_id=manuscript.id,
             )
-            if record is not None and record.prepared_evidence_json:
+            if (
+                prepared_evidence_record is not None
+                and prepared_evidence_record.prepared_evidence_json
+            ):
                 prepared_evidence_text = format_prepared_evidence_system_text(
-                    record.prepared_evidence_json
+                    prepared_evidence_record.prepared_evidence_json
                 )
-                prepared_evidence_record_id = str(record.id)
-                research_repo.mark_prepared_evidence_consumed(
-                    request_db_session, record
-                )
+                prepared_evidence_record_id = str(prepared_evidence_record.id)
 
-        return await self._graph.ainvoke(
+        state = await self._graph.ainvoke(
             _initial_turn_state(
                 manuscript,
                 user,
@@ -60,6 +62,19 @@ class ChatGraphRunner:
             ),
             interrupt_after=["router"],
         )
+
+        if (
+            request_db_session is not None
+            and prepared_evidence_record is not None
+            and state.get("user_action") in _PREPARED_EVIDENCE_ACTIONS
+        ):
+            from app.repositories import research_repo
+
+            research_repo.mark_prepared_evidence_consumed(
+                request_db_session, prepared_evidence_record
+            )
+
+        return state
 
     async def stream_reply_tokens(
         self, manuscript_id: uuid.UUID, model: str
