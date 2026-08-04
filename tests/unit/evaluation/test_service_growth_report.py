@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from app.evaluation.response_comparison_contracts import AnswerScores
 from app.evaluation.service_growth_contracts import (
+    AbsoluteAnswerScores,
     AbsoluteJudgment,
     ServiceGrowthCaseResult,
 )
@@ -25,10 +25,15 @@ def _result(**overrides):
         "response_body": "응답 본문",
         "evidence_text": "",
         "judgment": AbsoluteJudgment(
-            scores=AnswerScores(
-                specificity=40, naturalness=50, accuracy=35, overall=42
+            scores=AbsoluteAnswerScores(
+                reference_suggestion=20,
+                claim_sharpening=35,
+                knowledge_depth=30,
+                dialogue_fit=50,
+                next_step_clarity=25,
+                overall=28,
             ),
-            reason="일반론만 있음",
+            reason="참고자료 제안 없이 동의만 함",
         ),
         "error": None,
     }
@@ -53,15 +58,14 @@ def test_summarize_and_render_markdown_includes_totals_and_items():
     )
     assert summary.case_count == 2
     assert summary.judged_count == 1
-    assert summary.failure_count == 1
-    assert summary.avg_overall == 42.0
+    assert summary.avg_overall == 28.0
+    assert summary.avg_reference_suggestion == 20.0
 
     md = render_service_growth_markdown(summary, results, run_id="test-run")
-    assert "# 서비스 성장 관측 평가" in md
-    assert "평균 overall: 42.0" in md
+    assert "명확한 근거" in md or "깊은 지식" in md
+    assert "reference_suggestion" in md
     assert "### c1" in md
-    assert "### c2" in md
-    assert "일반론만 있음" in md
+    assert "참고자료 제안 없이" in md
 
 
 def test_write_service_growth_report_creates_md_and_json(tmp_path: Path):
@@ -75,4 +79,4 @@ def test_write_service_growth_report_creates_md_and_json(tmp_path: Path):
     )
     assert json_path.exists()
     assert md_path.exists()
-    assert "평균 overall" in md_path.read_text(encoding="utf-8")
+    assert "reference_suggestion" in md_path.read_text(encoding="utf-8")

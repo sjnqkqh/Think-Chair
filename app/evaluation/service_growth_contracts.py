@@ -2,9 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.evaluation.response_comparison_contracts import AnswerScores
-
 ServiceGrowthPhase = Literal["say", "feedback"]
+
 
 class FrozenModel(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -26,8 +25,19 @@ class ServiceGrowthCase(FrozenModel):
         return value
 
 
+class AbsoluteAnswerScores(FrozenModel):
+    """지식 심화·근거 제안 품질. '정답 제공'이 목표가 아님."""
+
+    reference_suggestion: int = Field(ge=0, le=100)
+    claim_sharpening: int = Field(ge=0, le=100)
+    knowledge_depth: int = Field(ge=0, le=100)
+    dialogue_fit: int = Field(ge=0, le=100)
+    next_step_clarity: int = Field(ge=0, le=100)
+    overall: int = Field(ge=0, le=100)
+
+
 class AbsoluteJudgment(FrozenModel):
-    scores: AnswerScores
+    scores: AbsoluteAnswerScores
     reason: str = Field(min_length=1)
 
     @field_validator("reason")
@@ -53,9 +63,11 @@ class ServiceGrowthRunSummary(FrozenModel):
     case_count: int = Field(ge=0)
     judged_count: int = Field(ge=0)
     failure_count: int = Field(ge=0)
-    avg_specificity: float | None = None
-    avg_naturalness: float | None = None
-    avg_accuracy: float | None = None
+    avg_reference_suggestion: float | None = None
+    avg_claim_sharpening: float | None = None
+    avg_knowledge_depth: float | None = None
+    avg_dialogue_fit: float | None = None
+    avg_next_step_clarity: float | None = None
     avg_overall: float | None = None
     generation_model: str | None = None
     judge_model: str | None = None

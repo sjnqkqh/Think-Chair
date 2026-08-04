@@ -59,8 +59,12 @@ job 끝 pairwise와 예전 `run_response_comparison`은 **한 시점의 근거 �
    - 근거: 평가기가 `load_evidence_text_for_turn`으로 **그 시점 인덱스만** 주입 (없으면 없이)  
    - **평가 회차 중 조사 job을 만들지 않음**  
    - 실행은 **LangFeather에 트레이싱**되게 함 (`LANGFEATHER_ENABLED`; 제품과 동일 관측 스택)
-3. **LLM Judge**가 그 **단일 응답**에 **깐깐한** 절대 점수 (specificity / naturalness / accuracy / overall, 0~100; 무난한 답 ≈ 40~60)
-4. 기록: 응답 본문, 점수, (가능하면) 주입된 근거 요약/출처 키, 생성·Judge 모델명, 실행 시각, 인덱스/환경 힌트, LangFeather run 상관 ID(가능하면)
+3. **LLM Judge**가 그 **단일 응답**을 채점 — 목표는 **정답 제공이 아니라**  
+   사용자가 **더 깊은 지식을 쌓고 명확한 근거를 갖도록** 도왔는지  
+   - 핵심 고득점 축: **문맥에 맞는 참고자료·검증 경로 제안** (`reference_suggestion`)  
+   - 그외: claim_sharpening / knowledge_depth / dialogue_fit / next_step_clarity / overall  
+   - 점수 밴드 사용. 같은 claim+응답은 같은 점수대. RAG 내부 사용 여부는 비채점  
+4. 기록: 응답 본문, 점수, (관측용) 주입 근거 유무, 생성·Judge 모델명, 실행 시각
 
 ### 집계·산출물
 
@@ -106,7 +110,7 @@ job 끝 pairwise와 예전 `run_response_comparison`은 **한 시점의 근거 �
 - [x] 사례 JSON 스키마 (`ServiceGrowthCase`)
 - [x] 50개 일반론 (say:feedback 40:10; domain 필드 없음)
 - [x] 실행기: 공용 인덱스만 + thin graph(converse/feedback) + LangFeather + 절대 Judge + MD
-- [x] Judge 프롬프트: **깐깐한** 절대 채점 (무난한 답 ≈ 40~60 앵커)
+- [x] Judge 프롬프트: **근거·참고 제안으로 지식 심화** 채점 (정답 제공 비목표, 세분 지표·점수 밴드)
 - [x] pairwise runner / `ResponseComparisonRecord`와 경계 유지
 - [x] Judge 모델 설정키 `SERVICE_GROWTH_JUDGE_MODEL` (기본 DeepSeek)
 - [x] 평가 인덱스: 제품과 같은 **공용(public) 실인덱스**

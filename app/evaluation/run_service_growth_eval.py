@@ -101,7 +101,6 @@ async def run_service_growth_eval(
                 topic=case.topic,
                 phase=case.phase,
                 response_body=response_body,
-                evidence_text=evidence_text,
                 invoke=judge_invoke,
             )
             results.append(
