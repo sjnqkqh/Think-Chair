@@ -9,7 +9,7 @@ pytestmark = pytest.mark.unit
 
 def test_apply_langfeather_returns_original_when_disabled(monkeypatch):
     monkeypatch.setattr(
-        "app.graph.langfeather_tracing.settings.LANGFEATHER_ENABLED", True
+        "app.graph.langfeather_tracing.settings.LANGFEATHER_ENABLED", False
     )
     graph = MagicMock(name="compiled-graph")
 
