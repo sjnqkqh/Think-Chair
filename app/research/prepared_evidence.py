@@ -1,19 +1,10 @@
-import json
+"""검색된 근거를 대화 프롬프트용 텍스트로 만든다."""
 
-from app.research.contracts import EvidenceContext, EvidenceItem
-
-
-def serialize_evidence_context(evidence: EvidenceContext) -> str:
-    return json.dumps(evidence.model_dump(mode="json"), ensure_ascii=False)
+from app.research.contracts import EvidenceContext
 
 
-def deserialize_evidence_context(payload: str) -> EvidenceContext:
-    return EvidenceContext.model_validate_json(payload)
-
-
-def format_prepared_evidence_system_text(payload: str) -> str:
-    """다음 턴 프롬프트에 넣을 참고 자료 문구. 지시가 아닌 미신뢰 참고로 명시한다."""
-    evidence = deserialize_evidence_context(payload)
+def format_evidence_system_text(evidence: EvidenceContext) -> str:
+    """프롬프트에 넣을 참고 자료 문구. 지시가 아닌 미신뢰 참고로 명시한다."""
     if not evidence.items:
         return ""
     blocks = [
@@ -31,7 +22,3 @@ def format_prepared_evidence_system_text(payload: str) -> str:
             f"  text: {item.excerpt}"
         )
     return "\n".join(blocks)
-
-
-def evidence_items_from_payload(payload: str) -> list[EvidenceItem]:
-    return list(deserialize_evidence_context(payload).items)

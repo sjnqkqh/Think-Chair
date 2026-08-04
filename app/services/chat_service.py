@@ -68,6 +68,15 @@ class ChatService:
             content=user_message,
             phase=None,
         )
+        evidence_text = None
+        if concept_allows_web_research(manuscript.concept):
+            from app.research.turn_evidence import load_evidence_text_for_turn
+
+            evidence_text = load_evidence_text_for_turn(
+                user_id=manuscript.user_id,
+                manuscript_id=manuscript.id,
+                query=user_message,
+            ) or None
         state = await self.graph_runner.route_turn(
             manuscript=manuscript,
             user=user,
@@ -75,6 +84,7 @@ class ChatService:
             user_message_id=user_chat_message.id,
             request_db_session=database_session,
             model=model,
+            evidence_text=evidence_text,
         )
         database_session.commit()
         action = state.get("user_action")

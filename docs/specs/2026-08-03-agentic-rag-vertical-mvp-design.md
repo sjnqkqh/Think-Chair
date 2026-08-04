@@ -23,7 +23,8 @@
 | 결과 전달 | 비동기 (D4). 현재 턴은 근거 없이 이어가고, 완료 시 `근거 준비됨`만 표시 |
 | 조사 범위 | 웹 조사 포함. 기존 인덱스 검색 후 부족하면 검색·수집·인덱싱 |
 | 승률 게이트 | 이번 완료 조건에서 제외. 비교 결과는 저장만 |
-| 쌍 평가 시점 | job 완료 직후 (화면에는 답 자동 수정 없음). 다음 사용자 턴부터 grounded 근거 사용 |
+| 쌍 평가 시점 | job 제품 완료 후 best-effort로 저장 (화면에는 답 자동 수정 없음). 대화 근거는 매 턴 인덱스 검색 |
+| 대화 근거 사용 | prepared JSON 소비 없음. 딥다이브·수업 자료 턴마다 Chroma에서 검색해 프롬프트에 주입 |
 
 ## 3. 범위
 
@@ -33,10 +34,10 @@
 2. 채팅 SSE의 `research_required` 신호
 3. `POST /api/research/jobs` → `202` + 안정적 job ID + 상태 URL (메시지당 job 1개)
 4. 백그라운드 job: 인덱스 검색 → 부족 시 웹 검색·수집·인덱싱 → 재검색
-5. job 완료 시 baseline / grounded 응답 생성·DB 저장
-6. 규칙 검사 + LLM 나란히 비교 결과를 DB에 저장 (`app/evaluation/` 재사용)
-7. 클라이언트의 상태 폴링과 `근거 준비됨` 표시
-8. 다음 사용자 턴에서 완료된 근거(및 grounded 경로) 사용
+5. job 제품 완료(수집·인덱싱·상태) 후 baseline / grounded·비교는 평가용으로 best-effort 저장
+6. 규칙 검사 + LLM 나란히 비교 결과를 DB에 저장 (`app/evaluation/` 재사용). 제품 handoff와 테이블 분리
+7. 클라이언트의 상태 폴링과 `근거 준비됨` 표시 (job `completed`/`partial`)
+8. 이후 사용자 턴마다 인덱스 검색으로 근거를 프롬프트에 사용 (일회성 소비 없음)
 
 ### 제외
 
@@ -51,22 +52,22 @@
 
 ```text
 사용자 메시지
+  → (딥다이브·수업 자료) 매 턴 인덱스 검색 → 근거 텍스트를 대화 프롬프트에 주입
   → 조사 필요 판단
   → (필요 시) SSE research_required + 현재 턴은 단정 피하며 대화 계속
   → 클라이언트 POST /api/research/jobs (202, job_id)
-  → 백그라운드:
+  → 백그라운드(제품):
         기존 인덱스 검색
         → 부족하면 웹 검색·수집·인덱싱
         → 다시 검색해 EvidenceContext 확정
-        → baseline 응답 생성·저장
-        → grounded 응답 생성·저장
-        → 인용 규칙 검사 + LLM pairwise 비교·저장
         → job 상태 completed/partial/failed
-  → 클라이언트 폴링 → 「근거 준비됨」만 표시
-  → 다음 사용자 턴부터 완료 근거로 인용 응답
+  → 백그라운드(평가, best-effort):
+        baseline / grounded 생성·비교 저장 (제품 완료와 분리)
+  → 클라이언트 폴링 → job 성공 시 「근거 준비됨」만 표시
+  → 이후 턴도 같은 인덱스 검색으로 근거 사용
 ```
 
-사용자에게 보이는 말풍선과 DB의 baseline/grounded 비교 기록은 분리한다. 비교용 두 답은 채팅 히스토리에 그대로 올리지 않는다.
+사용자에게 보이는 말풍선과 DB의 baseline/grounded 비교 기록은 분리한다. 비교용 두 답은 채팅 히스토리에 그대로 올리지 않는다. 근거 JSON을 한 번 쓰고 폐기(consume)하지 않는다.
 
 ## 5. 계약 요약
 
@@ -98,7 +99,9 @@
 - pairwise: 구체성·자연스러움·정확성·전체 승자, 이유, `order_flipped`
 - 생성·판정 시각, 사용 모델명
 
-생성·비교가 실패해도 조사 job 완료와 분리해, 채팅 폴링이 막히지 않게 한다. (예: job은 completed, 비교 레코드는 실패/부분 기록)
+생성·비교가 실패해도 조사 job 완료와 분리해, 채팅 폴링이 막히지 않게 한다. (예: job은 completed, 비교 레코드는 실패/부분 기록 또는 없음)
+
+비교 테이블에는 제품 handoff 필드(`prepared_evidence_json`, `consumed_at`)를 두지 않는다.
 
 ## 6. 배치
 
@@ -117,7 +120,7 @@ app/api/endpoints/
   chat.py                   # SSE research_required 추가
 
 app/services/
-  chat_service.py           # 턴 정책·다음 턴 근거 주입 연결만
+  chat_service.py           # 턴 정책·매 턴 인덱스 검색 근거 주입
 
 app/models/                 # job 연계 비교 저장 모델
 ```
@@ -130,7 +133,7 @@ app/models/                 # job 연계 비교 저장 모델
 2. job이 웹 조사까지 포함해 근거를 준비하거나, 부족/실패를 상태로 남긴다.
 3. job 완료 후 baseline·grounded·비교 판정이 DB에 남는다.
 4. UI는 `근거 준비됨`만 보이고, 현재 답을 고치거나 자동 후속 메시지를 보내지 않는다.
-5. 다음 사용자 턴에서 완료된 근거를 사용한다.
+5. 이후 사용자 턴에서 인덱스 검색으로 근거를 사용한다(일회성 소비 없음).
 6. private 자료 cross-user 결과 0, EvidenceContext 밖 citation 0.
 7. 기존 비조사 채팅·문서 생성 경로 회귀 없음.
 8. 승률 숫자 게이트는 요구하지 않는다.

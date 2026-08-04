@@ -79,6 +79,18 @@ def test_generated_response_and_citation_and_judgment_contracts():
     )
     judgment = PairwiseJudgment.model_validate(
         {
+            "baseline_scores": {
+                "specificity": 60,
+                "naturalness": 80,
+                "accuracy": 55,
+                "overall": 62,
+            },
+            "grounded_scores": {
+                "specificity": 90,
+                "naturalness": 80,
+                "accuracy": 88,
+                "overall": 87,
+            },
             "specificity_winner": "grounded",
             "naturalness_winner": "tie",
             "accuracy_winner": "grounded",

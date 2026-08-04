@@ -1,12 +1,23 @@
+from __future__ import annotations
+
 import datetime
 import enum
+import json
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.evaluation.response_comparison_contracts import (
+        GeneratedResponse,
+        PairwiseJudgment,
+    )
+    from app.research.contracts import FetchedSource, GroundedResponseResult
 
 
 class ResearchJobStatus(str, enum.Enum):
@@ -86,6 +97,23 @@ class ResearchJob(Base):
         self.status = status
         self.terminal_error = terminal_error
 
+    @classmethod
+    def queued(
+        cls,
+        *,
+        user_id: uuid.UUID,
+        manuscript_id: uuid.UUID,
+        message_id: uuid.UUID | None,
+        claim_or_query: str | None,
+    ) -> ResearchJob:
+        return cls(
+            user_id=user_id,
+            manuscript_id=manuscript_id,
+            message_id=message_id,
+            claim_or_query=claim_or_query,
+            status=ResearchJobStatus.QUEUED,
+        )
+
 
 class ResearchSource(Base):
     __tablename__ = "research_sources"
@@ -122,6 +150,42 @@ class ResearchSource(Base):
         onupdate=datetime.datetime.utcnow,
     )
 
+    @classmethod
+    def pending_from_fetch(
+        cls,
+        fetched: FetchedSource,
+        *,
+        scope: ResearchSourceScope,
+        identity_key: str,
+        source_id: uuid.UUID,
+        user_id: uuid.UUID,
+        manuscript_id: uuid.UUID,
+        language: str,
+        embedding_model: str,
+        embedding_dimension: int,
+        chunk_schema_version: str,
+    ) -> ResearchSource:
+        private = scope == ResearchSourceScope.PRIVATE
+        return cls(
+            id=source_id,
+            identity_key=identity_key,
+            scope=scope,
+            owner_user_id=user_id if private else None,
+            owner_manuscript_id=manuscript_id if private else None,
+            canonical_url=fetched.canonical_url,
+            title=fetched.title,
+            publisher=fetched.publisher,
+            published_at=fetched.published_at,
+            fetched_at=fetched.fetched_at,
+            content_hash=fetched.content_hash,
+            storage_key=f"research_sources/{source_id}.json",
+            language=language,
+            status=ResearchSourceStatus.PENDING,
+            embedding_model=embedding_model,
+            embedding_dimension=embedding_dimension,
+            chunk_schema_version=chunk_schema_version,
+        )
+
 
 class ResearchSourceUrl(Base):
     __tablename__ = "research_source_urls"
@@ -141,6 +205,25 @@ class ResearchSourceUrl(Base):
     )
     is_canonical: Mapped[bool] = mapped_column(default=False)
 
+    @classmethod
+    def for_source(
+        cls,
+        source: ResearchSource,
+        *,
+        url: str,
+        identity_key: str,
+        is_canonical: bool,
+    ) -> ResearchSourceUrl:
+        return cls(
+            identity_key=identity_key,
+            source_id=source.id,
+            url=url,
+            scope=source.scope,
+            owner_user_id=source.owner_user_id,
+            owner_manuscript_id=source.owner_manuscript_id,
+            is_canonical=is_canonical,
+        )
+
 
 class ResearchJobSource(Base):
     __tablename__ = "research_job_sources"
@@ -157,6 +240,17 @@ class ResearchJobSource(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     manuscript_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("manuscripts.id"))
+
+    @classmethod
+    def for_job_and_source(
+        cls, job: ResearchJob, source: ResearchSource
+    ) -> ResearchJobSource:
+        return cls(
+            research_job_id=job.id,
+            source_id=source.id,
+            user_id=job.user_id,
+            manuscript_id=job.manuscript_id,
+        )
 
 
 class ResearchUsage(Base):
@@ -204,19 +298,46 @@ class ResponseComparisonRecord(Base):
     baseline_citation_passed: Mapped[bool] = mapped_column(default=True)
     grounded_citation_passed: Mapped[bool] = mapped_column(default=True)
     citation_failure_reasons: Mapped[str | None] = mapped_column(Text, nullable=True)
-    specificity_winner: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    naturalness_winner: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    accuracy_winner: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    overall_winner: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    judgment_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    order_flipped: Mapped[bool | None] = mapped_column(nullable=True)
+    # PairwiseJudgment JSON (점수·winner·reason·order_flipped)
+    judgment_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     generation_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     judge_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     comparison_error: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    prepared_evidence_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    consumed_at: Mapped[datetime.datetime | None] = mapped_column(
-        DateTime, nullable=True
-    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=datetime.datetime.utcnow
     )
+
+    @classmethod
+    def from_job_evaluation(
+        cls,
+        job: ResearchJob,
+        *,
+        baseline: GeneratedResponse,
+        grounded: GroundedResponseResult,
+        judgment: PairwiseJudgment | None,
+        generation_model: str | None,
+        judge_model: str | None,
+        comparison_error: str | None,
+    ) -> ResponseComparisonRecord:
+        return cls(
+            research_job_id=job.id,
+            user_id=job.user_id,
+            manuscript_id=job.manuscript_id,
+            message_id=job.message_id,
+            baseline_body=baseline.body,
+            grounded_body=grounded.text,
+            baseline_cited_urls=json.dumps(
+                list(baseline.cited_urls), ensure_ascii=False
+            ),
+            grounded_cited_urls=json.dumps(
+                [citation.url for citation in grounded.citations],
+                ensure_ascii=False,
+            ),
+            baseline_citation_passed=True,
+            grounded_citation_passed=grounded.is_grounded,
+            citation_failure_reasons=grounded.warning_code,
+            judgment_json=judgment.model_dump_json() if judgment else None,
+            generation_model=generation_model,
+            judge_model=judge_model,
+            comparison_error=comparison_error,
+        )

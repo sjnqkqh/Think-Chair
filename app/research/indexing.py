@@ -153,40 +153,23 @@ async def index_research_sources(
                 request.user_id,
                 request.manuscript_id,
             )
-            source_id = research_repo.source_id_from_identity(identity_key)
-            source = ResearchSource(
-                id=source_id,
-                identity_key=identity_key,
+            contract = evidence_index.index_contract
+            source = ResearchSource.pending_from_fetch(
+                fetched_source,
                 scope=scope,
-                owner_user_id=(
-                    request.user_id if scope == ResearchSourceScope.PRIVATE else None
-                ),
-                owner_manuscript_id=(
-                    request.manuscript_id
-                    if scope == ResearchSourceScope.PRIVATE
-                    else None
-                ),
-                canonical_url=fetched_source.canonical_url,
-                title=fetched_source.title,
-                publisher=fetched_source.publisher,
-                published_at=fetched_source.published_at,
-                fetched_at=fetched_source.fetched_at,
-                content_hash=fetched_source.content_hash,
-                storage_key=f"research_sources/{source_id}.json",
+                identity_key=identity_key,
+                source_id=research_repo.source_id_from_identity(identity_key),
+                user_id=request.user_id,
+                manuscript_id=request.manuscript_id,
                 language=classify_text_language(
                     "\n".join(
                         [fetched_source.text]
                         + [section.text for section in fetched_source.sections]
                     )
                 ),
-                status=ResearchSourceStatus.PENDING,
-                embedding_model=evidence_index.index_contract["embedding_model"],
-                embedding_dimension=evidence_index.index_contract[
-                    "embedding_dimension"
-                ],
-                chunk_schema_version=evidence_index.index_contract[
-                    "chunk_schema_version"
-                ],
+                embedding_model=contract["embedding_model"],
+                embedding_dimension=contract["embedding_dimension"],
+                chunk_schema_version=contract["chunk_schema_version"],
             )
             db.add(source)
         else:

@@ -37,9 +37,9 @@
 ### 4. Research job 실행기
 
 - 검색 → 부족 시 web search/fetch/index → 재검색
-- 완료 후 baseline/grounded 생성·규칙 검사·pairwise → DB 저장
-- 비교 실패와 job completed 분리
-- 단위/통합 테스트: message당 job 1개, 상태 전이
+- 제품 완료는 수집·인덱싱·evidence sufficiency만으로 결정
+- 완료 후 baseline/grounded·pairwise는 평가용 best-effort 저장(제품과 분리)
+- 단위/통합 테스트: message당 job 1개, 상태 전이, 평가 없이도 제품 완료 가능
 
 ### 5. API
 
@@ -49,8 +49,8 @@
 
 ### 6. 채팅·UI 연결
 
-- 다음 턴 근거 주입
-- 폴링 + `근거 준비됨` 표시
+- 매 턴 인덱스 검색으로 근거 주입 (prepared JSON 소비 패턴 없음)
+- 폴링 + job `completed`/`partial` 시 `근거 준비됨` 표시
 - 답 자동 수정·자동 후속 메시지 없음
 
 ### 7. 정리

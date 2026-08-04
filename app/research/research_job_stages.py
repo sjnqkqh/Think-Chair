@@ -5,7 +5,6 @@ job.status 전환은 하지 않는다. 호출부가 단계 결과를 보고 상�
 
 from __future__ import annotations
 
-import json
 import uuid
 from collections.abc import Awaitable, Callable
 
@@ -18,7 +17,7 @@ from app.evaluation.response_comparison_contracts import (
 )
 from app.evaluation.response_generation import parse_generation_response
 from app.logging import get_logger
-from app.models.research import ResearchJob, ResearchJobStatus
+from app.models.research import ResearchJob, ResearchJobStatus, ResponseComparisonRecord
 from app.repositories import research_repo
 from app.research.contracts import (
     EvidenceContext,
@@ -27,7 +26,6 @@ from app.research.contracts import (
     GroundedResponseResult,
 )
 from app.research.grounded_response import generate_grounded_response
-from app.research.prepared_evidence import serialize_evidence_context
 from app.research.retrieval import retrieve_evidence
 
 logger = get_logger(__name__)
@@ -44,7 +42,9 @@ class EvidenceCollectionResult(BaseModel):
 
     evidence: EvidenceContext
     web_error: str | None = None
-    session_rolled_back: bool = False  # 웹 조사 예외로 세션을 rollback 했을 때. 호출부가 job 재연결·상태를 처리한다.
+    # 웹 조사 예외로 세션을 rollback 했을 때. 호출부가 job 재연결·상태를 처리한다.
+    session_rolled_back: bool = False
+
 
 class ResponsePairResult(BaseModel):
     """평가용 baseline / grounded 쌍."""
@@ -70,7 +70,6 @@ class FinalizeDecision(BaseModel):
 
     status: ResearchJobStatus
     terminal_error: str | None = None
-    prepared_evidence_json: str | None = None
 
 
 async def collect_evidence_for_job(
@@ -116,6 +115,25 @@ async def collect_evidence_for_job(
             web_error="web_research_failed",
             session_rolled_back=True,
         )
+
+
+def decide_job_outcome(collection: EvidenceCollectionResult) -> FinalizeDecision:
+    """수집된 근거만으로 호출부가 적용할 종료 결과를 정한다."""
+    evidence = collection.evidence
+    if evidence.sufficiency.sufficient:
+        return FinalizeDecision(
+            status=ResearchJobStatus.COMPLETED,
+            terminal_error=None,
+        )
+    if evidence.items:
+        return FinalizeDecision(
+            status=ResearchJobStatus.PARTIAL,
+            terminal_error=None,
+        )
+    return FinalizeDecision(
+        status=ResearchJobStatus.FAILED,
+        terminal_error=collection.web_error or "insufficient_evidence",
+    )
 
 
 def evaluate_research_responses(
@@ -167,73 +185,25 @@ def evaluate_research_responses(
     )
 
 
-def decide_job_outcome(
-    collection: EvidenceCollectionResult,
-    evaluation: EvaluationResult,
-) -> FinalizeDecision:
-    """제품 근거·grounded 품질로 호출부가 적용할 종료 결과를 정한다."""
-    evidence = collection.evidence
-    grounded = evaluation.responses.grounded
-    prepared = serialize_evidence_context(evidence) if evidence.items else None
-    if evidence.sufficiency.sufficient and grounded.is_grounded:
-        return FinalizeDecision(
-            status=ResearchJobStatus.COMPLETED,
-            terminal_error=None,
-            prepared_evidence_json=prepared,
-        )
-    if evidence.items:
-        return FinalizeDecision(
-            status=ResearchJobStatus.PARTIAL,
-            terminal_error=None,
-            prepared_evidence_json=prepared,
-        )
-    return FinalizeDecision(
-        status=ResearchJobStatus.FAILED,
-        terminal_error=collection.web_error or "insufficient_evidence",
-        prepared_evidence_json=prepared,
-    )
-
-
 def save_research_comparison_record(
     db,
     job: ResearchJob,
     *,
-    collection: EvidenceCollectionResult,
     evaluation: EvaluationResult,
-    decision: FinalizeDecision,
     generation_model: str | None,
     judge_model: str | None,
 ) -> None:
-    """비교·prepared evidence 행만 저장한다. job.status는 바꾸지 않는다."""
-    baseline = evaluation.responses.baseline
-    grounded = evaluation.responses.grounded
-    judgment = evaluation.judgment
-    research_repo.save_response_comparison_record(
-        db,
-        research_job_id=job.id,
-        user_id=job.user_id,
-        manuscript_id=job.manuscript_id,
-        message_id=job.message_id,
-        baseline_body=baseline.body,
-        grounded_body=grounded.text,
-        baseline_cited_urls=json.dumps(list(baseline.cited_urls), ensure_ascii=False),
-        grounded_cited_urls=json.dumps(
-            [c.url for c in grounded.citations], ensure_ascii=False
-        ),
-        baseline_citation_passed=True,
-        grounded_citation_passed=grounded.is_grounded,
-        citation_failure_reasons=grounded.warning_code,
-        specificity_winner=judgment.specificity_winner if judgment else None,
-        naturalness_winner=judgment.naturalness_winner if judgment else None,
-        accuracy_winner=judgment.accuracy_winner if judgment else None,
-        overall_winner=judgment.overall_winner if judgment else None,
-        judgment_reason=judgment.reason if judgment else None,
-        order_flipped=judgment.order_flipped if judgment else None,
+    """평가 비교 기록만 저장한다. job.status는 바꾸지 않는다."""
+    record = ResponseComparisonRecord.from_job_evaluation(
+        job,
+        baseline=evaluation.responses.baseline,
+        grounded=evaluation.responses.grounded,
+        judgment=evaluation.judgment,
         generation_model=generation_model,
         judge_model=judge_model,
         comparison_error=evaluation.comparison_error,
-        prepared_evidence_json=decision.prepared_evidence_json,
     )
+    research_repo.save_response_comparison_record(db, record)
 
 
 def _retrieve(

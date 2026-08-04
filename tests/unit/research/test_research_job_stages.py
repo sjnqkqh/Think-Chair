@@ -5,13 +5,9 @@ from app.research.contracts import (
     EvidenceContext,
     EvidenceItem,
     EvidenceSufficiency,
-    GroundedResponseResult,
 )
-from app.evaluation.response_comparison_contracts import GeneratedResponse
 from app.research.research_job_stages import (
     EvidenceCollectionResult,
-    EvaluationResult,
-    ResponsePairResult,
     decide_job_outcome,
 )
 
@@ -43,37 +39,19 @@ def _evidence(*, items: bool, sufficient: bool) -> EvidenceContext:
     )
 
 
-def _evaluation(*, grounded: bool) -> EvaluationResult:
-    return EvaluationResult(
-        responses=ResponsePairResult(
-            baseline=GeneratedResponse(body="baseline"),
-            grounded=GroundedResponseResult(
-                text="grounded",
-                citations=[],
-                is_grounded=grounded,
-                warning_code=None if grounded else "invalid_citation_fallback",
-            ),
-        )
-    )
-
-
-def test_decide_job_outcome_completed_when_sufficient_and_grounded():
+def test_decide_job_outcome_completed_when_sufficient():
     decision = decide_job_outcome(
         EvidenceCollectionResult(evidence=_evidence(items=True, sufficient=True)),
-        _evaluation(grounded=True),
     )
     assert decision.status == ResearchJobStatus.COMPLETED
     assert decision.terminal_error is None
-    assert decision.prepared_evidence_json
 
 
-def test_decide_job_outcome_partial_when_items_but_not_fully_grounded():
+def test_decide_job_outcome_partial_when_items_but_not_sufficient():
     decision = decide_job_outcome(
         EvidenceCollectionResult(evidence=_evidence(items=True, sufficient=False)),
-        _evaluation(grounded=False),
     )
     assert decision.status == ResearchJobStatus.PARTIAL
-    assert decision.prepared_evidence_json
 
 
 def test_decide_job_outcome_failed_uses_web_error():
@@ -82,8 +60,6 @@ def test_decide_job_outcome_failed_uses_web_error():
             evidence=_evidence(items=False, sufficient=False),
             web_error="search_not_configured",
         ),
-        _evaluation(grounded=False),
     )
     assert decision.status == ResearchJobStatus.FAILED
     assert decision.terminal_error == "search_not_configured"
-    assert decision.prepared_evidence_json is None

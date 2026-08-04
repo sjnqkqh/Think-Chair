@@ -8,7 +8,7 @@ from app.graph.state import GraphState
 
 
 def _evidence_messages(state: GraphState) -> list[SystemMessage]:
-    text = state.get("prepared_evidence_text")
+    text = state.get("evidence_text")
     if not text:
         return []
     return [SystemMessage(content=text)]

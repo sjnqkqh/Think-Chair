@@ -24,7 +24,7 @@
 - 채팅 SSE의 `research_required` event
 - `POST /api/research/jobs`의 `202 Accepted`, stable job ID, status URL
 - job status polling과 cancel API
-- `근거 준비됨` 상태와 다음 턴 evidence 사용
+- `근거 준비됨` 상태와 매 턴 인덱스 검색 evidence 사용
 - partial, failed, cancelled 사용자 메시지
 - 재시작 후 job 상태 조회
 

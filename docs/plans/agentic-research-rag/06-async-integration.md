@@ -46,7 +46,7 @@
 - job 소유자만 상태 조회·취소 가능
 - polling 완료 후 `근거 준비됨` 표시
 - 완료 전후 자동 follow-up 메시지 0건
-- 다음 사용자 턴에서 완료 evidence 사용
+- 이후 사용자 턴마다 인덱스 검색으로 evidence 사용
 - `restart_interrupted` job은 자동 재실행되지 않음
 - 근거가 해당 user/manuscript에만 전달
 - partial/failed 결과를 안전한 사용자 메시지로 변환

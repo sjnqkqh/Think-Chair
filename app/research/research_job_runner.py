@@ -1,4 +1,4 @@
-"""조사 job 실행 호출부: 단계 결과를 받아 job.status를 전환한다."""
+"""조사 job 실행 호출부: 제품 완료 후 평가는 best-effort로만 남긴다."""
 
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ async def run_research_job(
     db_factory,
     evidence_index,
     embed_query: EmbedQuery,
-    generate_invoke: PromptInvoker,
-    judge_invoke: PromptInvoker,
+    generate_invoke: PromptInvoker | None = None,
+    judge_invoke: PromptInvoker | None = None,
     generation_model: str | None = None,
     judge_model: str | None = None,
     web_research: WebResearchHook | None = None,
@@ -53,30 +53,43 @@ async def run_research_job(
         if job_session.cancelled():
             return
 
-        evaluation = evaluate_research_responses(
-            query=job_session.query,
-            evidence=collection.evidence,
-            generate_invoke=generate_invoke,
-            judge_invoke=judge_invoke,
-        )
-        decision = decide_job_outcome(collection, evaluation)
+        decision = decide_job_outcome(collection)
 
         if not job_session.reload_if_active():
             return
 
-        save_research_comparison_record(
-            job_session.db,
-            job_session.job,
-            collection=collection,
-            evaluation=evaluation,
-            decision=decision,
-            generation_model=generation_model,
-            judge_model=judge_model,
-        )
         job_session.finish(
             status=decision.status,
             terminal_error=decision.terminal_error,
         )
+
+        if generate_invoke is None or judge_invoke is None:
+            return
+        if job_session.cancelled():
+            return
+        try:
+            evaluation = evaluate_research_responses(
+                query=job_session.query,
+                evidence=collection.evidence,
+                generate_invoke=generate_invoke,
+                judge_invoke=judge_invoke,
+            )
+            if job_session.cancelled():
+                return
+            save_research_comparison_record(
+                job_session.db,
+                job_session.job,
+                evaluation=evaluation,
+                generation_model=generation_model,
+                judge_model=judge_model,
+            )
+            job_session.db.commit()
+        except Exception:
+            logger.exception(
+                "research.evaluation_failed_after_product_finish",
+                job_id=str(job_id),
+            )
+            job_session.db.rollback()
     except Exception:
         logger.exception("research.job_failed", job_id=str(job_id))
         job_session.fail_execution()

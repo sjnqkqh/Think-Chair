@@ -75,12 +75,6 @@ def test_create_research_job_rejects_when_manuscript_job_limit_reached(db_sessio
 
     background = _Background()
 
-    def run_job(job_id):
-        async def _run():
-            started.append(job_id)
-
-        return _run()
-
     for _ in range(MAX_RESEARCH_JOBS_PER_MANUSCRIPT):
         job, created = create_or_get_research_job(
             db_session,
@@ -89,7 +83,7 @@ def test_create_research_job_rejects_when_manuscript_job_limit_reached(db_sessio
             message_id=uuid4(),
             claim_or_query="일반론 주장",
             background_tasks=background,
-            run_job=run_job,
+            db_factory=lambda: db_session,
             concept=manuscript.concept,
         )
         assert created is True
@@ -110,7 +104,7 @@ def test_create_research_job_rejects_when_manuscript_job_limit_reached(db_sessio
             message_id=uuid4(),
             claim_or_query="여섯 번째 조사",
             background_tasks=background,
-            run_job=run_job,
+            db_factory=lambda: db_session,
             concept=manuscript.concept,
         )
 
@@ -127,12 +121,6 @@ def test_existing_message_job_does_not_consume_extra_quota(db_session):
 
     background = _Background()
 
-    def run_job(_job_id):
-        async def _run():
-            return None
-
-        return _run()
-
     first, created_first = create_or_get_research_job(
         db_session,
         user_id=user.id,
@@ -140,7 +128,7 @@ def test_existing_message_job_does_not_consume_extra_quota(db_session):
         message_id=message_id,
         claim_or_query="같은 메시지",
         background_tasks=background,
-        run_job=run_job,
+        db_factory=lambda: db_session,
         concept=manuscript.concept,
     )
     second, created_second = create_or_get_research_job(
@@ -150,7 +138,7 @@ def test_existing_message_job_does_not_consume_extra_quota(db_session):
         message_id=message_id,
         claim_or_query="같은 메시지",
         background_tasks=background,
-        run_job=run_job,
+        db_factory=lambda: db_session,
         concept=manuscript.concept,
     )
 
@@ -215,12 +203,6 @@ def test_create_research_job_rejects_non_research_concepts(db_session):
         def start(self, coroutine):
             coroutine.close()
 
-    def run_job(_job_id):
-        async def _run():
-            return None
-
-        return _run()
-
     with pytest.raises(ConflictError, match="딥다이브·수업 자료"):
         create_or_get_research_job(
             db_session,
@@ -229,6 +211,6 @@ def test_create_research_job_rejects_non_research_concepts(db_session):
             message_id=uuid4(),
             claim_or_query="일반론",
             background_tasks=_Background(),
-            run_job=run_job,
+            db_factory=lambda: db_session,
             concept=manuscript.concept,
         )

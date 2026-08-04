@@ -93,9 +93,11 @@ async def test_stream_response_dispatches_assistant_reply():
 
 async def test_begin_turn_skips_research_for_non_enabled_concepts(monkeypatch):
     message_id = uuid.uuid4()
+    routed = {}
 
     class FakeRunner:
         async def route_turn(self, **kwargs):
+            routed.update(kwargs)
             return {"user_action": "say"}
 
     class Session:
@@ -137,13 +139,16 @@ async def test_begin_turn_skips_research_for_non_enabled_concepts(monkeypatch):
 
     assert turn.research_required is False
     assert turn.claim_or_query is None
+    assert routed.get("evidence_text") is None
 
 
 async def test_begin_turn_keeps_research_for_deepdive(monkeypatch):
     message_id = uuid.uuid4()
+    routed = {}
 
     class FakeRunner:
         async def route_turn(self, **kwargs):
+            routed.update(kwargs)
             return {"user_action": "say"}
 
     class Session:
@@ -166,6 +171,10 @@ async def test_begin_turn_keeps_research_for_deepdive(monkeypatch):
             claim_or_query="보통 CPU 점유율을 봅니다.",
         ),
     )
+    monkeypatch.setattr(
+        "app.research.turn_evidence.load_evidence_text_for_turn",
+        lambda **_kwargs: "검색된 근거 텍스트",
+    )
     service = ChatService(
         graph_runner=FakeRunner(),
         db_factory=_NullSession,
@@ -185,6 +194,7 @@ async def test_begin_turn_keeps_research_for_deepdive(monkeypatch):
 
     assert turn.research_required is True
     assert turn.claim_or_query == "보통 CPU 점유율을 봅니다."
+    assert routed["evidence_text"] == "검색된 근거 텍스트"
 
 
 def test_save_chat_message_propagates_db_error(monkeypatch):
