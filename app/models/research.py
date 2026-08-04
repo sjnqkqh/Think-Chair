@@ -17,7 +17,7 @@ if TYPE_CHECKING:
         GeneratedResponse,
         PairwiseJudgment,
     )
-    from app.research.contracts import FetchedSource, GroundedResponseResult
+    from app.research.contracts import GroundedResponseResult
 
 
 class ResearchJobStatus(str, enum.Enum):
@@ -97,23 +97,6 @@ class ResearchJob(Base):
         self.status = status
         self.terminal_error = terminal_error
 
-    @classmethod
-    def queued(
-        cls,
-        *,
-        user_id: uuid.UUID,
-        manuscript_id: uuid.UUID,
-        message_id: uuid.UUID | None,
-        claim_or_query: str | None,
-    ) -> ResearchJob:
-        return cls(
-            user_id=user_id,
-            manuscript_id=manuscript_id,
-            message_id=message_id,
-            claim_or_query=claim_or_query,
-            status=ResearchJobStatus.QUEUED,
-        )
-
 
 class ResearchSource(Base):
     __tablename__ = "research_sources"
@@ -150,42 +133,6 @@ class ResearchSource(Base):
         onupdate=datetime.datetime.utcnow,
     )
 
-    @classmethod
-    def pending_from_fetch(
-        cls,
-        fetched: FetchedSource,
-        *,
-        scope: ResearchSourceScope,
-        identity_key: str,
-        source_id: uuid.UUID,
-        user_id: uuid.UUID,
-        manuscript_id: uuid.UUID,
-        language: str,
-        embedding_model: str,
-        embedding_dimension: int,
-        chunk_schema_version: str,
-    ) -> ResearchSource:
-        private = scope == ResearchSourceScope.PRIVATE
-        return cls(
-            id=source_id,
-            identity_key=identity_key,
-            scope=scope,
-            owner_user_id=user_id if private else None,
-            owner_manuscript_id=manuscript_id if private else None,
-            canonical_url=fetched.canonical_url,
-            title=fetched.title,
-            publisher=fetched.publisher,
-            published_at=fetched.published_at,
-            fetched_at=fetched.fetched_at,
-            content_hash=fetched.content_hash,
-            storage_key=f"research_sources/{source_id}.json",
-            language=language,
-            status=ResearchSourceStatus.PENDING,
-            embedding_model=embedding_model,
-            embedding_dimension=embedding_dimension,
-            chunk_schema_version=chunk_schema_version,
-        )
-
 
 class ResearchSourceUrl(Base):
     __tablename__ = "research_source_urls"
@@ -205,25 +152,6 @@ class ResearchSourceUrl(Base):
     )
     is_canonical: Mapped[bool] = mapped_column(default=False)
 
-    @classmethod
-    def for_source(
-        cls,
-        source: ResearchSource,
-        *,
-        url: str,
-        identity_key: str,
-        is_canonical: bool,
-    ) -> ResearchSourceUrl:
-        return cls(
-            identity_key=identity_key,
-            source_id=source.id,
-            url=url,
-            scope=source.scope,
-            owner_user_id=source.owner_user_id,
-            owner_manuscript_id=source.owner_manuscript_id,
-            is_canonical=is_canonical,
-        )
-
 
 class ResearchJobSource(Base):
     __tablename__ = "research_job_sources"
@@ -240,17 +168,6 @@ class ResearchJobSource(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     manuscript_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("manuscripts.id"))
-
-    @classmethod
-    def for_job_and_source(
-        cls, job: ResearchJob, source: ResearchSource
-    ) -> ResearchJobSource:
-        return cls(
-            research_job_id=job.id,
-            source_id=source.id,
-            user_id=job.user_id,
-            manuscript_id=job.manuscript_id,
-        )
 
 
 class ResearchUsage(Base):

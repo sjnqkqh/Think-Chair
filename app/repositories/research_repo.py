@@ -8,6 +8,7 @@ from app.models.manuscript import Manuscript
 from app.models.research import (
     ResearchJob,
     ResearchJobSource,
+    ResearchJobStatus,
     ResearchSource,
     ResearchSourceScope,
     ResearchSourceUrl,
@@ -97,10 +98,13 @@ def add_source_url_alias(
         alias.is_canonical = alias.is_canonical or is_canonical
         return
     db.add(
-        ResearchSourceUrl.for_source(
-            source,
-            url=url,
+        ResearchSourceUrl(
             identity_key=identity_key,
+            source_id=source.id,
+            url=url,
+            scope=source.scope,
+            owner_user_id=source.owner_user_id,
+            owner_manuscript_id=source.owner_manuscript_id,
             is_canonical=is_canonical,
         )
     )
@@ -120,7 +124,14 @@ def link_source_to_research_job(
         .first()
     )
     if exists is None:
-        db.add(ResearchJobSource.for_job_and_source(job, source))
+        db.add(
+            ResearchJobSource(
+                research_job_id=job.id,
+                source_id=source.id,
+                user_id=job.user_id,
+                manuscript_id=job.manuscript_id,
+            )
+        )
 
 
 def find_research_job_by_message(
@@ -149,11 +160,12 @@ def create_research_job(
     message_id: uuid.UUID | None,
     claim_or_query: str | None,
 ) -> ResearchJob:
-    job = ResearchJob.queued(
+    job = ResearchJob(
         user_id=user_id,
         manuscript_id=manuscript_id,
         message_id=message_id,
         claim_or_query=claim_or_query,
+        status=ResearchJobStatus.QUEUED,
     )
     db.add(job)
     db.flush()
