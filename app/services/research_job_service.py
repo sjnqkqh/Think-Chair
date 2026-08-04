@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError
 from app.models.manuscript import ConceptType
-from app.models.research import ResearchJob, ResearchJobStatus
+from app.models.research import ResearchJob
 from app.repositories import research_repo
 from app.research.research_eligibility import concept_allows_web_research
 from app.services.background_tasks import BackgroundTaskRegistry
@@ -100,13 +100,7 @@ def mark_job_cancelled(
     db: Session,
     job: ResearchJob,
 ) -> ResearchJob:
-    if job.status in {
-        ResearchJobStatus.COMPLETED,
-        ResearchJobStatus.PARTIAL,
-        ResearchJobStatus.FAILED,
-        ResearchJobStatus.CANCELLED,
-    }:
+    if not job.mark_cancelled():
         return job
-    job.status = ResearchJobStatus.CANCELLED
     db.commit()
     return job

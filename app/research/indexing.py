@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.logging import get_logger
 from app.models.research import (
-    ResearchJobStatus,
     ResearchSource,
     ResearchSourceScope,
     ResearchSourceStatus,
@@ -101,11 +100,6 @@ async def index_research_sources(
     )
     if job is None:
         return ResearchIndexResult(status="failed", error_codes=["job_not_found"])
-
-    if job.status != ResearchJobStatus.CANCELLED:
-        job.status = ResearchJobStatus.RUNNING
-        job.terminal_error = None
-        db.commit()
 
     indexed_source_ids = []
     skipped_source_keys = []
@@ -273,9 +267,6 @@ async def index_research_sources(
         status = "partial" if indexed_source_ids else "failed"
     else:
         status = "completed"
-    job.status = ResearchJobStatus(status)
-    job.terminal_error = error_codes[0] if status == "failed" else None
-    db.commit()
     return ResearchIndexResult(
         indexed_source_ids=indexed_source_ids,
         chunk_count=chunk_count,

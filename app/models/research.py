@@ -55,6 +55,37 @@ class ResearchJob(Base):
         onupdate=datetime.datetime.utcnow,
     )
 
+    def cancelled(self) -> bool:
+        return self.status == ResearchJobStatus.CANCELLED
+
+    def mark_running(self) -> None:
+        self.status = ResearchJobStatus.RUNNING
+
+    def mark_failed(self, terminal_error: str = "job_execution_error") -> None:
+        self.status = ResearchJobStatus.FAILED
+        self.terminal_error = terminal_error
+
+    def mark_cancelled(self) -> bool:
+        """이미 종료된 job이면 False. 아니면 CANCELLED로 바꾸고 True."""
+        if self.status in {
+            ResearchJobStatus.COMPLETED,
+            ResearchJobStatus.PARTIAL,
+            ResearchJobStatus.FAILED,
+            ResearchJobStatus.CANCELLED,
+        }:
+            return False
+        self.status = ResearchJobStatus.CANCELLED
+        return True
+
+    def mark_outcome(
+        self,
+        status: ResearchJobStatus,
+        *,
+        terminal_error: str | None = None,
+    ) -> None:
+        self.status = status
+        self.terminal_error = terminal_error
+
 
 class ResearchSource(Base):
     __tablename__ = "research_sources"
