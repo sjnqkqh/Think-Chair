@@ -5,7 +5,6 @@ import pytest
 
 from app.evaluation.service_growth_contracts import ServiceGrowthCase
 from app.evaluation.service_growth_generation import (
-    build_graph_state_for_case,
     build_service_growth_eval_graph,
     generate_service_growth_response,
 )
@@ -26,38 +25,27 @@ def _case(phase: str = "say") -> ServiceGrowthCase:
     )
 
 
-def test_build_graph_state_includes_claim_and_evidence():
-    state = build_graph_state_for_case(
-        _case(),
-        evidence_text="근거 텍스트",
-        manuscript_id="ms-1",
-    )
-    assert state["user_action"] == "say"
-    assert state["evidence_text"] == "근거 텍스트"
-    assert state["messages"][0].content == "RAG를 사용하면 품질이 좋아진다."
-
-
 @pytest.mark.asyncio
-async def test_generate_uses_evidence_loader_and_graph_invoker():
-    invoke_graph = AsyncMock(
-        return_value={"client_message": "구체적 응답입니다."}
-    )
+async def test_generate_passes_loaded_evidence_into_graph_state():
+    invoke_graph = AsyncMock(return_value={"client_message": "응답"})
     body, evidence = await generate_service_growth_response(
         _case(),
         user_id=uuid.uuid4(),
         manuscript_id=uuid.uuid4(),
-        load_evidence=lambda **_: "injected",
+        load_evidence=lambda **_: "injected-evidence",
         invoke_graph=invoke_graph,
     )
-    assert body == "구체적 응답입니다."
-    assert evidence == "injected"
-    invoke_graph.assert_awaited_once()
+    assert body == "응답"
+    assert evidence == "injected-evidence"
+    state = invoke_graph.await_args.args[0]
+    assert state["evidence_text"] == "injected-evidence"
+    assert state["user_action"] == "say"
+    assert state["messages"][0].content == "RAG를 사용하면 품질이 좋아진다."
 
 
-def test_build_eval_graph_applies_langfeather_when_enabled(monkeypatch):
+def test_eval_graph_is_wrapped_with_langfeather(monkeypatch):
     compiled = MagicMock(name="compiled")
     wrapped = MagicMock(name="wrapped")
-    compile_mock = MagicMock(return_value=compiled)
 
     class FakeGraph:
         def add_node(self, *args, **kwargs):
@@ -67,7 +55,7 @@ def test_build_eval_graph_applies_langfeather_when_enabled(monkeypatch):
             return None
 
         def compile(self):
-            return compile_mock()
+            return compiled
 
     monkeypatch.setattr(
         "app.evaluation.service_growth_generation.StateGraph",
@@ -77,6 +65,4 @@ def test_build_eval_graph_applies_langfeather_when_enabled(monkeypatch):
         "app.evaluation.service_growth_generation.apply_langfeather",
         lambda graph: wrapped if graph is compiled else graph,
     )
-
-    result = build_service_growth_eval_graph(phase="feedback")
-    assert result is wrapped
+    assert build_service_growth_eval_graph(phase="feedback") is wrapped
