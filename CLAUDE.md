@@ -79,6 +79,14 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 7. No Runtime Schema Migrations
+
+**테이블 구조 변경은 애플리케이션 코드에서 하지 않는다.**
+
+- `ALTER TABLE`, `PRAGMA table_info`로 컬럼 유무를 검사해 보정하는 런타임 마이그레이션 코드를 넣지 않는다.
+- 스키마는 SQLAlchemy ORM 모델(`app/models/`)에만 정의하고, 신규·개발 환경은 `Base.metadata.create_all`로 테이블을 만든다.
+- 기존 DB에 컬럼·테이블 변경이 필요하면 별도 마이그레이션 절차(수동 SQL, 전용 마이그레이션 도구 등)로 처리하고, 앱 기동 시 자동 적용하지 않는다.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
