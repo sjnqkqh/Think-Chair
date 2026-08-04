@@ -5,7 +5,7 @@
 더 구체적인 근거를 모아 주장을 보강한다.
 
 저장소는 pytest tmp 경로의 SQLite·Chroma·파일 스토리지를 쓰고,
-Brave/OpenAI만 실호출한다. 기본 테스트에서는 건너뛴다.
+Brave·OpenAI(임베딩)·DeepSeek(생성/비교)만 실호출한다. 기본 테스트에서는 건너뛴다.
 
     RUN_LIVE_RESEARCH_E2E=1 \\
       uv run pytest tests/e2e/test_live_research_conversation.py -v -s
@@ -142,7 +142,11 @@ pytestmark = [
     ),
     pytest.mark.skipif(
         not settings.OPENAI_API_KEY,
-        reason="OPENAI_API_KEY가 필요하다(임베딩·비교 생성).",
+        reason="OPENAI_API_KEY가 필요하다(임베딩).",
+    ),
+    pytest.mark.skipif(
+        not settings.DEEPSEEK_API_KEY,
+        reason="DEEPSEEK_API_KEY가 필요하다(생성·비교).",
     ),
 ]
 

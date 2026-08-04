@@ -69,12 +69,10 @@ async def create_research_job(
             db_factory=chat_service.db_factory,
             evidence_index=evidence_index,
             embed_query=embeddings.embed_query,
-            generate_invoke=_make_invoker(
-                settings.RESPONSE_COMPARISON_GENERATION_MODEL
-            ),
-            judge_invoke=_make_invoker(settings.RESPONSE_COMPARISON_JUDGE_MODEL),
-            generation_model=settings.RESPONSE_COMPARISON_GENERATION_MODEL,
-            judge_model=settings.RESPONSE_COMPARISON_JUDGE_MODEL,
+            generate_invoke=_make_deepseek_invoker(),
+            judge_invoke=_make_deepseek_invoker(),
+            generation_model=settings.DEEPSEEK_MODEL,
+            judge_model=settings.DEEPSEEK_MODEL,
             web_research=web_research,
         )
 
@@ -145,14 +143,14 @@ async def cancel_research_job(
     return {"id": str(job.id), "status": job.status.value}
 
 
-def _make_invoker(model_name: str):
+def _make_deepseek_invoker(model_name: str | None = None):
+    """조사 job의 baseline/grounded·비교 판정은 채팅과 같이 DeepSeek를 쓴다."""
     from langchain_openai import ChatOpenAI
 
-    api_key = settings.RESPONSE_COMPARISON_API_KEY or settings.OPENAI_API_KEY
     language_model = ChatOpenAI(
-        api_key=api_key,
-        base_url=settings.RESPONSE_COMPARISON_API_BASE,
-        model=model_name,
+        openai_api_key=settings.DEEPSEEK_API_KEY,
+        openai_api_base=settings.DEEPSEEK_API_BASE,
+        model_name=model_name or settings.DEEPSEEK_MODEL,
         temperature=0,
     )
 
