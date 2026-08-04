@@ -1,0 +1,39 @@
+"""대화 턴용 근거 검색."""
+
+from __future__ import annotations
+
+import uuid
+
+from app.research.contracts import EvidenceRequest
+from app.research.indexing import (
+    create_research_embeddings,
+    create_research_evidence_index,
+)
+from app.research.prepared_evidence import format_evidence_system_text
+from app.research.retrieval import retrieve_evidence
+
+
+def load_evidence_text_for_turn(
+    *,
+    user_id: uuid.UUID,
+    manuscript_id: uuid.UUID,
+    query: str,
+    limit: int = 5,
+) -> str:
+    """인덱스에서 근거를 검색해 프롬프트용 텍스트를 만든다. 없으면 빈 문자열."""
+    query = (query or "").strip()
+    if not query:
+        return ""
+    embeddings = create_research_embeddings()
+    evidence_index = create_research_evidence_index()
+    evidence = retrieve_evidence(
+        EvidenceRequest(
+            user_id=user_id,
+            manuscript_id=manuscript_id,
+            query=query,
+            limit=limit,
+        ),
+        evidence_index=evidence_index,
+        query_embedding=embeddings.embed_query(query),
+    )
+    return format_evidence_system_text(evidence)

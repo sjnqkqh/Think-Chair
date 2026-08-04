@@ -71,3 +71,38 @@ class ResearchEvidenceIndex:
         self, scope: EvidenceScope, source_id: str
     ) -> None:
         self.collections[scope].delete(where={"source_id": source_id})
+
+    def query_chunks(
+        self,
+        *,
+        scope: EvidenceScope,
+        query_embedding: list[float],
+        limit: int,
+        where: dict | None = None,
+    ) -> list[dict]:
+        collection = self.collections[scope]
+        if collection.count() == 0:
+            return []
+        kwargs: dict = {
+            "query_embeddings": [query_embedding],
+            "n_results": min(limit, max(collection.count(), 1)),
+            "include": ["documents", "metadatas", "distances"],
+        }
+        if where:
+            kwargs["where"] = where
+        raw = collection.query(**kwargs)
+        ids = (raw.get("ids") or [[]])[0]
+        documents = (raw.get("documents") or [[]])[0]
+        metadatas = (raw.get("metadatas") or [[]])[0]
+        distances = (raw.get("distances") or [[]])[0]
+        results: list[dict] = []
+        for index, chunk_id in enumerate(ids):
+            results.append(
+                {
+                    "id": chunk_id,
+                    "document": documents[index] if index < len(documents) else "",
+                    "metadata": metadatas[index] if index < len(metadatas) else {},
+                    "distance": distances[index] if index < len(distances) else None,
+                }
+            )
+        return results

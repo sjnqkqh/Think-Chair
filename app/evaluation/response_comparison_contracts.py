@@ -66,7 +66,18 @@ class CitationCheckResult(FrozenModel):
     failure_reasons: tuple[str, ...] = ()
 
 
+class AnswerScores(FrozenModel):
+    """응답 하나에 대한 기준별 점수. 각 항목 0~100."""
+
+    specificity: int = Field(ge=0, le=100)
+    naturalness: int = Field(ge=0, le=100)
+    accuracy: int = Field(ge=0, le=100)
+    overall: int = Field(ge=0, le=100)
+
+
 class PairwiseJudgment(FrozenModel):
+    baseline_scores: AnswerScores
+    grounded_scores: AnswerScores
     specificity_winner: ComparisonWinner
     naturalness_winner: ComparisonWinner
     accuracy_winner: ComparisonWinner

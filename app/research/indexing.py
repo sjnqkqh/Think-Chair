@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.logging import get_logger
 from app.models.research import (
-    ResearchJobStatus,
     ResearchSource,
     ResearchSourceScope,
     ResearchSourceStatus,
@@ -68,6 +67,7 @@ def _build_chunk_metadata(
         "source_id": str(source.id),
         "canonical_url": source.canonical_url,
         "source_url": chunk.source_url,
+        "title": source.title,
         "content_hash": source.content_hash,
         "language": chunk.language,
         "section_kind": chunk.section_kind,
@@ -100,10 +100,6 @@ async def index_research_sources(
     )
     if job is None:
         return ResearchIndexResult(status="failed", error_codes=["job_not_found"])
-
-    job.status = ResearchJobStatus.RUNNING
-    job.terminal_error = None
-    db.commit()
 
     indexed_source_ids = []
     skipped_source_keys = []
@@ -205,14 +201,15 @@ async def index_research_sources(
             request.manuscript_id,
             is_canonical=True,
         )
-        research_repo.add_source_url_alias(
-            db,
-            source,
-            fetched_source.requested_url,
-            request.user_id,
-            request.manuscript_id,
-            is_canonical=fetched_source.requested_url == fetched_source.canonical_url,
-        )
+        if fetched_source.requested_url != fetched_source.canonical_url:
+            research_repo.add_source_url_alias(
+                db,
+                source,
+                fetched_source.requested_url,
+                request.user_id,
+                request.manuscript_id,
+                is_canonical=False,
+            )
         db.commit()
 
         chunks = split_source_for_retrieval(
@@ -234,9 +231,7 @@ async def index_research_sources(
                 ids=chunk_ids,
                 documents=[chunk.text for chunk in chunks],
                 embeddings=vectors,
-                metadatas=[
-                    _build_chunk_metadata(chunk, source) for chunk in chunks
-                ],
+                metadatas=[_build_chunk_metadata(chunk, source) for chunk in chunks],
             )
         except Exception:
             logger.exception("research.source_index_failed", source_id=str(source.id))
@@ -272,9 +267,6 @@ async def index_research_sources(
         status = "partial" if indexed_source_ids else "failed"
     else:
         status = "completed"
-    job.status = ResearchJobStatus(status)
-    job.terminal_error = error_codes[0] if status == "failed" else None
-    db.commit()
     return ResearchIndexResult(
         indexed_source_ids=indexed_source_ids,
         chunk_count=chunk_count,

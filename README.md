@@ -105,6 +105,10 @@ CHROMA_ROOT=./chroma_db
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_API_KEY=your_langsmith_api_key
 LANGCHAIN_PROJECT=think-chair
+
+# 선택: local LangFeather (collector를 127.0.0.1:4319에서 실행한 뒤)
+LANGFEATHER_ENABLED=true
+LANGFEATHER_ENDPOINT=http://127.0.0.1:4319
 ```
 
 ## 실행

@@ -28,3 +28,4 @@ class GraphState(TypedDict):
     client_message: str | None
     new_paper: NewPaper | None
     document_generation_attempts: int
+    evidence_text: str | None

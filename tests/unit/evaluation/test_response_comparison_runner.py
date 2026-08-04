@@ -52,13 +52,13 @@ def test_compare_case_responses_runs_citation_check_and_judgment_with_injected_m
     def judge_invoke(prompt: str) -> str:
         answer_a = prompt.split("[Answer A]", 1)[1].split("[Answer B]", 1)[0]
         grounded_is_a = "공개 자료 기준 92%입니다." in answer_a
-        winner = "A" if grounded_is_a else "B"
+        high, low = (90, 55) if grounded_is_a else (55, 90)
         return json.dumps(
             {
-                "specificity_winner": winner,
-                "naturalness_winner": "tie",
-                "accuracy_winner": winner,
-                "overall_winner": winner,
+                "specificity": {"A": high, "B": low},
+                "naturalness": {"A": 80, "B": 80},
+                "accuracy": {"A": high, "B": low},
+                "overall": {"A": high, "B": low},
                 "reason": "근거 답이 더 구체적이다.",
             },
             ensure_ascii=False,

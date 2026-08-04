@@ -23,9 +23,17 @@ class ChatGraphRunner:
         user_message_id: uuid.UUID,
         request_db_session,
         model: str,
+        *,
+        evidence_text: str | None = None,
     ) -> dict:
         return await self._graph.ainvoke(
-            _initial_turn_state(manuscript, user, user_message, user_message_id),
+            _initial_turn_state(
+                manuscript,
+                user,
+                user_message,
+                user_message_id,
+                evidence_text=evidence_text,
+            ),
             config=self._run_config(
                 manuscript.id, model, request_db_session=request_db_session
             ),
@@ -80,6 +88,8 @@ def _initial_turn_state(
     user: User | None,
     user_message: str,
     user_message_id: uuid.UUID,
+    *,
+    evidence_text: str | None = None,
 ) -> dict:
     return {
         "manuscript_id": str(manuscript.id),
@@ -93,4 +103,5 @@ def _initial_turn_state(
         "client_message": None,
         "new_paper": None,
         "document_generation_attempts": 0,
+        "evidence_text": evidence_text,
     }

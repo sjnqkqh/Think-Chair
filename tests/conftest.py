@@ -22,12 +22,13 @@ from app.graph.checkpointer import make_checkpointer
 from app.services.background_tasks import BackgroundTaskRegistry
 from app.services.chat_service import ChatService
 from app.main import app as fastapi_app
+from tests.db_setup import prepare_test_database
 
 test_engine = create_engine(
     "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
 )
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-Base.metadata.create_all(bind=test_engine)
+prepare_test_database(test_engine)
 
 
 @pytest.fixture
@@ -93,11 +94,16 @@ ChatAppState = namedtuple("ChatAppState", ["graph", "storage", "db_session", "ch
 
 
 @pytest.fixture
-async def chat_app_state(fake_llm, db_session):
+async def chat_app_state(fake_llm, db_session, monkeypatch):
     """실 그래프로 배선한 ChatService를 app.state에 얹는다.
 
     chat API·e2e 흐름·워크스페이스 재로드 테스트가 공유하는 배선.
+    FakeList LLM 경로이므로 턴 근거 검색(OpenAI embeddings)은 호출하지 않는다.
     """
+    monkeypatch.setattr(
+        "app.research.turn_evidence.load_evidence_text_for_turn",
+        lambda **_kwargs: "",
+    )
     storage = MagicMock()
     async with make_checkpointer(":memory:") as checkpointer:
         graph = build_graph(checkpointer)

@@ -50,16 +50,16 @@ The test: Every changed line should trace directly to the user's request.
 - Prefer the intended outcome: `find_evidence_for_claim()` over `execute_vector_search()`.
 - Prefer the decision being represented: `research_needed` over `similarity_below_threshold`.
 - Prefer the responsibility: `research_evidence.py` over `vector_store_utils.py`.
-- Avoid vague names such as `process`, `handle`, `manage`, `data`, and `워크utils` when a domain term is available.
+- Avoid vague names such as `process`, `handle`, `manage`, `data`, and `utils` when a domain term is available.
 - Include implementation details in a name only when they are part of the public contract or needed to distinguish implementations.
 
 ## 5. Thin Endpoints, Logic in Services
 
-**API 엔드포인트 함수(`app/api/endpoints/**`, `app/pages/**`)에 비즈니스 로직을 직접 작성하지 않는다.**
+**Do not put business logic directly in API endpoint handlers (`app/api/endpoints/**`, `app/pages/**`).**
 
-- 엔드포인트 함수는 요청 파싱 → 서비스 호출 → 응답 변환만 담당한다.
-- DB 쿼리, 조건 분기, 비밀번호 해싱/토큰 발급 같은 도메인 로직은 `app/services/`에 함수로 분리한다.
-- 새 라우터를 추가할 때도 동일하게: 라우터 파일은 얇게, 로직은 서비스 모듈로.
+- Endpoint handlers only parse the request, call a service, and shape the response.
+- Domain work (DB queries, branching, password hashing, token issuance, etc.) lives in functions under `app/services/`.
+- Same rule for new routers: keep the router thin; put logic in a service module.
 
 ## 6. Goal-Driven Execution
 
@@ -78,6 +78,32 @@ For multi-step tasks, state a brief plan:
 ```
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+## 7. No Runtime Schema Migrations
+
+**Do not change table structure from application runtime code.**
+
+- Do not ship runtime migration helpers that probe columns with `ALTER TABLE` / `PRAGMA table_info` and patch the DB.
+- Define schema only on SQLAlchemy ORM models (`app/models/`). New and local DBs use `Base.metadata.create_all`.
+- Column or table changes on existing DBs go through a separate migration process (manual SQL, a migration tool, etc.)—never auto-applied on app startup.
+
+## 8. Shared Vocabulary in Conversation
+
+**Do not treat names or abbreviations you invented as shared everyday terms.**
+
+- Do not drop newly coined class/module/pattern names as if the reader already knows them (e.g. “state transitions only go through Context”—a local label they have not seen).
+- When discussing design or refactors, **lead with role and behavior in domain language**, then attach paths or full identifiers if needed.
+- Distinguish industry-shared terms (HTTP, ORM, job status, etc.) from names that exist only in this chat or PR. Re-expand the latter briefly each time.
+- Avoid dangling shorthand (`ctx`, `Runner`, `stages` alone) as if it named a known component.
+
+## 9. Commit Messages in Korean
+
+**When the user asks for a commit, write the commit message in Korean.**
+
+- Subject and body in Korean. (e.g. `fix: FakeList e2e에서 턴 근거 embeddings 실호출 차단`)
+- English conventional prefixes (`feat:`, `fix:`, `docs:`, …) are fine; the text after the prefix must be Korean.
+- Prefer why over what; keep it to 1–2 sentences.
+- Do not commit unless the user explicitly asks.
 
 ---
 

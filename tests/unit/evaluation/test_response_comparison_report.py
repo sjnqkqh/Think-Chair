@@ -76,7 +76,28 @@ def _judgment(
     accuracy: str = "grounded",
     reason: str = "근거 참고 응답이 더 구체적이다.",
 ) -> PairwiseJudgment:
+    from app.evaluation.response_comparison_contracts import AnswerScores
+
+    def _pair(winner: str) -> tuple[int, int]:
+        if winner == "grounded":
+            return 60, 85
+        if winner == "baseline":
+            return 85, 60
+        return 70, 70
+
     return PairwiseJudgment(
+        baseline_scores=AnswerScores(
+            specificity=_pair(specificity)[0],
+            naturalness=_pair(naturalness)[0],
+            accuracy=_pair(accuracy)[0],
+            overall=_pair(overall)[0],
+        ),
+        grounded_scores=AnswerScores(
+            specificity=_pair(specificity)[1],
+            naturalness=_pair(naturalness)[1],
+            accuracy=_pair(accuracy)[1],
+            overall=_pair(overall)[1],
+        ),
         specificity_winner=specificity,  # type: ignore[arg-type]
         naturalness_winner=naturalness,  # type: ignore[arg-type]
         accuracy_winner=accuracy,  # type: ignore[arg-type]
@@ -188,7 +209,8 @@ def test_render_comparison_markdown_shows_both_answers_and_judgment_reason():
     assert "근거 없는 응답" in text
     assert "근거 참고 응답" in text
     assert "타임아웃 설정까지 언급해 구체성이 높다." in text
-    assert "구체성: 근거 참고 응답" in text
+    assert "구체성: 60 / 85 → 근거 참고 응답" in text
+    assert "100점 만점" in text
 
 
 def test_evidence_text_in_report_is_truncated_to_200_characters():

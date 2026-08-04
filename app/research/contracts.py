@@ -94,3 +94,68 @@ class ResearchIndexResult(BaseModel):
     skipped_source_keys: list[str] = Field(default_factory=list)
     error_codes: list[str] = Field(default_factory=list)
     status: Literal["completed", "partial", "failed"]
+
+
+class EvidenceRequest(BaseModel):
+    user_id: UUID
+    manuscript_id: UUID
+    query: str = Field(min_length=1)
+    limit: int = Field(default=5, ge=1, le=20)
+
+    @field_validator("query")
+    @classmethod
+    def strip_query_text(cls, value: str) -> str:
+        if not (value := value.strip()):
+            raise ValueError("query must not be blank")
+        return value
+
+
+class EvidenceSufficiency(BaseModel):
+    sufficient: bool
+    missing_aspects: list[str] = Field(default_factory=list)
+    supporting_chunk_ids: list[str] = Field(default_factory=list)
+    reason_code: str
+
+
+class EvidenceItem(BaseModel):
+    chunk_id: str
+    source_id: str
+    excerpt: str
+    score: float
+    title: str = ""
+    url: str = ""
+    language: str = "und"
+    published_at: str | None = None
+    fetched_at: str | None = None
+    source_type: str | None = None
+    claim_relevance: str | None = None
+    freshness: str | None = None
+    is_primary_source: bool | None = None
+    independence_group: str | None = None
+    expected_treatment: str | None = None
+
+
+class EvidenceContext(BaseModel):
+    items: list[EvidenceItem] = Field(default_factory=list)
+    sufficiency: EvidenceSufficiency
+    is_grounded: bool
+    warning_code: str | None = None
+
+
+class Citation(BaseModel):
+    source_id: str
+    chunk_id: str
+    url: str
+
+
+class GroundedResponseRequest(BaseModel):
+    phase: Literal["say", "feedback"]
+    conversation_context: str
+    evidence: EvidenceContext
+
+
+class GroundedResponseResult(BaseModel):
+    text: str
+    citations: list[Citation] = Field(default_factory=list)
+    is_grounded: bool
+    warning_code: str | None = None

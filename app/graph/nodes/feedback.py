@@ -2,6 +2,7 @@ from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from app.graph.llm_registry import get as get_language_model
+from app.graph.nodes.converse import _evidence_messages
 from app.graph.prompts import build_system_prompt
 from app.graph.state import GraphState
 
@@ -19,7 +20,11 @@ async def feedback_node(state: GraphState, config: RunnableConfig) -> dict:
         audience_level=state.get("audience_level"),
     )
     response = await language_model.ainvoke(
-        [SystemMessage(content=system), *state["messages"]]
+        [
+            SystemMessage(content=system),
+            *_evidence_messages(state),
+            *state["messages"],
+        ]
     )
     return {
         "messages": [AIMessage(content=response.content)],

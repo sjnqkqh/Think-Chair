@@ -144,18 +144,24 @@ def _render_case_section(result: CaseComparisonResult) -> list[str]:
         return lines
 
     judgment = result.judgment
+    baseline = judgment.baseline_scores
+    grounded = judgment.grounded_scores
     lines.extend(
         [
-            "**판정**",
-            f"- 전체: {_winner_label(judgment.overall_winner)}"
+            "**판정** (100점 만점)",
+            f"- 전체: baseline {baseline.overall} / grounded {grounded.overall}"
+            f" → {_winner_label(judgment.overall_winner)}"
             + (
                 " (순서 바꿔 평가 시 뒤집힘 → 무승부 처리)"
                 if judgment.order_flipped
                 else ""
             ),
-            f"- 구체성: {_winner_label(judgment.specificity_winner)}",
-            f"- 자연스러움: {_winner_label(judgment.naturalness_winner)}",
-            f"- 정확성: {_winner_label(judgment.accuracy_winner)}",
+            f"- 구체성: {baseline.specificity} / {grounded.specificity}"
+            f" → {_winner_label(judgment.specificity_winner)}",
+            f"- 자연스러움: {baseline.naturalness} / {grounded.naturalness}"
+            f" → {_winner_label(judgment.naturalness_winner)}",
+            f"- 정확성: {baseline.accuracy} / {grounded.accuracy}"
+            f" → {_winner_label(judgment.accuracy_winner)}",
             f"- 이유: {judgment.reason}",
             "",
         ]

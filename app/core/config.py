@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     STORAGE_ROOT: Path = Path.home() / "storage"
     CHROMA_ROOT: Path = PROJECT_ROOT / "chroma_db"
 
+    # Local LangFeather observability (collector: 127.0.0.1:4319)
+    LANGFEATHER_ENABLED: bool = False
+    LANGFEATHER_ENDPOINT: str = "http://127.0.0.1:4319"
+
     @property
     def BASE_DIR(self) -> str:
         return str(PROJECT_ROOT)

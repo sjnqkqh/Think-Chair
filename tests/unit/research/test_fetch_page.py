@@ -270,3 +270,35 @@ async def test_returns_extraction_error_for_malformed_html():
 
     assert response.error_code == "extraction_failed"
     assert response.retryable is False
+
+
+async def test_decodes_html_using_content_type_charset():
+    """Content-Type charset으로 본문을 읽고 Content-Encoding 재해석을 하지 않는지 검증한다."""
+    html = (
+        "<html><head><title>Timeout Docs</title>"
+        '<link rel="canonical" href="https://docs.example.com/timeout"/>'
+        "</head><body><p>" + ("statement_timeout default is 0. " * 8) + "</p></body></html>"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(200, text="User-agent: *\nAllow: /\n")
+        return httpx.Response(
+            200,
+            headers={
+                "Content-Type": "text/html; charset=utf-8",
+                "Content-Encoding": "identity",
+            },
+            content=html.encode("utf-8"),
+        )
+
+    async with _client(handler) as client:
+        response = await fetch_page(
+            FetchRequest(url="https://docs.example.com/timeout"),
+            client=client,
+            resolver=_public_resolver,
+        )
+
+    assert response.error_code is None
+    assert response.source is not None
+    assert "statement_timeout" in response.source.text

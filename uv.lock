@@ -1278,6 +1278,20 @@ wheels = [
 ]
 
 [[package]]
+name = "langfeather"
+version = "0.3.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/73/fe/40ca4b9224b723f6e5e8a3f9603f41a2a46cf4f89c6249f9a285b98937d1/langfeather-0.3.2.tar.gz", hash = "sha256:5826eabbb9ee998f122d9028d988d8329d9872d2969e69eba316492a604bb053", size = 47412, upload-time = "2026-08-04T00:56:04.126Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9e/ac/2a4db2c5a582d1ff7e40495b8b543ff8b7f5bc40a74392765d5e4582406a/langfeather-0.3.2-py3-none-any.whl", hash = "sha256:f2aebe919805e77e4028703c1b970a35cbc6df1620548c31afda036bdd9214e1", size = 44476, upload-time = "2026-08-04T00:56:02.882Z" },
+]
+
+[package.optional-dependencies]
+langchain = [
+    { name = "langchain-core" },
+]
+
+[[package]]
 name = "langgraph"
 version = "1.2.6"
 source = { registry = "https://pypi.org/simple" }
@@ -3268,6 +3282,7 @@ dependencies = [
     { name = "langchain-core" },
     { name = "langchain-openai" },
     { name = "langchain-text-splitters" },
+    { name = "langfeather", extra = ["langchain"] },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-sqlite" },
     { name = "langsmith" },
@@ -3302,6 +3317,7 @@ requires-dist = [
     { name = "langchain-core", specifier = ">=1.4.8" },
     { name = "langchain-openai", specifier = ">=0.1.0" },
     { name = "langchain-text-splitters", specifier = ">=1.0.0" },
+    { name = "langfeather", extras = ["langchain"], specifier = ">=0.3.2" },
     { name = "langgraph", specifier = ">=1.2.6" },
     { name = "langgraph-checkpoint-sqlite", specifier = ">=3.1.0" },
     { name = "langsmith", specifier = ">=0.9.0" },
