@@ -15,6 +15,7 @@ from app.graph import llm_registry
 from app.graph.builder import build_graph
 from app.graph.chat_graph_runner import ChatGraphRunner
 from app.graph.checkpointer import make_checkpointer
+from app.graph.langfeather_tracing import apply_langfeather, shutdown_langfeather
 from app.pages.auth_pages import router as auth_pages_router
 from app.pages.debug_pages import router as debug_pages_router
 from app.pages.workspace_pages import router as workspace_pages_router
@@ -41,7 +42,7 @@ async def lifespan(app: FastAPI):
         checkpointer = await stack.enter_async_context(
             make_checkpointer(checkpoint_path)
         )
-        graph = build_graph(checkpointer)
+        graph = apply_langfeather(build_graph(checkpointer))
         app.state.graph = graph
         graph_runner = ChatGraphRunner(
             graph=graph, storage=get_file_storage(), db_factory=SessionLocal
@@ -52,7 +53,10 @@ async def lifespan(app: FastAPI):
             background_tasks=BackgroundTaskRegistry(),
         )
         app.state.chat_service = chat_service
-        yield
+        try:
+            yield
+        finally:
+            shutdown_langfeather()
 
 
 app = FastAPI(
