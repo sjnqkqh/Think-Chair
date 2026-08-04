@@ -5,17 +5,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.evaluation.response_comparison_contracts import AnswerScores
 
 ServiceGrowthPhase = Literal["say", "feedback"]
-ServiceGrowthDomain = Literal[
-    "ai",
-    "fastapi",
-    "python",
-    "spring",
-    "java",
-    "frontend",
-    "cicd",
-    "cloud",
-]
-
 
 class FrozenModel(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -24,7 +13,6 @@ class FrozenModel(BaseModel):
 class ServiceGrowthCase(FrozenModel):
     case_id: str = Field(min_length=1)
     phase: ServiceGrowthPhase
-    domain: ServiceGrowthDomain
     language: str = Field(min_length=1)
     claim: str = Field(min_length=1)
     concept: str = Field(min_length=1)
@@ -53,7 +41,6 @@ class AbsoluteJudgment(FrozenModel):
 class ServiceGrowthCaseResult(FrozenModel):
     case_id: str = Field(min_length=1)
     phase: ServiceGrowthPhase
-    domain: ServiceGrowthDomain
     claim: str = Field(min_length=1)
     topic: str = Field(min_length=1)
     response_body: str = ""

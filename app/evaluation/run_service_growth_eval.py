@@ -87,7 +87,6 @@ async def run_service_growth_eval(
                     ServiceGrowthCaseResult(
                         case_id=case.case_id,
                         phase=case.phase,
-                        domain=case.domain,
                         claim=case.claim,
                         topic=case.topic,
                         response_body="",
@@ -109,7 +108,6 @@ async def run_service_growth_eval(
                 ServiceGrowthCaseResult(
                     case_id=case.case_id,
                     phase=case.phase,
-                    domain=case.domain,
                     claim=case.claim,
                     topic=case.topic,
                     response_body=response_body,
@@ -123,7 +121,6 @@ async def run_service_growth_eval(
                 ServiceGrowthCaseResult(
                     case_id=case.case_id,
                     phase=case.phase,
-                    domain=case.domain,
                     claim=case.claim,
                     topic=case.topic,
                     response_body="",

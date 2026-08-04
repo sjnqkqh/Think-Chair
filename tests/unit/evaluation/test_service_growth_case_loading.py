@@ -19,12 +19,6 @@ def test_service_growth_corpus_matches_fixed_shape():
     assert len(cases) == 50
     assert sum(1 for case in cases if case.phase == "say") == 40
     assert sum(1 for case in cases if case.phase == "feedback") == 10
-    other = [
-        case
-        for case in cases
-        if case.domain not in {"ai", "fastapi", "python"}
-    ]
-    assert len(other) == 2
 
 
 def test_assert_shape_rejects_wrong_count(tmp_path: Path):

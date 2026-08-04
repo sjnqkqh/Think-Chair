@@ -20,7 +20,6 @@ def _result(**overrides):
     base = {
         "case_id": "c1",
         "phase": "say",
-        "domain": "ai",
         "claim": "주장",
         "topic": "주제",
         "response_body": "응답 본문",

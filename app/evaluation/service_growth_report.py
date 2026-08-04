@@ -109,7 +109,7 @@ def _render_case(result: ServiceGrowthCaseResult) -> list[str]:
     lines = [
         f"### {result.case_id}",
         "",
-        f"- phase: `{result.phase}` / domain: `{result.domain}`",
+        f"- phase: `{result.phase}`",
         f"- topic: {result.topic}",
         f"- claim: {result.claim}",
         f"- evidence_injected: {'yes' if result.evidence_text.strip() else 'no'}",

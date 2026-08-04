@@ -18,7 +18,6 @@ def _case(phase: str = "say") -> ServiceGrowthCase:
         {
             "case_id": "c1",
             "phase": phase,
-            "domain": "ai",
             "language": "ko",
             "claim": "RAG를 사용하면 품질이 좋아진다.",
             "concept": "딥다이브",

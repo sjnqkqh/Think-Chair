@@ -48,8 +48,8 @@ job 끝 pairwise와 예전 `run_response_comparison`은 **한 시점의 근거 �
 
 1. **사용자 일반론/주장** 한 문장(또는 짧은 단락)  
    - 예: 「RAG를 사용하면 LLM 응답의 품질이 좋아진다.」
-2. **(선택 메타)** 주제 태그 — AI, FastAPI, Python, Spring, Java, 프론트엔드, CI/CD, 클라우드 등  
-3. 사례에 **근거 유무·URL·prepared_evidence를 넣지 않는다.**
+2. **phase** (`say` | `feedback`) — 어느 노드로 생성할지
+3. 사례에 **근거 유무·URL·prepared_evidence·domain 태그를 넣지 않는다.**
 
 ### 한 번 실행에서 사례당 하는 일
 
@@ -78,9 +78,8 @@ job 끝 pairwise와 예전 `run_response_comparison`은 **한 시점의 근거 �
 
 ### 넣을 것 (고정 규모)
 
-- **정확히 50개** 한국어 위주 일반론
+- **정확히 50개** 한국어 위주 일반론 (주제는 엔지니어링 전반; 스키마에 domain 태그 없음)
 - **phase:** `say` 40 : `feedback` 10
-- **domain:** AI·FastAPI·Python 위주(합 48), 기타(CI/CD·클라우드 등) **2**
 - 조사 트리거가 걸릴 만한 문장 (맞장구·인사만 제외)
 - 세트 자체에는 URL·prepared_evidence **없음**
 - fixture: `tests/evaluation/service_growth_cases.json`
@@ -105,7 +104,7 @@ job 끝 pairwise와 예전 `run_response_comparison`은 **한 시점의 근거 �
 ## 6. 체크리스트
 
 - [x] 사례 JSON 스키마 (`ServiceGrowthCase`)
-- [x] 50개 일반론 (say:feedback 40:10, AI/FastAPI/Python 위주, 기타 2)
+- [x] 50개 일반론 (say:feedback 40:10; domain 필드 없음)
 - [x] 실행기: 공용 인덱스만 + thin graph(converse/feedback) + LangFeather + 절대 Judge + MD
 - [x] Judge 프롬프트: **깐깐한** 절대 채점 (무난한 답 ≈ 40~60 앵커)
 - [x] pairwise runner / `ResponseComparisonRecord`와 경계 유지

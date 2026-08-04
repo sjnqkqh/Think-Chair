@@ -17,7 +17,6 @@ def test_service_growth_case_requires_claim_and_phase():
         {
             "case_id": "rag-improves-quality-ko",
             "phase": "say",
-            "domain": "ai",
             "language": "ko",
             "claim": "RAG를 사용하면 LLM 응답의 품질이 좋아진다.",
             "concept": "딥다이브",
@@ -25,7 +24,7 @@ def test_service_growth_case_requires_claim_and_phase():
         }
     )
     assert case.phase == "say"
-    assert case.domain == "ai"
+    assert "RAG" in case.claim
     with pytest.raises(ValidationError):
         case.claim = "changed"
 
@@ -36,8 +35,7 @@ def test_service_growth_case_rejects_blank_claim_and_bad_phase():
             {
                 "case_id": "x",
                 "phase": "say",
-                "domain": "ai",
-                "language": "ko",
+                    "language": "ko",
                 "claim": "   ",
                 "concept": "딥다이브",
                 "topic": "t",
@@ -48,8 +46,7 @@ def test_service_growth_case_rejects_blank_claim_and_bad_phase():
             {
                 "case_id": "x",
                 "phase": "outline",
-                "domain": "ai",
-                "language": "ko",
+                    "language": "ko",
                 "claim": "주장",
                 "concept": "딥다이브",
                 "topic": "t",
@@ -91,7 +88,6 @@ def test_case_result_holds_response_and_optional_judgment():
         {
             "case_id": "c1",
             "phase": "say",
-            "domain": "ai",
             "claim": "주장",
             "topic": "주제",
             "response_body": "응답 본문",
@@ -108,7 +104,6 @@ def test_case_result_holds_response_and_optional_judgment():
         {
             "case_id": "c1",
             "phase": "feedback",
-            "domain": "python",
             "claim": "주장",
             "topic": "주제",
             "response_body": "응답",
