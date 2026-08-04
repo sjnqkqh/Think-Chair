@@ -2,7 +2,7 @@
 
 - 작성일: 2026-08-04
 - 갱신: 2026-08-04 — **의도 확정**: pairwise “근거 유무 비교”가 아니라 **절대 점수 + 시계열로 서비스 성장을 본다**
-- 상태: **의도·형식 초안 고정, 스키마·사례 수집·실행기는 미확정**
+- 상태: **스키마·50사례·실행기·깐깐 Judge·MD 리포트 구현** (게이트 아님)
 - 관련:
   - 채팅 E2E 최소 구조 핸드오프: `10-vertical-mvp-handoff.md`
   - 런타임 job pairwise(별도 경로): `ResponseComparisonRecord` / `app/evaluation/response_comparison.py`
@@ -59,7 +59,7 @@ job 끝 pairwise와 예전 `run_response_comparison`은 **한 시점의 근거 �
    - 근거: 평가기가 `load_evidence_text_for_turn`으로 **그 시점 인덱스만** 주입 (없으면 없이)  
    - **평가 회차 중 조사 job을 만들지 않음**  
    - 실행은 **LangFeather에 트레이싱**되게 함 (`LANGFEATHER_ENABLED`; 제품과 동일 관측 스택)
-3. **LLM Judge**가 그 **단일 응답**에 절대 점수 (기존 기준 재사용 가능: specificity / naturalness / accuracy / overall, 0~100)
+3. **LLM Judge**가 그 **단일 응답**에 **깐깐한** 절대 점수 (specificity / naturalness / accuracy / overall, 0~100; 무난한 답 ≈ 40~60)
 4. 기록: 응답 본문, 점수, (가능하면) 주입된 근거 요약/출처 키, 생성·Judge 모델명, 실행 시각, 인덱스/환경 힌트, LangFeather run 상관 ID(가능하면)
 
 ### 집계·산출물
@@ -74,15 +74,16 @@ job 끝 pairwise와 예전 `run_response_comparison`은 **한 시점의 근거 �
 - 생성·Judge: 지금은 **DeepSeek V4 flash** (설정으로 Judge만 교체 가능하게 둘 여지)
 - 임베딩: 제품과 동일 (**OpenAI**)
 
-## 4. 문제집(30~50)에 넣을 것 / 빼 둘 것
+## 4. 문제집(50)에 넣을 것 / 빼 둘 것
 
-### 넣을 것
+### 넣을 것 (고정 규모)
 
-- 엔지니어링 일반론·모범 사례·대략 수치 주장  
-  도메인 예: AI/LLM/RAG, FastAPI, Python, Spring, Java, 프론트엔드, CI/CD, 클라우드 등
-- 한국어 위주, 필요 시 영어·혼합 소수
+- **정확히 50개** 한국어 위주 일반론
+- **phase:** `say` 40 : `feedback` 10
+- **domain:** AI·FastAPI·Python 위주(합 48), 기타(CI/CD·클라우드 등) **2**
 - 조사 트리거가 걸릴 만한 문장 (맞장구·인사만 제외)
-- **공개 웹에서 언젠가 근거를 찾을 수 있을 법한** 주장 (세트 자체에는 URL을 넣지 않음)
+- 세트 자체에는 URL·prepared_evidence **없음**
+- fixture: `tests/evaluation/service_growth_cases.json`
 
 ### 빼 둘 것
 
@@ -96,20 +97,20 @@ job 끝 pairwise와 예전 `run_response_comparison`은 **한 시점의 근거 �
 ## 5. 지금 상태
 
 - job 런타임 pairwise DB 저장: **있음** (이 문제집과 목적 다름 — 유지)
-- 고정 일반론 세트 + 제품 노드 + 절대 점수 + MD 리포트: **없음**
-- 예전 `tests/evaluation/agentic_rag_cases.json` + `run_response_comparison`: **서비스 분리 하네스** — 재사용은 Judge 점수 스키마·리포트 유틸 정도만 검토, 사례 형식·생성 경로는 새로 잡음
+- 고정 일반론 50 + 제품 노드 + 절대 점수 + MD 리포트: **구현됨**
+  - CLI: `uv run python -m app.evaluation.run_service_growth_eval`
+  - 산출: `artifacts/service_growth_eval/<run_id>.md`
+- 예전 `tests/evaluation/agentic_rag_cases.json` + `run_response_comparison`: **별도 유지** (혼용 금지)
 
-## 6. 다음에 확정할 것 (체크리스트)
+## 6. 체크리스트
 
-- [ ] 사례 JSON 스키마 (주장 + 태그 + id 정도)
-- [ ] 30~50 후보 일반론 초안 (엔지니어링 도메인 균형)
-- [ ] 실행기: **현재 인덱스만** + `load_evidence_text_for_turn` → 사례 `phase`에 따라 `converse`/`feedback` 노드 직접 호출 → Judge 절대 점수 → 마크다운  
-  (**확정:** 평가 중 조사 job 없음. Route 안 탐. 문제집은 say/feedback 구분 작성. **LangFeather 트레이싱**)
-- [ ] LangFeather: 노드 직접 호출이어도 wrap 대상(얇은 runnable/소그래프) 확보
-- [ ] 기존 pairwise runner / `ResponseComparisonRecord`와 **경계** (혼용 금지, 재사용 범위)
-- [ ] 비용·재실행 규칙 (모델, 동시성, API 한도)
-- [ ] Judge 프롬프트: 단일 응답 절대 채점 계약
-- [ ] 평가가 읽는 인덱스/테넌트 범위 (공용 실인덱스 vs 전용) — **미확정**
+- [x] 사례 JSON 스키마 (`ServiceGrowthCase`)
+- [x] 50개 일반론 (say:feedback 40:10, AI/FastAPI/Python 위주, 기타 2)
+- [x] 실행기: 공용 인덱스만 + thin graph(converse/feedback) + LangFeather + 절대 Judge + MD
+- [x] Judge 프롬프트: **깐깐한** 절대 채점 (무난한 답 ≈ 40~60 앵커)
+- [x] pairwise runner / `ResponseComparisonRecord`와 경계 유지
+- [x] Judge 모델 설정키 `SERVICE_GROWTH_JUDGE_MODEL` (기본 DeepSeek)
+- [x] 평가 인덱스: 제품과 같은 **공용(public) 실인덱스**
 
 ## 7. 제품 경로와의 관계 (혼동 금지)
 

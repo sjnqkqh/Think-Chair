@@ -1,0 +1,452 @@
+[
+  {
+    "case_id": "rag-improves-quality-ko",
+    "phase": "say",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "RAG를 사용하면 LLM 응답의 품질이 좋아진다.",
+    "concept": "딥다이브",
+    "topic": "RAG와 응답 품질"
+  },
+  {
+    "case_id": "chunk-size-matters-ko",
+    "phase": "say",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "RAG에서 청크 크기가 검색 품질을 좌우한다.",
+    "concept": "딥다이브",
+    "topic": "청크 크기"
+  },
+  {
+    "case_id": "embedding-model-choice-ko",
+    "phase": "say",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "임베딩 모델을 바꾸면 검색 Recall이 크게 달라진다.",
+    "concept": "딥다이브",
+    "topic": "임베딩 모델"
+  },
+  {
+    "case_id": "hybrid-search-better-ko",
+    "phase": "say",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "벡터 검색만보다 키워드+벡터 하이브리드가 실무에서 더 낫다.",
+    "concept": "딥다이브",
+    "topic": "하이브리드 검색"
+  },
+  {
+    "case_id": "citation-builds-trust-ko",
+    "phase": "say",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "답에 출처 URL을 붙이면 사용자 신뢰가 높아진다.",
+    "concept": "딥다이브",
+    "topic": "인용과 신뢰"
+  },
+  {
+    "case_id": "hallucination-without-rag-ko",
+    "phase": "say",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "근거 없이 수치를 말하면 LLM 환각 위험이 커진다.",
+    "concept": "딥다이브",
+    "topic": "환각"
+  },
+  {
+    "case_id": "rerank-helps-ko",
+    "phase": "say",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "검색 후 리랭커를 쓰면 Top-k 관련성이 좋아진다.",
+    "concept": "딥다이브",
+    "topic": "리랭킹"
+  },
+  {
+    "case_id": "prompt-injection-risk-ko",
+    "phase": "say",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "웹에서 가져온 본문을 그대로 넣으면 프롬프트 인젝션 위험이 있다.",
+    "concept": "딥다이브",
+    "topic": "프롬프트 인젝션"
+  },
+  {
+    "case_id": "context-window-tradeoff-ko",
+    "phase": "say",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "컨텍스트를 너무 많이 넣으면 비용만 늘고 답 품질은 오히려 떨어질 수 있다.",
+    "concept": "딥다이브",
+    "topic": "컨텍스트 윈도우"
+  },
+  {
+    "case_id": "eval-before-agent-ko",
+    "phase": "say",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "에이전트를 키우기 전에 응답 품질 평가 세트가 있어야 한다.",
+    "concept": "딥다이브",
+    "topic": "에이전트와 평가"
+  },
+  {
+    "case_id": "tool-calling-needs-schema-ko",
+    "phase": "say",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "툴 호출은 JSON 스키마가 엄격해야 실패율이 줄어든다.",
+    "concept": "딥다이브",
+    "topic": "툴 호출"
+  },
+  {
+    "case_id": "temperature-zero-for-facts-ko",
+    "phase": "say",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "사실·수치 답변에는 temperature를 낮추는 편이 안전하다.",
+    "concept": "딥다이브",
+    "topic": "온도 설정"
+  },
+  {
+    "case_id": "fastapi-async-io-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "FastAPI에서 동기 블로킹 호출을 섞으면 처리량이 급격히 떨어진다.",
+    "concept": "딥다이브",
+    "topic": "FastAPI 비동기"
+  },
+  {
+    "case_id": "fastapi-deps-overuse-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "FastAPI Depends를 남용하면 요청 경로를 읽기 어려워진다.",
+    "concept": "딥다이브",
+    "topic": "의존성 주입"
+  },
+  {
+    "case_id": "fastapi-pydantic-v2-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "Pydantic v2 모델 검증은 v1보다 대체로 빠르다.",
+    "concept": "딥다이브",
+    "topic": "Pydantic v2"
+  },
+  {
+    "case_id": "fastapi-background-tasks-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "FastAPI BackgroundTasks는 프로세스 재시작에 약한 작업에 쓰면 안 된다.",
+    "concept": "딥다이브",
+    "topic": "백그라운드 태스크"
+  },
+  {
+    "case_id": "fastapi-streaming-sse-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "채팅형 API는 SSE로 부분 응답을 보내는 편이 UX가 좋다.",
+    "concept": "딥다이브",
+    "topic": "SSE 스트리밍"
+  },
+  {
+    "case_id": "fastapi-thin-router-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "라우터에 비즈니스 로직을 넣지 말고 서비스 계층으로 내려야 한다.",
+    "concept": "딥다이브",
+    "topic": "얇은 라우터"
+  },
+  {
+    "case_id": "fastapi-lifespan-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "앱 기동/종료 자원 정리는 lifespan 컨텍스트에서 하는 편이 낫다.",
+    "concept": "딥다이브",
+    "topic": "lifespan"
+  },
+  {
+    "case_id": "fastapi-status-codes-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "생성 API는 200보다 201을 쓰는 편이 REST 관례에 맞다.",
+    "concept": "딥다이브",
+    "topic": "상태 코드"
+  },
+  {
+    "case_id": "fastapi-validation-error-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "422 응답 본문을 일관된 형식으로 주면 클라이언트가 다루기 쉽다.",
+    "concept": "딥다이브",
+    "topic": "검증 에러"
+  },
+  {
+    "case_id": "fastapi-cors-prod-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "운영에서 CORS allow_origins=* 는 보안상 피해야 한다.",
+    "concept": "딥다이브",
+    "topic": "CORS"
+  },
+  {
+    "case_id": "fastapi-openapi-docs-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "내부 API라도 OpenAPI 스키마를 유지하면 연동 비용이 줄어든다.",
+    "concept": "딥다이브",
+    "topic": "OpenAPI"
+  },
+  {
+    "case_id": "fastapi-middleware-order-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "인증 미들웨어 순서가 잘못되면 공개 엔드포인트까지 막힐 수 있다.",
+    "concept": "딥다이브",
+    "topic": "미들웨어 순서"
+  },
+  {
+    "case_id": "fastapi-testclient-ko",
+    "phase": "say",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "FastAPI TestClient로 라우팅·검증 회귀를 잡는 것이 단위 테스트보다 싸게 먹힐 때가 많다.",
+    "concept": "딥다이브",
+    "topic": "TestClient"
+  },
+  {
+    "case_id": "python-gil-io-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "CPU Bound 작업은 GIL 때문에 스레드로 잘 안 늘고 프로세스/비동기가 맞다.",
+    "concept": "딥다이브",
+    "topic": "GIL과 I/O"
+  },
+  {
+    "case_id": "python-type-hints-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "타입 힌트를 붙이면 리팩터링과 IDE 지원이 크게 좋아진다.",
+    "concept": "딥다이브",
+    "topic": "타입 힌트"
+  },
+  {
+    "case_id": "python-venv-lock-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "프로덕션 Python 앱은 lock 파일 없이 requirements만 두면 재현이 깨진다.",
+    "concept": "딥다이브",
+    "topic": "의존성 잠금"
+  },
+  {
+    "case_id": "python-dataclass-vs-pydantic-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "외부 입력을 검증할 때는 dataclass보다 Pydantic이 안전하다.",
+    "concept": "딥다이브",
+    "topic": "dataclass"
+  },
+  {
+    "case_id": "python-logging-not-print-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "서비스 코드에서 print 대신 구조화 로깅을 써야 운영이 가능하다.",
+    "concept": "딥다이브",
+    "topic": "로깅"
+  },
+  {
+    "case_id": "python-exception-narrow-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "bare except는 장애 원인을 숨기므로 구체 예외만 잡아야 한다.",
+    "concept": "딥다이브",
+    "topic": "예외 처리"
+  },
+  {
+    "case_id": "python-pathlib-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "경로 처리는 os.path보다 pathlib이 실수하기 어렵다.",
+    "concept": "딥다이브",
+    "topic": "pathlib"
+  },
+  {
+    "case_id": "python-comprehension-cost-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "거대한 리스트 컴프리헨션은 가독성·메모리 모두 해칠 수 있다.",
+    "concept": "딥다이브",
+    "topic": "컴프리헨션"
+  },
+  {
+    "case_id": "python-slots-memory-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "대량 객체는 __slots__나 더 가벼운 구조가 메모리를 줄인다.",
+    "concept": "딥다이브",
+    "topic": "메모리"
+  },
+  {
+    "case_id": "python-async-cancel-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "asyncio 태스크는 취소 시점을 설계하지 않으면 자원 누수가 난다.",
+    "concept": "딥다이브",
+    "topic": "asyncio 취소"
+  },
+  {
+    "case_id": "python-uv-speed-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "uv 같은 도구가 pip보다 의존성 설치를 훨씬 빠르게 만든다.",
+    "concept": "딥다이브",
+    "topic": "패키지 설치"
+  },
+  {
+    "case_id": "python-pytest-over-unittest-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "pytest fixture가 unittest 보일러플레이트보다 테스트 작성을 쉽게 만든다.",
+    "concept": "딥다이브",
+    "topic": "pytest"
+  },
+  {
+    "case_id": "python-fstring-logging-ko",
+    "phase": "say",
+    "domain": "python",
+    "language": "ko",
+    "claim": "로깅에서 불필요한 f-string eager 평가는 비용이 될 수 있다.",
+    "concept": "딥다이브",
+    "topic": "로그 포맷"
+  },
+  {
+    "case_id": "cicd-fail-fast-ko",
+    "phase": "say",
+    "domain": "cicd",
+    "language": "ko",
+    "claim": "CI는 느린 E2E보다 단위·계약 테스트를 먼저 실패시키는 편이 피드백이 빠르다.",
+    "concept": "딥다이브",
+    "topic": "CI 실패 정책"
+  },
+  {
+    "case_id": "cloud-least-privilege-ko",
+    "phase": "say",
+    "domain": "cloud",
+    "language": "ko",
+    "claim": "클라우드 IAM은 최소 권한으로 시작하지 않으면 사고 반경이 커진다.",
+    "concept": "딥다이브",
+    "topic": "클라우드 권한"
+  },
+  {
+    "case_id": "fb-rag-eval-gate-ko",
+    "phase": "feedback",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "승률 숫자로 배포를 막는 게이트는 표본이 작을 때 의사결정을 왜곡할 수 있다.",
+    "concept": "딥다이브",
+    "topic": "RAG 평가 게이트"
+  },
+  {
+    "case_id": "fb-rag-chunk-overlap-ko",
+    "phase": "feedback",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "청크 오버랩을 과도하게 주면 중복 근거만 늘고 비용이 커진다.",
+    "concept": "딥다이브",
+    "topic": "청크 오버랩"
+  },
+  {
+    "case_id": "fb-system-prompt-bloat-ko",
+    "phase": "feedback",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "시스템 프롬프트가 길어질수록 모델이 지시를 부분적으로 무시하기 쉽다.",
+    "concept": "딥다이브",
+    "topic": "시스템 프롬프트"
+  },
+  {
+    "case_id": "fb-multi-agent-overhead-ko",
+    "phase": "feedback",
+    "domain": "ai",
+    "language": "ko",
+    "claim": "멀티 에이전트는 단일 잘 만든 파이프라인보다 관측·실패 비용이 크다.",
+    "concept": "딥다이브",
+    "topic": "멀티 에이전트"
+  },
+  {
+    "case_id": "fb-fastapi-global-state-ko",
+    "phase": "feedback",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "FastAPI 앱에 요청 간 가변 전역 상태를 두면 테스트와 동시성이 깨지기 쉽다.",
+    "concept": "딥다이브",
+    "topic": "전역 상태"
+  },
+  {
+    "case_id": "fb-fastapi-sync-db-ko",
+    "phase": "feedback",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "async 라우트에서 동기 DB 드라이버를 쓰면 이벤트 루프가 막힌다.",
+    "concept": "딥다이브",
+    "topic": "동기 DB"
+  },
+  {
+    "case_id": "fb-fastapi-exception-handler-ko",
+    "phase": "feedback",
+    "domain": "fastapi",
+    "language": "ko",
+    "claim": "도메인 예외를 HTTP로 번역하는 핸들러가 없으면 500이 남발된다.",
+    "concept": "딥다이브",
+    "topic": "예외 핸들러"
+  },
+  {
+    "case_id": "fb-python-mutable-default-ko",
+    "phase": "feedback",
+    "domain": "python",
+    "language": "ko",
+    "claim": "함수 기본 인자로 리스트를 두면 호출 간 상태가 새어 나간다.",
+    "concept": "딥다이브",
+    "topic": "가변 기본값"
+  },
+  {
+    "case_id": "fb-python-circular-import-ko",
+    "phase": "feedback",
+    "domain": "python",
+    "language": "ko",
+    "claim": "패키지 경계가 흐리면 순환 import가 늘어 기동과 테스트가 불안정해진다.",
+    "concept": "딥다이브",
+    "topic": "순환 import"
+  },
+  {
+    "case_id": "fb-python-any-escape-ko",
+    "phase": "feedback",
+    "domain": "python",
+    "language": "ko",
+    "claim": "타입을 Any로 도망가면 정적 검사의 이점이 사라진다.",
+    "concept": "딥다이브",
+    "topic": "Any 남용"
+  }
+]

@@ -113,7 +113,7 @@
 
 ### P0 — 다음으로 의미 있는 일
 
-- [ ] **Judge 정량 문제집** 확정·수집·실행기(절대 점수 MD) → `11-rag-judge-corpus-plan.md`
+- [x] **Judge 정량 문제집** — `11-rag-judge-corpus-plan.md` / CLI: `uv run python -m app.evaluation.run_service_growth_eval` → `artifacts/service_growth_eval/`
 - [ ] **Route 이후 RAG가 답에 실제로 실리게** — 인덱스에 있거나 조사로 모인 근거로 대화 응답 (silent 로그 아님)
 - [ ] 수동 스모크: 일반론 → job → 근거 준비됨 → 다음 턴 답 체감
 
@@ -134,10 +134,14 @@
 ## 4. 검증 명령
 
 ```bash
-# FakeList / 단위 중심 (live research 제외) — 최근 기준 291 passed
+# FakeList / 단위 중심 (live research 제외)
 uv run pytest --ignore=tests/e2e/test_live_research_conversation.py -q
 
-# live (옵션)
+# 서비스 성장 관측 평가 (실 DeepSeek + 공용 인덱스; LangFeather는 설정에 따름)
+uv run python -m app.evaluation.run_service_growth_eval
+# 스모크: uv run python -m app.evaluation.run_service_growth_eval --limit 2 --skip-shape-check
+
+# live research (옵션)
 RUN_LIVE_RESEARCH_E2E=1 uv run pytest tests/e2e/test_live_research_conversation.py -v -s
 ```
 
