@@ -29,6 +29,7 @@ from app.core.config import settings
 from app.core.database import SessionLocal, get_database_session
 from app.core.security import create_jwt
 from app.main import app as fastapi_app
+from app.models.manuscript import Manuscript
 from app.models.research import (
     ResearchJob,
     ResearchJobSource,
@@ -202,106 +203,123 @@ async def _poll_research_job(
         await asyncio.sleep(2)
 
 
+async def _soft_delete_manuscript(client: AsyncClient, manuscript_id: str) -> None:
+    delete_res = await client.delete(f"/api/manuscripts/{manuscript_id}")
+    assert delete_res.status_code == 204, delete_res.text
+    db = SessionLocal()
+    try:
+        manuscript = db.get(Manuscript, uuid.UUID(manuscript_id))
+        assert manuscript is not None
+        assert manuscript.is_deleted is True
+    finally:
+        db.close()
+
+
 async def _run_research_conversation_case(
     client: AsyncClient,
     *,
     user_id: uuid.UUID,
     case: LiveResearchCase,
 ) -> None:
-    create_res = await client.post(
-        "/api/manuscripts",
-        json={
-            "topic": f"live-research-e2e-{case.case_id}-{uuid.uuid4().hex[:8]}",
-            "concept": "딥다이브",
-        },
-    )
-    assert create_res.status_code == 201, create_res.text
-    manuscript_id = create_res.json()["id"]
-
-    message_res = await client.post(
-        f"/api/chat/{manuscript_id}/message",
-        data={"content": case.claim},
-    )
-    assert message_res.status_code == 200, message_res.text
-    events = _parse_sse_events(message_res.text)
-    research_events = [
-        payload for name, payload in events if name == "research_required"
-    ]
-    assert research_events, (
-        f"[{case.case_id}] 일반론 주장인데 research_required가 없다 "
-        f"(트리거 미검출). claim={case.claim!r} "
-        f"evidence_hope={case.evidence_hope!r} "
-        f"events={[name for name, _ in events]}"
-    )
-    research_payload = research_events[0]
-    assert research_payload["manuscript_id"] == manuscript_id
-    assert research_payload["message_id"]
-    assert research_payload["claim_or_query"]
-
-    job_res = await client.post(
-        "/api/research/jobs",
-        json={
-            "manuscript_id": manuscript_id,
-            "message_id": research_payload["message_id"],
-            "claim_or_query": research_payload["claim_or_query"],
-        },
-    )
-    assert job_res.status_code == 202, job_res.text
-    job_body = job_res.json()
-    job_id = uuid.UUID(job_body["id"])
-    assert job_body["created"] is True
-
-    final_status = await _poll_research_job(
-        client,
-        job_id=job_id,
-        manuscript_id=manuscript_id,
-    )
-    assert final_status["status"] in {
-        ResearchJobStatus.COMPLETED.value,
-        ResearchJobStatus.PARTIAL.value,
-    }, f"[{case.case_id}] {final_status}"
-    assert not final_status.get("terminal_error"), f"[{case.case_id}] {final_status}"
-    assert final_status["evidence_ready"] is True, f"[{case.case_id}] {final_status}"
-
-    db = SessionLocal()
+    manuscript_id: str | None = None
     try:
-        job = db.get(ResearchJob, job_id)
-        assert job is not None
-        assert job.user_id == user_id
-
-        links = (
-            db.query(ResearchJobSource)
-            .filter(ResearchJobSource.research_job_id == job_id)
-            .all()
+        create_res = await client.post(
+            "/api/manuscripts",
+            json={
+                "topic": f"live-research-e2e-{case.case_id}-{uuid.uuid4().hex[:8]}",
+                "concept": "딥다이브",
+            },
         )
-        assert links, f"[{case.case_id}] research_job_sources에 연결된 원문이 없다"
+        assert create_res.status_code == 201, create_res.text
+        manuscript_id = create_res.json()["id"]
 
-        sources = (
-            db.query(ResearchSource)
-            .filter(ResearchSource.id.in_([link.source_id for link in links]))
-            .all()
+        message_res = await client.post(
+            f"/api/chat/{manuscript_id}/message",
+            data={"content": case.claim},
         )
-        assert sources
-        indexed = [
-            source
-            for source in sources
-            if source.status == ResearchSourceStatus.INDEXED
+        assert message_res.status_code == 200, message_res.text
+        events = _parse_sse_events(message_res.text)
+        research_events = [
+            payload for name, payload in events if name == "research_required"
         ]
-        assert indexed, (
-            f"[{case.case_id}] INDEXED 원문이 없다: {[s.status for s in sources]}"
+        assert research_events, (
+            f"[{case.case_id}] 일반론 주장인데 research_required가 없다 "
+            f"(트리거 미검출). claim={case.claim!r} "
+            f"evidence_hope={case.evidence_hope!r} "
+            f"events={[name for name, _ in events]}"
         )
+        research_payload = research_events[0]
+        assert research_payload["manuscript_id"] == manuscript_id
+        assert research_payload["message_id"]
+        assert research_payload["claim_or_query"]
 
-        evidence_index = create_research_evidence_index()
-        total_chunks = 0
-        for source in indexed:
-            stored = evidence_index.collections["public"].get(
-                where={"source_id": str(source.id)},
-                include=[],
+        job_res = await client.post(
+            "/api/research/jobs",
+            json={
+                "manuscript_id": manuscript_id,
+                "message_id": research_payload["message_id"],
+                "claim_or_query": research_payload["claim_or_query"],
+            },
+        )
+        assert job_res.status_code == 202, job_res.text
+        job_body = job_res.json()
+        job_id = uuid.UUID(job_body["id"])
+        assert job_body["created"] is True
+
+        final_status = await _poll_research_job(
+            client,
+            job_id=job_id,
+            manuscript_id=manuscript_id,
+        )
+        assert final_status["status"] in {
+            ResearchJobStatus.COMPLETED.value,
+            ResearchJobStatus.PARTIAL.value,
+        }, f"[{case.case_id}] {final_status}"
+        assert not final_status.get("terminal_error"), f"[{case.case_id}] {final_status}"
+        assert final_status["evidence_ready"] is True, f"[{case.case_id}] {final_status}"
+
+        db = SessionLocal()
+        try:
+            job = db.get(ResearchJob, job_id)
+            assert job is not None
+            assert job.user_id == user_id
+
+            links = (
+                db.query(ResearchJobSource)
+                .filter(ResearchJobSource.research_job_id == job_id)
+                .all()
             )
-            total_chunks += len(stored.get("ids") or [])
-        assert total_chunks >= 1, f"[{case.case_id}] Chroma에 청크가 하나도 없다"
+            assert links, f"[{case.case_id}] research_job_sources에 연결된 원문이 없다"
+
+            sources = (
+                db.query(ResearchSource)
+                .filter(ResearchSource.id.in_([link.source_id for link in links]))
+                .all()
+            )
+            assert sources
+            indexed = [
+                source
+                for source in sources
+                if source.status == ResearchSourceStatus.INDEXED
+            ]
+            assert indexed, (
+                f"[{case.case_id}] INDEXED 원문이 없다: {[s.status for s in sources]}"
+            )
+
+            evidence_index = create_research_evidence_index()
+            total_chunks = 0
+            for source in indexed:
+                stored = evidence_index.collections["public"].get(
+                    where={"source_id": str(source.id)},
+                    include=[],
+                )
+                total_chunks += len(stored.get("ids") or [])
+            assert total_chunks >= 1, f"[{case.case_id}] Chroma에 청크가 하나도 없다"
+        finally:
+            db.close()
     finally:
-        db.close()
+        if manuscript_id is not None:
+            await _soft_delete_manuscript(client, manuscript_id)
 
 
 @pytest.fixture
