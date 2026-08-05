@@ -1,3 +1,5 @@
+import datetime
+
 from pydantic import BaseModel, Field, model_validator
 
 from app.models.manuscript import ConceptType, ManuscriptStatus
@@ -23,3 +25,17 @@ class ManuscriptResponse(BaseModel):
     concept: ConceptType
     status: ManuscriptStatus
     audience_level: str | None = None
+
+
+class DocumentEvaluationResponse(BaseModel):
+    id: str
+    version_id: str
+    score: int | None = None
+    verdict: str | None = None
+    reason: str | None = None
+    improvements: str | None = None
+    has_unnecessary_header: bool | None = None
+    has_unnecessary_footer: bool | None = None
+    checklist_id: str | None = None
+    raw_output: str | None = None
+    created_at: datetime.datetime

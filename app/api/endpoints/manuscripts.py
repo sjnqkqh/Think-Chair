@@ -9,7 +9,12 @@ from app.core.database import get_database_session
 from app.core.auth_deps import require_user
 from app.core.storage import get_file_storage
 from app.models.user import User
-from app.schemas.manuscript import ManuscriptCreateRequest, ManuscriptResponse
+from app.schemas.manuscript import (
+    DocumentEvaluationResponse,
+    ManuscriptCreateRequest,
+    ManuscriptResponse,
+)
+from app.services.document_evaluation_service import list_document_evaluations
 from app.services.manuscript_service import (
     create_manuscript,
     delete_manuscript,
@@ -75,6 +80,34 @@ def get(
         status=manuscript.status,
         audience_level=manuscript.audience_level,
     )
+
+
+@router.get(
+    "/{manuscript_id}/evaluations", response_model=list[DocumentEvaluationResponse]
+)
+def list_evaluations(
+    manuscript_id: uuid.UUID,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_database_session),
+):
+    manuscript = get_manuscript(db, user, manuscript_id)
+    evaluations = list_document_evaluations(db, manuscript.id)
+    return [
+        DocumentEvaluationResponse(
+            id=str(evaluation.id),
+            version_id=str(evaluation.version_id),
+            score=evaluation.score,
+            verdict=evaluation.verdict,
+            reason=evaluation.reason,
+            improvements=evaluation.improvements,
+            has_unnecessary_header=evaluation.has_unnecessary_header,
+            has_unnecessary_footer=evaluation.has_unnecessary_footer,
+            checklist_id=evaluation.checklist_id,
+            raw_output=evaluation.raw_output,
+            created_at=evaluation.created_at,
+        )
+        for evaluation in evaluations
+    ]
 
 
 @router.get("/{manuscript_id}/versions/poll", response_class=HTMLResponse)
