@@ -43,9 +43,46 @@ def _seed_job(session, *, claim="timeout이 60분이라고 했습니다."):
     )
     session.add(job)
     session.commit()
-    job_id = job.id
+    job_id =     job.id
     session.close()
     return job_id
+
+
+def _store_three_relevant_urls(evidence_index: ResearchEvidenceIndex) -> None:
+    """충분성 기준(관련 URL 3개)을 만족시키되, 인용 검증용 chunk-timeout은 그대로 둔다."""
+    evidence_index.store_source_chunks(
+        scope="public",
+        ids=["chunk-timeout", "chunk-extra-1", "chunk-extra-2"],
+        documents=[
+            "기본 job timeout은 360분이다.",
+            "다른 문서에서도 같은 기본값을 확인했다.",
+            "세 번째 출처도 같은 기본값을 확인했다.",
+        ],
+        embeddings=[[1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
+        metadatas=[
+            {
+                "chunk_id": "chunk-timeout",
+                "source_id": "src-timeout",
+                "canonical_url": "https://docs.example/timeout",
+                "title": "Timeout",
+                "language": "ko",
+            },
+            {
+                "chunk_id": "chunk-extra-1",
+                "source_id": "src-extra-1",
+                "canonical_url": "https://docs.example/timeout-2",
+                "title": "Timeout 2",
+                "language": "ko",
+            },
+            {
+                "chunk_id": "chunk-extra-2",
+                "source_id": "src-extra-2",
+                "canonical_url": "https://docs.example/timeout-3",
+                "title": "Timeout 3",
+                "language": "ko",
+            },
+        ],
+    )
 
 
 @pytest.mark.asyncio
@@ -58,21 +95,7 @@ async def test_run_research_job_completes_and_stores_comparison(db_factory, tmp_
         embedding_dimension=3,
         chunk_schema_version="test-schema",
     )
-    evidence_index.store_source_chunks(
-        scope="public",
-        ids=["chunk-timeout"],
-        documents=["기본 job timeout은 360분이다."],
-        embeddings=[[1.0, 0.0, 0.0]],
-        metadatas=[
-            {
-                "chunk_id": "chunk-timeout",
-                "source_id": "src-timeout",
-                "canonical_url": "https://docs.example/timeout",
-                "title": "Timeout",
-                "language": "ko",
-            }
-        ],
-    )
+    _store_three_relevant_urls(evidence_index)
 
     def generate_invoke(prompt: str) -> str:
         if "chunk_id" in prompt:
@@ -151,21 +174,7 @@ async def test_run_research_job_completes_without_evaluation(db_factory, tmp_pat
         embedding_dimension=3,
         chunk_schema_version="test-schema",
     )
-    evidence_index.store_source_chunks(
-        scope="public",
-        ids=["chunk-timeout"],
-        documents=["기본 job timeout은 360분이다."],
-        embeddings=[[1.0, 0.0, 0.0]],
-        metadatas=[
-            {
-                "chunk_id": "chunk-timeout",
-                "source_id": "src-timeout",
-                "canonical_url": "https://docs.example/timeout",
-                "title": "Timeout",
-                "language": "ko",
-            }
-        ],
-    )
+    _store_three_relevant_urls(evidence_index)
 
     await run_research_job(
         job_id=job_id,

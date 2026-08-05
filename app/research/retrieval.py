@@ -6,6 +6,9 @@ from app.research.contracts import (
 )
 from app.research.evidence_index import ResearchEvidenceIndex
 
+MIN_RELEVANCE_SCORE = 0.45
+MIN_DISTINCT_RELEVANT_URLS = 3
+
 
 def retrieve_evidence(
     request: EvidenceRequest,
@@ -13,7 +16,11 @@ def retrieve_evidence(
     evidence_index: ResearchEvidenceIndex,
     query_embedding: list[float],
 ) -> EvidenceContext:
-    """공용·허용된 비공개 자료를 검색해 근거 컨텍스트를 만든다."""
+    """공용·허용된 비공개 자료를 검색해 근거 컨텍스트를 만든다.
+
+    무관한 청크가 섞여도 충분성 판단에 영향을 주지 않도록, 점수가 낮은 청크는
+    관련 자료에서 제외하고 서로 다른 출처 URL 개수로 충분성을 정한다.
+    """
     public_hits = evidence_index.query_chunks(
         scope="public",
         query_embedding=query_embedding,
@@ -38,13 +45,22 @@ def retrieve_evidence(
     )[: request.limit]
 
     items = [_to_evidence_item(hit) for hit in ranked]
-    supporting_ids = [item.chunk_id for item in items]
-    sufficient = bool(items)
+    relevant_items = [item for item in items if item.score >= MIN_RELEVANCE_SCORE]
+    distinct_relevant_urls = {item.url for item in relevant_items if item.url}
+    sufficient = len(distinct_relevant_urls) >= MIN_DISTINCT_RELEVANT_URLS
+
+    if sufficient:
+        reason_code = "matched_chunks"
+    elif relevant_items:
+        reason_code = "insufficient_distinct_urls"
+    else:
+        reason_code = "no_matching_chunks"
+
     sufficiency = EvidenceSufficiency(
         sufficient=sufficient,
         missing_aspects=[] if sufficient else ["supporting_evidence"],
-        supporting_chunk_ids=supporting_ids,
-        reason_code="matched_chunks" if sufficient else "no_matching_chunks",
+        supporting_chunk_ids=[item.chunk_id for item in relevant_items],
+        reason_code=reason_code,
     )
     return EvidenceContext(
         items=items,
