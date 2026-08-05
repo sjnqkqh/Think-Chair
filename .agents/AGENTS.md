@@ -14,6 +14,7 @@ Before implementing:
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
+- When several points need a human decision, ask them **in one turn** as a numbered list with short example choices (a/b/c). Do not drip one clarifying question per turn.
 
 ## 2. Simplicity First
 
