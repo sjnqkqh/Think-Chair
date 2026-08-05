@@ -1,3 +1,4 @@
+from app.logging import get_logger
 from app.research.contracts import (
     EvidenceContext,
     EvidenceItem,
@@ -5,6 +6,8 @@ from app.research.contracts import (
     EvidenceSufficiency,
 )
 from app.research.evidence_index import ResearchEvidenceIndex
+
+logger = get_logger(__name__)
 
 
 def retrieve_evidence(
@@ -45,6 +48,12 @@ def retrieve_evidence(
         missing_aspects=[] if sufficient else ["supporting_evidence"],
         supporting_chunk_ids=supporting_ids,
         reason_code="matched_chunks" if sufficient else "no_matching_chunks",
+    )
+    logger.info(
+        "research.evidence_retrieved",
+        hit_count=len(items),
+        sufficient=sufficient,
+        reason_code=sufficiency.reason_code,
     )
     return EvidenceContext(
         items=items,

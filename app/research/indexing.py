@@ -267,6 +267,19 @@ async def index_research_sources(
         status = "partial" if indexed_source_ids else "failed"
     else:
         status = "completed"
+
+    index_contract = evidence_index.index_contract
+    logger.info(
+        "research.index_completed",
+        research_job_id=str(request.research_job_id),
+        chunk_count=chunk_count,
+        embedding_model=index_contract["embedding_model"],
+        embedding_dimension=index_contract["embedding_dimension"],
+        indexed_count=len(indexed_source_ids),
+        reused_count=len(skipped_source_keys),
+        failed_count=len(error_codes),
+        status=status,
+    )
     return ResearchIndexResult(
         indexed_source_ids=indexed_source_ids,
         chunk_count=chunk_count,
