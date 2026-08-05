@@ -40,6 +40,15 @@ class ChatGraphRunner:
             interrupt_after=["router"],
         )
 
+    async def update_evidence_text(
+        self, manuscript_id: uuid.UUID, model: str, evidence_text: str | None
+    ) -> None:
+        """중단된 턴의 checkpoint에 새로 조사한 근거를 반영한다."""
+        await self._graph.aupdate_state(
+            self._run_config(manuscript_id, model),
+            {"evidence_text": evidence_text},
+        )
+
     async def stream_reply_tokens(
         self, manuscript_id: uuid.UUID, model: str
     ) -> AsyncIterator[str]:

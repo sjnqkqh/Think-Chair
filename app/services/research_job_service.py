@@ -156,6 +156,11 @@ def research_job_status_payload(job: ResearchJob) -> dict:
     }
 
 
+def job_ready_for_grounded_reply(job: ResearchJob) -> bool:
+    """조사 완료(근거 있음)로 같은 턴 답변을 이어갈 수 있는 상태인지."""
+    return job.status in _EVIDENCE_READY_STATUSES
+
+
 def mark_job_cancelled(
     db: Session,
     job: ResearchJob,

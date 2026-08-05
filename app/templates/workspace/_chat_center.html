@@ -136,7 +136,54 @@
     researchStatus.classList.remove('hidden');
   }
 
-  async function startResearchJob(messageId, claimOrQuery) {
+  function hideResearchStatus() {
+    researchStatus?.classList.add('hidden');
+  }
+
+  async function consumeEventStream(response, onEvent) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || '';
+      for (const rawEvent of events) {
+        const eventName = rawEvent.match(/^event: (.+)$/m)?.[1];
+        const dataLine = rawEvent.match(/^data: (.*)$/m)?.[1] || '{}';
+        onEvent(eventName, JSON.parse(dataLine));
+      }
+    }
+  }
+
+  async function continueAfterResearch(jobId, messageId, aiBubble) {
+    const response = await fetch(`/api/research/jobs/${jobId}/continue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+      body: JSON.stringify({ manuscript_id: manuscriptId, message_id: messageId }),
+    });
+    if (!response.ok || !response.body) {
+      throw new Error('근거 반영 응답에 실패했습니다.');
+    }
+
+    let aiText = '';
+    await consumeEventStream(response, (eventName, payload) => {
+      if (eventName === 'chunk') {
+        aiText += payload.content || '';
+        aiBubble.textContent = aiText;
+        scrollChatToBottom();
+      }
+      if (eventName === 'error') {
+        throw new Error(payload.message || '근거 반영 응답에 실패했습니다.');
+      }
+    });
+  }
+
+  async function startResearchJob(messageId, claimOrQuery, aiBubble) {
     showResearchStatus('근거를 조사하는 중입니다…');
     const response = await fetch('/api/research/jobs', {
       method: 'POST',
@@ -149,6 +196,7 @@
     });
     if (!response.ok) {
       showResearchStatus('조사 요청에 실패했습니다.');
+      setFormDisabled(false);
       return;
     }
     const payload = await response.json();
@@ -162,13 +210,24 @@
       const statusPayload = await statusResponse.json();
       if (statusPayload.evidence_ready) {
         stopResearchPolling();
-        showResearchStatus('근거 준비됨. 다음 메시지부터 참고합니다.');
+        showResearchStatus('조사한 근거를 답변에 반영하는 중입니다…');
+        try {
+          await continueAfterResearch(jobId, messageId, aiBubble);
+          hideResearchStatus();
+        } catch (error) {
+          aiBubble.textContent = error.message || '근거 반영 응답에 실패했습니다.';
+          showResearchStatus('근거 반영 응답에 실패했습니다.');
+        } finally {
+          setFormDisabled(false);
+        }
       } else if (statusPayload.status === 'failed' || statusPayload.status === 'cancelled') {
         stopResearchPolling();
         const reason = statusPayload.terminal_error
           ? ` (${statusPayload.terminal_error})`
           : '';
+        aiBubble.textContent = '근거 조사에 실패했습니다. 다시 시도해 주세요.';
         showResearchStatus(`조사에 실패했거나 취소되었습니다.${reason}`);
+        setFormDisabled(false);
       }
     }, 2000);
   }
@@ -183,41 +242,28 @@
       throw new Error('메시지 전송에 실패했습니다.');
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
     let aiText = '';
     let documentGeneration = false;
+    let awaitingResearch = false;
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      const events = buffer.split('\n\n');
-      buffer = events.pop() || '';
-      for (const rawEvent of events) {
-        const eventName = rawEvent.match(/^event: (.+)$/m)?.[1];
-        const dataLine = rawEvent.match(/^data: (.*)$/m)?.[1] || '{}';
-        const payload = JSON.parse(dataLine);
-
-        if (eventName === 'research_required') {
-          startResearchJob(payload.message_id, payload.claim_or_query);
-        }
-        if (eventName === 'chunk') {
-          aiText += payload.content || '';
-          aiBubble.textContent = aiText;
-          scrollChatToBottom();
-        }
-        if (eventName === 'error') {
-          throw new Error(payload.message || '메시지 전송에 실패했습니다.');
-        }
-        if (eventName === 'done') {
-          documentGeneration = Boolean(payload.document_generation);
-        }
+    await consumeEventStream(response, (eventName, payload) => {
+      if (eventName === 'research_required') {
+        startResearchJob(payload.message_id, payload.claim_or_query, aiBubble);
       }
-    }
-    return { documentGeneration };
+      if (eventName === 'chunk') {
+        aiText += payload.content || '';
+        aiBubble.textContent = aiText;
+        scrollChatToBottom();
+      }
+      if (eventName === 'error') {
+        throw new Error(payload.message || '메시지 전송에 실패했습니다.');
+      }
+      if (eventName === 'done') {
+        documentGeneration = Boolean(payload.document_generation);
+        awaitingResearch = Boolean(payload.awaiting_research);
+      }
+    });
+    return { documentGeneration, awaitingResearch };
   }
 
   form?.addEventListener('submit', async (evt) => {
@@ -237,19 +283,22 @@
 
     isSubmitting = true;
     setFormDisabled(true);
-    let streamResult = { documentGeneration: false };
+    let streamResult = { documentGeneration: false, awaitingResearch: false };
     try {
       streamResult = await streamChat(content, aiBubble);
     } catch (error) {
       aiBubble.textContent = error.message || '메시지 전송에 실패했습니다.';
     } finally {
       isSubmitting = false;
-      setFormDisabled(false);
-      if (streamResult.documentGeneration) {
-        startVersionPolling();
-        stopVersionPollingAfterNewVersion(versionCountBefore);
+      // awaitingResearch면 조사·근거 반영이 끝날 때까지 startResearchJob이 폼을 잠근 채로 둔다.
+      if (!streamResult.awaitingResearch) {
+        setFormDisabled(false);
+        if (streamResult.documentGeneration) {
+          startVersionPolling();
+          stopVersionPollingAfterNewVersion(versionCountBefore);
+        }
+        textarea.focus();
       }
-      textarea.focus();
     }
   });
 
