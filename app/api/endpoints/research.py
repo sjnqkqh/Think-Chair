@@ -78,7 +78,7 @@ async def get_research_job(
     )
     if job is None:
         return {"error": "not_found"}
-    return research_job_status_payload(job)
+    return research_job_status_payload(database_session, job)
 
 
 @router.post("/jobs/{job_id}/cancel")
