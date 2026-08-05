@@ -2,12 +2,13 @@
 
 - 작성일: 2026-08-03
 - 근거 설계: `docs/specs/2026-08-03-agentic-rag-vertical-mvp-design.md`
+- 진행/남은 일 핸드오프: `docs/plans/agentic-research-rag/10-vertical-mvp-handoff.md` (2026-08-04)
 - 목표: 채팅에서 비동기 웹 조사를 쓰고, job 완료 시 baseline/grounded 쌍과 LLM 비교를 DB에 남긴다.
 - 적용 범위: 원고 컨셉이 **딥다이브**(`TECH_DEEPDIVE`) 또는 **수업 자료**(`TEACHING`)일 때만 웹 조사 트리거·job 생성. TIL/에세이/회고 등은 감지해도 `research_required`를 내지 않는다.
 
 ## 완료 기준
 
-설계 §7과 동일. 승률 게이트 없음.
+설계 §7과 동일. **승률 게이트 없음** (관측·문제집만 — `11-rag-judge-corpus-plan.md`).
 
 ## 작업 순서
 
@@ -60,4 +61,4 @@
 
 ## 문서 PR 대비
 
-PR 03~06 계약을 최소로 한 줄에 연결. corpus 확장·게이트·detector 고도화는 제외.
+PR 03~06 계약을 최소로 한 줄에 연결. 정량 문제집은 `11-rag-judge-corpus-plan.md`로 분리. 승률 게이트·detector shadow는 쓰지 않음.
