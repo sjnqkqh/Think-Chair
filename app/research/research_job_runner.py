@@ -67,6 +67,14 @@ async def run_research_job(
             return
         if job_session.cancelled():
             return
+        logger.info(
+            "research.evaluation.begin",
+            job_id=str(job_id),
+            reason=(
+                "웹 수집·인덱싱(제품)과 별도로 baseline/grounded/"
+                "pairwise 관측 평가를 실행한다"
+            ),
+        )
         try:
             evaluation = evaluate_research_responses(
                 query=job_session.query,

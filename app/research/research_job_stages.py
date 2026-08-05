@@ -16,6 +16,7 @@ from app.evaluation.response_comparison_contracts import (
     PairwiseJudgment,
 )
 from app.evaluation.response_generation import parse_generation_response
+from app.llm.deepseek_call_log import log_deepseek_request, log_deepseek_response
 from app.logging import get_logger
 from app.models.research import ResearchJob, ResearchJobStatus, ResponseComparisonRecord
 from app.repositories import research_repo
@@ -184,16 +185,40 @@ def evaluate_research_responses(
     generate_invoke: PromptInvoker,
     judge_invoke: PromptInvoker,
 ) -> EvaluationResult:
-    """baseline/grounded 생성과 LLM 비교. 비교 실패는 결과 필드로만 남긴다."""
+    """baseline/grounded 생성과 LLM 비교. 비교 실패는 결과 필드로만 남긴다.
+
+    제품 조사(웹 검색·인덱싱)와 별개로, job 종료 후 관측용 pairwise 평가가
+    채팅 LLM을 여러 번 호출한다.
+    """
+    logger.info(
+        "research.evaluation.start",
+        reason=(
+            "조사 job 제품 완료 후 baseline/grounded 생성·pairwise 비교 "
+            "(관측용, 채팅 답변과 무관)"
+        ),
+        evidence_item_count=len(evidence.items),
+        sufficient=evidence.sufficiency.sufficient,
+    )
     responses = ResponsePairResult(
-        baseline=_generate_baseline(conversation_context=query, invoke=generate_invoke),
+        baseline=_generate_baseline(
+            conversation_context=query,
+            invoke=_purpose_invoke(
+                generate_invoke,
+                purpose="research.eval.baseline",
+                reason="근거 없이 대화 이어가기 응답 생성",
+            ),
+        ),
         grounded=generate_grounded_response(
             GroundedResponseRequest(
                 phase="say",
                 conversation_context=query,
                 evidence=evidence,
             ),
-            invoke=generate_invoke,
+            invoke=_purpose_invoke(
+                generate_invoke,
+                purpose="research.eval.grounded",
+                reason="수집 근거를 인용하는 응답 생성(실패 시 1회 재시도 가능)",
+            ),
         ),
     )
     judgment = None
@@ -224,6 +249,25 @@ def evaluate_research_responses(
         judgment=judgment,
         comparison_error=comparison_error,
     )
+
+
+def _purpose_invoke(
+    invoke: PromptInvoker, *, purpose: str, reason: str
+) -> PromptInvoker:
+    def _wrapped(prompt: str) -> str:
+        log_deepseek_request(
+            purpose=purpose,
+            reason=reason,
+            prompt_chars=len(prompt),
+        )
+        text = invoke(prompt)
+        log_deepseek_response(
+            purpose=purpose,
+            response_chars=len(text),
+        )
+        return text
+
+    return _wrapped
 
 
 def save_research_comparison_record(

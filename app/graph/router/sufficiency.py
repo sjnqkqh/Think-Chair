@@ -55,6 +55,12 @@ async def is_conversation_sufficient(
 
     last_raw: str | None = None
     for attempt in range(1, MAX_GATE_ATTEMPTS + 1):
+        logger.info(
+            "llm.deepseek.request",
+            purpose="chat.router.document_readiness",
+            reason="문서화 요청 전 대화 맥락 충분성 판정",
+            attempt=attempt,
+        )
         response = await language_model.ainvoke(prompt)
         last_raw = (response.content or "").strip()
         decision = parse_sufficiency_response(last_raw)
