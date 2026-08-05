@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from app.graph.chat_graph_runner import ChatGraphRunner
 from app.models.chat import ChatMessage
 from app.models.manuscript import Manuscript
+from app.models.research import ResearchJob
 from app.models.user import User
 from app.repositories import chat_repo
 from app.research.evidence_need import detect_evidence_need
@@ -16,6 +17,14 @@ DOCUMENT_GENERATION_ACTIONS = {"outline", "generate_document"}
 DOCUMENT_GENERATION_ACK = (
     "문서 작성을 시작했습니다. 완료되면 오른쪽 문서 목록에 표시됩니다."
 )
+# 이 액션들은 사용자 주장을 근거로 검증하는 대화 턴이 아니라서 조사를 걸지 않는다.
+NON_RESEARCH_ACTIONS = {
+    "feedback",
+    "outline",
+    "generate_document",
+    "refuse",
+    "opening",
+}
 
 
 @dataclass(frozen=True)
@@ -104,16 +113,30 @@ class ChatService:
                 claim_or_query=None,
             )
 
-        evidence_need = detect_evidence_need(user_message)
-        research_required = (
-            evidence_need.required
+        research_required = False
+        claim_or_query = None
+        if (
+            action not in NON_RESEARCH_ACTIONS
             and concept_allows_web_research(manuscript.concept)
-        )
+        ):
+            evidence_need = detect_evidence_need(user_message)
+            if evidence_need.required:
+                from app.research.turn_evidence import evidence_sufficient_for_turn
+
+                already_sufficient = evidence_sufficient_for_turn(
+                    user_id=manuscript.user_id,
+                    manuscript_id=manuscript.id,
+                    query=user_message,
+                )
+                if not already_sufficient:
+                    research_required = True
+                    claim_or_query = evidence_need.claim_or_query
+
         return TurnStart(
             action=action,
             message_id=user_chat_message.id,
             research_required=research_required,
-            claim_or_query=evidence_need.claim_or_query if research_required else None,
+            claim_or_query=claim_or_query,
         )
 
     async def stream_response(
@@ -121,19 +144,60 @@ class ChatService:
         manuscript_id: uuid.UUID,
         action: str | None,
         model: str = "default",
+        *,
+        research_required: bool = False,
     ) -> AsyncIterator[tuple[str, dict]]:
-        """action에 따라 (이벤트 이름, 페이로드) 쌍을 스트리밍한다."""
+        """action에 따라 (이벤트 이름, 페이로드) 쌍을 스트리밍한다.
+
+        research_required면 조사가 끝날 때까지 답변을 스트리밍하지 않는다.
+        조사 완료 후 답변은 stream_grounded_reply_after_research가 같은 턴에 이어 보낸다.
+        """
         yield SseEvent.READY, {}
 
         if is_document_generation(action):
             self._start_document_generation(manuscript_id, model)
             yield SseEvent.CHUNK, {"content": DOCUMENT_GENERATION_ACK}
             yield SseEvent.DONE, {"document_generation": True}
+        elif research_required:
+            yield SseEvent.DONE, {"awaiting_research": True}
         else:
             async for event_name, payload in self._stream_assistant_reply(
                 manuscript_id, action, model
             ):
                 yield event_name, payload
+
+    async def stream_grounded_reply_after_research(
+        self,
+        manuscript: Manuscript,
+        job: ResearchJob,
+        model: str = "default",
+    ) -> AsyncIterator[tuple[str, dict]]:
+        """조사가 끝난 뒤, 같은 사용자 메시지에 근거를 반영한 답변을 이어 스트리밍한다.
+
+        begin_turn을 다시 호출하지 않으므로 사용자 메시지를 중복 저장하지 않는다.
+        """
+        yield SseEvent.READY, {}
+
+        query = (job.claim_or_query or "").strip()
+        if query:
+            from app.research.turn_evidence import load_evidence_text_for_turn
+
+            evidence_text = (
+                load_evidence_text_for_turn(
+                    user_id=manuscript.user_id,
+                    manuscript_id=manuscript.id,
+                    query=query,
+                )
+                or None
+            )
+            await self.graph_runner.update_evidence_text(
+                manuscript.id, model, evidence_text
+            )
+
+        async for event_name, payload in self._stream_assistant_reply(
+            manuscript.id, "say", model
+        ):
+            yield event_name, payload
 
     def _start_document_generation(
         self, manuscript_id: uuid.UUID, model: str = "default"

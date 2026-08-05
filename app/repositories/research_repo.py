@@ -112,6 +112,22 @@ def add_source_url_alias(
     )
 
 
+def list_sources_for_research_job(
+    db: Session,
+    *,
+    research_job_id: uuid.UUID,
+) -> list[ResearchSource]:
+    return (
+        db.query(ResearchSource)
+        .join(
+            ResearchJobSource,
+            ResearchJobSource.source_id == ResearchSource.id,
+        )
+        .filter(ResearchJobSource.research_job_id == research_job_id)
+        .all()
+    )
+
+
 def link_source_to_research_job(
     db: Session,
     job: ResearchJob,

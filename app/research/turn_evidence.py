@@ -27,17 +27,8 @@ def load_evidence_text_for_turn(
     query = (query or "").strip()
     if not query:
         return ""
-    embeddings = create_research_embeddings()
-    evidence_index = create_research_evidence_index()
-    evidence = retrieve_evidence(
-        EvidenceRequest(
-            user_id=user_id,
-            manuscript_id=manuscript_id,
-            query=query,
-            limit=limit,
-        ),
-        evidence_index=evidence_index,
-        query_embedding=embeddings.embed_query(query),
+    evidence = _retrieve_for_turn(
+        user_id=user_id, manuscript_id=manuscript_id, query=query, limit=limit
     )
     top_scores = [round(item.score, 3) for item in evidence.items[:3]]
     logger.info(
@@ -48,3 +39,41 @@ def load_evidence_text_for_turn(
         top_scores=top_scores,
     )
     return format_evidence_system_text(evidence)
+
+
+def evidence_sufficient_for_turn(
+    *,
+    user_id: uuid.UUID,
+    manuscript_id: uuid.UUID,
+    query: str,
+    limit: int = 5,
+) -> bool:
+    """이미 관련 URL이 충분히 모였는지 확인한다. 조사 플래그 낭비를 막는다."""
+    query = (query or "").strip()
+    if not query:
+        return False
+    evidence = _retrieve_for_turn(
+        user_id=user_id, manuscript_id=manuscript_id, query=query, limit=limit
+    )
+    return evidence.sufficiency.sufficient
+
+
+def _retrieve_for_turn(
+    *,
+    user_id: uuid.UUID,
+    manuscript_id: uuid.UUID,
+    query: str,
+    limit: int,
+):
+    embeddings = create_research_embeddings()
+    evidence_index = create_research_evidence_index()
+    return retrieve_evidence(
+        EvidenceRequest(
+            user_id=user_id,
+            manuscript_id=manuscript_id,
+            query=query,
+            limit=limit,
+        ),
+        evidence_index=evidence_index,
+        query_embedding=embeddings.embed_query(query),
+    )

@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.core.exceptions import ConflictError
 from app.core.storage import get_file_storage
 from app.models.manuscript import ConceptType
-from app.models.research import ResearchJob, ResearchJobStatus
+from app.models.research import ResearchJob, ResearchJobStatus, ResearchSource
 from app.repositories import research_repo
 from app.research.indexing import (
     create_research_embeddings,
@@ -148,6 +148,25 @@ def get_owned_research_job(
     )
 
 
+def list_sources_for_job(db: Session, job: ResearchJob) -> list[dict]:
+    sources = research_repo.list_sources_for_research_job(
+        db, research_job_id=job.id
+    )
+    return [_research_source_payload(source) for source in sources]
+
+
+def _research_source_payload(source: ResearchSource) -> dict:
+    return {
+        "id": str(source.id),
+        "title": source.title,
+        "canonical_url": source.canonical_url,
+        "status": source.status.value,
+        "scope": source.scope.value,
+        "publisher": source.publisher,
+        "fetched_at": source.fetched_at.isoformat(),
+    }
+
+
 def research_job_status_payload(db: Session, job: ResearchJob) -> dict:
     searches = research_repo.list_web_searches_for_research_job(db, job)
     return {
@@ -157,6 +176,7 @@ def research_job_status_payload(db: Session, job: ResearchJob) -> dict:
         "evidence_ready": job.status in _EVIDENCE_READY_STATUSES,
         "claim_or_query": job.claim_or_query,
         "web_searches": [_web_search_payload(record) for record in searches],
+        "sources": list_sources_for_job(db, job),
     }
 
 
@@ -178,6 +198,11 @@ def _web_search_payload(record) -> dict:
             record.created_at.isoformat() if record.created_at is not None else None
         ),
     }
+
+
+def job_ready_for_grounded_reply(job: ResearchJob) -> bool:
+    """조사 완료(근거 있음)로 같은 턴 답변을 이어갈 수 있는 상태인지."""
+    return job.status in _EVIDENCE_READY_STATUSES
 
 
 def mark_job_cancelled(

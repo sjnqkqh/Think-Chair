@@ -43,7 +43,9 @@ async def send_message(
                     ),
                 }
             async for event_name, payload in chat_service.stream_response(
-                manuscript_id, turn.action
+                manuscript_id,
+                turn.action,
+                research_required=turn.research_required,
             ):
                 yield {
                     "event": event_name,
