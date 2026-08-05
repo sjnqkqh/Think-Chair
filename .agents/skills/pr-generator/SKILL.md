@@ -31,11 +31,11 @@ description: "현재 브랜치의 코드 변경과 대화 맥락을 분석해 �
 ```markdown
 ## 확인 순서
 
-1. `app/evaluation/contracts.py` — 입출력 계약부터 보면 이후 모듈 역할이 읽힌다
-2. `app/evaluation/citation_allowance.py` → `response_generation.py` → `response_comparison.py` — 규칙 검사·생성·비교 핵심
-3. `app/evaluation/runner.py` → `run_response_comparison.py` — 한 사례가 끝까지 도는 연결
+1. `app/evaluation/service_growth_contracts.py` — 입출력 계약부터 보면 이후 모듈 역할이 읽힌다
+2. `app/evaluation/absolute_judgment.py` → `service_growth_generation.py` — 절대 채점·생성 핵심
+3. `app/evaluation/run_service_growth_eval.py` — 한 회차가 끝까지 도는 연결
 4. `tests/unit/evaluation/` — 위 계약을 고정하는 테스트
-5. `tests/evaluation/*.json` — 수치 사례 fixture (원하면)
+5. `tests/evaluation/service_growth_cases.json` — 수치 사례 fixture (원하면)
 ```
 
 ### PR 개요

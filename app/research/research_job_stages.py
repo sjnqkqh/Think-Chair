@@ -1,4 +1,4 @@
-"""조사 job 단계: 제품(근거 수집) / 평가(응답·비교) / 기록 저장.
+"""조사 job 단계: 근거 수집과 종료 결과 결정.
 
 job.status 전환은 하지 않는다. 호출부가 단계 결과를 보고 상태를 바꾼다.
 """
@@ -10,29 +10,17 @@ from collections.abc import Awaitable, Callable
 
 from pydantic import BaseModel, ConfigDict
 
-from app.evaluation.response_comparison import compare_response_pair
-from app.evaluation.response_comparison_contracts import (
-    GeneratedResponse,
-    PairwiseJudgment,
-)
-from app.evaluation.response_generation import parse_generation_response
-from app.llm.deepseek_call_log import log_deepseek_request, log_deepseek_response
 from app.logging import get_logger
-from app.models.research import ResearchJob, ResearchJobStatus, ResponseComparisonRecord
-from app.repositories import research_repo
+from app.models.research import ResearchJob, ResearchJobStatus
 from app.research.contracts import (
     EvidenceContext,
     EvidenceRequest,
-    GroundedResponseRequest,
-    GroundedResponseResult,
 )
-from app.research.grounded_response import generate_grounded_response
 from app.research.retrieval import MIN_RELEVANCE_SCORE, retrieve_evidence
 
 logger = get_logger(__name__)
 
 EmbedQuery = Callable[[str], list[float]]
-PromptInvoker = Callable[[str], str]
 WebResearchHook = Callable[..., Awaitable[str | None]]
 
 MAX_WEB_EXPAND_ROUNDS = 3
@@ -47,25 +35,6 @@ class EvidenceCollectionResult(BaseModel):
     web_error: str | None = None
     # 웹 조사 예외로 세션을 rollback 했을 때. 호출부가 job 재연결·상태를 처리한다.
     session_rolled_back: bool = False
-
-
-class ResponsePairResult(BaseModel):
-    """평가용 baseline / grounded 쌍."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    baseline: GeneratedResponse
-    grounded: GroundedResponseResult
-
-
-class EvaluationResult(BaseModel):
-    """평가 경로: 응답 쌍 + (선택) pairwise 판정."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    responses: ResponsePairResult
-    judgment: PairwiseJudgment | None = None
-    comparison_error: str | None = None
 
 
 class FinalizeDecision(BaseModel):
@@ -178,119 +147,6 @@ def decide_job_outcome(collection: EvidenceCollectionResult) -> FinalizeDecision
     )
 
 
-def evaluate_research_responses(
-    *,
-    query: str,
-    evidence: EvidenceContext,
-    generate_invoke: PromptInvoker,
-    judge_invoke: PromptInvoker,
-) -> EvaluationResult:
-    """baseline/grounded 생성과 LLM 비교. 비교 실패는 결과 필드로만 남긴다.
-
-    제품 조사(웹 검색·인덱싱)와 별개로, job 종료 후 관측용 pairwise 평가가
-    채팅 LLM을 여러 번 호출한다.
-    """
-    logger.info(
-        "research.evaluation.start",
-        reason=(
-            "조사 job 제품 완료 후 baseline/grounded 생성·pairwise 비교 "
-            "(관측용, 채팅 답변과 무관)"
-        ),
-        evidence_item_count=len(evidence.items),
-        sufficient=evidence.sufficiency.sufficient,
-    )
-    responses = ResponsePairResult(
-        baseline=_generate_baseline(
-            conversation_context=query,
-            invoke=_purpose_invoke(
-                generate_invoke,
-                purpose="research.eval.baseline",
-                reason="근거 없이 대화 이어가기 응답 생성",
-            ),
-        ),
-        grounded=generate_grounded_response(
-            GroundedResponseRequest(
-                phase="say",
-                conversation_context=query,
-                evidence=evidence,
-            ),
-            invoke=_purpose_invoke(
-                generate_invoke,
-                purpose="research.eval.grounded",
-                reason="수집 근거를 인용하는 응답 생성(실패 시 1회 재시도 가능)",
-            ),
-        ),
-    )
-    judgment = None
-    comparison_error = None
-    try:
-        judgment = compare_response_pair(
-            ai_question="조사로 확인할 사용자 주장/질문",
-            human_response=query,
-            baseline=GeneratedResponse(
-                body=responses.baseline.body,
-                cited_source_keys=responses.baseline.cited_source_keys,
-                cited_urls=responses.baseline.cited_urls,
-            ),
-            grounded=GeneratedResponse(
-                body=responses.grounded.text,
-                cited_source_keys=tuple(
-                    c.source_id for c in responses.grounded.citations
-                ),
-                cited_urls=tuple(c.url for c in responses.grounded.citations),
-            ),
-            invoke=judge_invoke,
-        )
-    except Exception as exc:
-        comparison_error = type(exc).__name__
-        logger.exception("research.comparison_failed")
-    return EvaluationResult(
-        responses=responses,
-        judgment=judgment,
-        comparison_error=comparison_error,
-    )
-
-
-def _purpose_invoke(
-    invoke: PromptInvoker, *, purpose: str, reason: str
-) -> PromptInvoker:
-    def _wrapped(prompt: str) -> str:
-        log_deepseek_request(
-            purpose=purpose,
-            reason=reason,
-            prompt_chars=len(prompt),
-        )
-        text = invoke(prompt)
-        log_deepseek_response(
-            purpose=purpose,
-            response_chars=len(text),
-        )
-        return text
-
-    return _wrapped
-
-
-def save_research_comparison_record(
-    db,
-    job: ResearchJob,
-    *,
-    evaluation: EvaluationResult,
-    generation_model: str | None,
-    judge_model: str | None,
-) -> None:
-    """평가 비교 기록만 저장한다. job.status는 바꾸지 않는다."""
-    record = ResponseComparisonRecord.from_job_evaluation(
-        job,
-        baseline=evaluation.responses.baseline,
-        grounded=evaluation.responses.grounded,
-        judgment=evaluation.judgment,
-        generation_model=generation_model,
-        judge_model=judge_model,
-        comparison_error=evaluation.comparison_error,
-    )
-    research_repo.save_response_comparison_record(db, record)
-
-
 def _distinct_relevant_url_count(evidence: EvidenceContext) -> int:
     return len(
         {
@@ -319,19 +175,3 @@ def _retrieve(
         evidence_index=evidence_index,
         query_embedding=embed_query(query),
     )
-
-
-def _generate_baseline(
-    *,
-    conversation_context: str,
-    invoke: PromptInvoker,
-) -> GeneratedResponse:
-    prompt = f"""당신은 사용자의 글쓰기 대화를 이어가는 AI입니다.
-외부 검색 자료는 없습니다. 근거가 부족하면 단정하지 말고 확인 질문으로 이어가도 됩니다.
-
-[대화 맥락]
-{conversation_context}
-
-출력은 JSON 객체 하나만 출력하십시오.
-{{"body":"다음 AI 응답","cited_source_keys":[],"cited_urls":[]}}"""
-    return parse_generation_response(invoke(prompt))

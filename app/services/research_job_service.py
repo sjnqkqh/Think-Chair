@@ -129,10 +129,6 @@ async def execute_research_job(job_id: uuid.UUID, *, db_factory) -> None:
         db_factory=db_factory,
         evidence_index=evidence_index,
         embed_query=embeddings.embed_query,
-        generate_invoke=_make_deepseek_invoker(),
-        judge_invoke=_make_deepseek_invoker(),
-        generation_model=settings.DEEPSEEK_MODEL,
-        judge_model=settings.DEEPSEEK_MODEL,
         web_research=web_research,
     )
 
@@ -203,24 +199,3 @@ def _make_research_agent_model(model_name: str | None = None):
         model_name=model_name or settings.DEEPSEEK_MODEL,
         temperature=0,
     )
-
-
-def _make_deepseek_invoker(model_name: str | None = None):
-    """조사 job의 baseline/grounded·비교 판정용 채팅 LLM invoker.
-
-    호출 목적은 evaluate_research_responses / compare_response_pair 쪽에서
-    purpose 로그로 남긴다.
-    """
-    language_model = _make_research_agent_model(model_name)
-
-    def invoke(prompt: str) -> str:
-        message = language_model.invoke(prompt)
-        content = message.content
-        if isinstance(content, list):
-            return "".join(
-                part.get("text", "") if isinstance(part, dict) else str(part)
-                for part in content
-            )
-        return str(content)
-
-    return invoke
