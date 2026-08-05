@@ -52,6 +52,8 @@
   const researchStatus = document.getElementById('research-status');
   const manuscriptId = {{ active_manuscript.id | string | tojson }};
   let researchPollTimer = null;
+  let researchPollInFlight = false;
+  let activeResearchJobId = null;
   const form = document.getElementById('chat-form');
   const spinner = document.getElementById('chat-spinner');
   let isSubmitting = false;
@@ -125,9 +127,12 @@
   }
 
   function stopResearchPolling() {
-    if (!researchPollTimer) return;
-    window.clearInterval(researchPollTimer);
-    researchPollTimer = null;
+    if (researchPollTimer) {
+      window.clearInterval(researchPollTimer);
+      researchPollTimer = null;
+    }
+    researchPollInFlight = false;
+    activeResearchJobId = null;
   }
 
   function showResearchStatus(text) {
@@ -153,22 +158,32 @@
     }
     const payload = await response.json();
     const jobId = payload.id;
+    if (activeResearchJobId === jobId && researchPollTimer) {
+      return;
+    }
     stopResearchPolling();
+    activeResearchJobId = jobId;
     researchPollTimer = window.setInterval(async () => {
-      const statusResponse = await fetch(
-        `/api/research/jobs/${jobId}?manuscript_id=${encodeURIComponent(manuscriptId)}`
-      );
-      if (!statusResponse.ok) return;
-      const statusPayload = await statusResponse.json();
-      if (statusPayload.evidence_ready) {
-        stopResearchPolling();
-        showResearchStatus('근거 준비됨. 다음 메시지부터 참고합니다.');
-      } else if (statusPayload.status === 'failed' || statusPayload.status === 'cancelled') {
-        stopResearchPolling();
-        const reason = statusPayload.terminal_error
-          ? ` (${statusPayload.terminal_error})`
-          : '';
-        showResearchStatus(`조사에 실패했거나 취소되었습니다.${reason}`);
+      if (researchPollInFlight) return;
+      researchPollInFlight = true;
+      try {
+        const statusResponse = await fetch(
+          `/api/research/jobs/${jobId}?manuscript_id=${encodeURIComponent(manuscriptId)}`
+        );
+        if (!statusResponse.ok) return;
+        const statusPayload = await statusResponse.json();
+        if (statusPayload.evidence_ready) {
+          stopResearchPolling();
+          showResearchStatus('근거 준비됨. 다음 메시지부터 참고합니다.');
+        } else if (statusPayload.status === 'failed' || statusPayload.status === 'cancelled') {
+          stopResearchPolling();
+          const reason = statusPayload.terminal_error
+            ? ` (${statusPayload.terminal_error})`
+            : '';
+          showResearchStatus(`조사에 실패했거나 취소되었습니다.${reason}`);
+        }
+      } finally {
+        researchPollInFlight = false;
       }
     }, 2000);
   }
