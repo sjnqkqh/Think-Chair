@@ -53,6 +53,13 @@ async def expand_evidence_via_web_search(
         )
         return error_code
 
+    logger.info(
+        "research.web_search_completed",
+        job_id=str(job.id),
+        hit_count=len(search_response.results),
+        max_fetches=max_fetches,
+    )
+
     fetched_sources: list[FetchedSource] = []
     for hit in search_response.results[:max_fetches]:
         try:
@@ -72,11 +79,22 @@ async def expand_evidence_via_web_search(
                 error_code=fetch_response.error_code,
             )
             continue
+        logger.info(
+            "research.fetch_succeeded",
+            job_id=str(job.id),
+            url=hit.url,
+            canonical_url=fetch_response.source.canonical_url,
+        )
         fetched_sources.append(fetch_response.source)
 
     if not fetched_sources:
         return "fetch_all_failed"
 
+    logger.info(
+        "research.index_sources_requested",
+        job_id=str(job.id),
+        source_count=len(fetched_sources),
+    )
     await index_research_sources(
         ResearchIndexRequest(
             research_job_id=job.id,

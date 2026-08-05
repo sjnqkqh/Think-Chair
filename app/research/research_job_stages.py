@@ -82,6 +82,7 @@ async def collect_evidence_for_job(
     web_research: WebResearchHook | None = None,
 ) -> EvidenceCollectionResult:
     """인덱스 검색 → 부족하면 웹 조사 → 재검색. job.status는 바꾸지 않는다."""
+    logger.info("research.evidence_collection.start", job_id=str(job.id))
     evidence = _retrieve(
         user_id=job.user_id,
         manuscript_id=job.manuscript_id,
@@ -89,9 +90,17 @@ async def collect_evidence_for_job(
         evidence_index=evidence_index,
         embed_query=embed_query,
     )
+    logger.info(
+        "research.evidence_collection.initial_retrieve",
+        job_id=str(job.id),
+        hit_count=len(evidence.items),
+        sufficient=evidence.sufficiency.sufficient,
+        reason_code=evidence.sufficiency.reason_code,
+    )
     if evidence.sufficiency.sufficient or web_research is None:
         return EvidenceCollectionResult(evidence=evidence, web_error=None)
 
+    logger.info("research.evidence_collection.web_expand.start", job_id=str(job.id))
     try:
         web_error = await web_research(
             db=db,
@@ -105,6 +114,14 @@ async def collect_evidence_for_job(
             query=query,
             evidence_index=evidence_index,
             embed_query=embed_query,
+        )
+        logger.info(
+            "research.evidence_collection.reretrieve",
+            job_id=str(job.id),
+            hit_count=len(evidence.items),
+            sufficient=evidence.sufficiency.sufficient,
+            reason_code=evidence.sufficiency.reason_code,
+            web_error=web_error,
         )
         return EvidenceCollectionResult(evidence=evidence, web_error=web_error)
     except Exception:
