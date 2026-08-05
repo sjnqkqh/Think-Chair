@@ -104,6 +104,8 @@
 
 **선택:** 핵심 주장에 믿을 만한 근거가 있으면 답하고, 덜 중요한 빈틈은 함께 알린다
 
+**구체화(2026-08-05):** 점수·URL 개수 기준과 웹 조사 반복 규칙은 [근거 충분성·수집 플래그·웹 조사 반복](../../specs/2026-08-05-evidence-sufficiency-and-research-flag-design.md) 참고.
+
 `EvidenceSufficiency`
 
 - `sufficient: bool`
