@@ -8,6 +8,7 @@ from app.evaluation.response_comparison_contracts import (
     PairwiseJudgment,
 )
 from app.evaluation.text_parsing import strip_code_fence
+from app.llm.deepseek_call_log import log_deepseek_request, log_deepseek_response
 
 _CRITERIA = ("specificity", "naturalness", "accuracy", "overall")
 PromptInvoker = Callable[[str], str]
@@ -132,8 +133,20 @@ def compare_response_pair(
         answer_a=grounded,
         answer_b=baseline,
     )
+    log_deepseek_request(
+        purpose="research.eval.pairwise_judge.pass1",
+        reason="A=baseline B=grounded 순서 채점",
+        prompt_chars=len(first_prompt),
+    )
     first = parse_comparison_judgment(invoke(first_prompt))
+    log_deepseek_response(purpose="research.eval.pairwise_judge.pass1")
+    log_deepseek_request(
+        purpose="research.eval.pairwise_judge.pass2",
+        reason="A=grounded B=baseline 순서 채점(순서 편향 보정)",
+        prompt_chars=len(second_prompt),
+    )
     second = parse_comparison_judgment(invoke(second_prompt))
+    log_deepseek_response(purpose="research.eval.pairwise_judge.pass2")
     return combine_order_swapped_judgments(first, second)
 
 

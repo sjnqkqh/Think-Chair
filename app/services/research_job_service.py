@@ -192,7 +192,11 @@ def mark_job_cancelled(
 
 
 def _make_deepseek_invoker(model_name: str | None = None):
-    """조사 job의 baseline/grounded·비교 판정은 채팅과 같이 DeepSeek를 쓴다."""
+    """조사 job의 baseline/grounded·비교 판정은 채팅과 같이 DeepSeek를 쓴다.
+
+    호출 목적은 evaluate_research_responses / compare_response_pair 쪽에서
+    purpose 로그로 남긴다.
+    """
     from langchain_openai import ChatOpenAI
 
     language_model = ChatOpenAI(

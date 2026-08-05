@@ -1,6 +1,7 @@
 from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
+from app.llm.deepseek_call_log import DeepSeekGraphCallLogger
 from app.logging import get_logger
 
 logger = get_logger(__name__)
@@ -25,6 +26,7 @@ def bootstrap(settings) -> None:
             model_name=settings.DEEPSEEK_MODEL,
             temperature=0.3,
             streaming=True,
+            callbacks=[DeepSeekGraphCallLogger()],
         ),
     )
     logger.info("llm_registry.bootstrapped", model=settings.DEEPSEEK_MODEL)
