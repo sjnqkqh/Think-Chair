@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.exceptions import ConflictError
 from app.core.storage import get_file_storage
 from app.models.manuscript import ConceptType
-from app.models.research import ResearchJob, ResearchJobStatus
+from app.models.research import ResearchJob, ResearchJobStatus, ResearchSource
 from app.repositories import research_repo
 from app.research.indexing import (
     create_research_embeddings,
@@ -147,12 +147,32 @@ def get_owned_research_job(
     )
 
 
-def research_job_status_payload(job: ResearchJob) -> dict:
+def list_sources_for_job(db: Session, job: ResearchJob) -> list[dict]:
+    sources = research_repo.list_sources_for_research_job(
+        db, research_job_id=job.id
+    )
+    return [_research_source_payload(source) for source in sources]
+
+
+def _research_source_payload(source: ResearchSource) -> dict:
+    return {
+        "id": str(source.id),
+        "title": source.title,
+        "canonical_url": source.canonical_url,
+        "status": source.status.value,
+        "scope": source.scope.value,
+        "publisher": source.publisher,
+        "fetched_at": source.fetched_at.isoformat(),
+    }
+
+
+def research_job_status_payload(db: Session, job: ResearchJob) -> dict:
     return {
         "id": str(job.id),
         "status": job.status.value,
         "terminal_error": job.terminal_error,
         "evidence_ready": job.status in _EVIDENCE_READY_STATUSES,
+        "sources": list_sources_for_job(db, job),
     }
 
 
