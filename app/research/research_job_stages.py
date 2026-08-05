@@ -188,7 +188,7 @@ def evaluate_research_responses(
     """baseline/grounded 생성과 LLM 비교. 비교 실패는 결과 필드로만 남긴다.
 
     제품 조사(웹 검색·인덱싱)와 별개로, job 종료 후 관측용 pairwise 평가가
-    DeepSeek를 여러 번 호출한다.
+    채팅 LLM을 여러 번 호출한다.
     """
     logger.info(
         "research.evaluation.start",

@@ -1,4 +1,4 @@
-"""DeepSeek(chat/completions) 호출 목적 로깅.
+"""채팅 LLM(chat/completions) 호출 목적 로깅.
 
 httpx의 URL만으로는 어느 단계 호출인지 구분되지 않아, purpose를 남긴다.
 """
@@ -32,7 +32,7 @@ def _purpose_from_metadata(metadata: dict[str, Any] | None) -> str:
 
 
 class DeepSeekGraphCallLogger(BaseCallbackHandler):
-    """LangGraph 노드에서 ChatOpenAI가 돌 때 langgraph_node로 purpose를 남긴다."""
+    """LangGraph 노드에서 채팅 LLM이 돌 때 langgraph_node로 purpose를 남긴다."""
 
     def on_chat_model_start(
         self,
