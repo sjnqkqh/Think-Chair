@@ -224,12 +224,6 @@ uv run python -m app.evaluation.run_service_growth_eval
 - Judge 축: 참고 제안, 주장 날카로움, 지식 심화, 대화 적합, 다음 단계 명확성, overall (0~100 연속 척도)
 - 계획: `docs/plans/agentic-research-rag/11-rag-judge-corpus-plan.md`
 
-근거 유무 pairwise 비교(개발용 하네스)는 별도입니다.
-
-```bash
-uv run python -m app.evaluation.run_response_comparison
-```
-
 ## 테스트
 
 ```bash

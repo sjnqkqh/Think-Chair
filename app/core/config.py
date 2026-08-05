@@ -16,12 +16,6 @@ class Settings(BaseSettings):
     BRAVE_SEARCH_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
 
-    # AI response comparison (separate from document evaluation)
-    RESPONSE_COMPARISON_API_KEY: str = ""
-    RESPONSE_COMPARISON_API_BASE: str = "https://api.openai.com/v1"
-    RESPONSE_COMPARISON_GENERATION_MODEL: str = "gpt-4.1-mini"
-    RESPONSE_COMPARISON_JUDGE_MODEL: str = "gpt-4.1"
-
     # Service-growth absolute eval (product nodes + public index)
     SERVICE_GROWTH_JUDGE_MODEL: str = ""  # empty → DEEPSEEK_MODEL
     SERVICE_GROWTH_EVAL_USER_ID: str = ""

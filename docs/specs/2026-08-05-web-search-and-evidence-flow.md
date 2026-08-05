@@ -134,8 +134,6 @@ SSE: done { awaiting_research: true }
 ```text
 1) 제품 경로: collect_evidence_for_job  (인덱스 ↔ 웹 확장)
 2) job 상태 확정: COMPLETED / PARTIAL / FAILED
-3) 평가 경로(best-effort): baseline·grounded·pairwise 비교 기록
-   └─ 채팅 답변과는 별개. 실패해도 제품 status는 유지
 ```
 
 웹 확장은 `run_research_agent`: LangGraph 툴 루프(search_web / fetch_page / finish_research).  
@@ -230,20 +228,7 @@ SSE: done { awaiting_research: true }
 
 ---
 
-## 6. “평가용 grounded” vs “채팅 답변” 구분
-
-| | 제품 채팅 답변 | job 안 평가 경로 |
-|--|----------------|------------------|
-| 언제 | `/continue` SSE | job COMPLETED/PARTIAL 직후 (best-effort) |
-| 생성 | 채팅 LangGraph `converse` | `generate_grounded_response` + baseline 비교 |
-| 사용자에게 보이나 | **예** (스트리밍) | 아니오 (비교 기록용) |
-| 실패 시 | 사용자에게 에러 표시 | job 제품 status는 유지, 로그만 |
-
-혼동하기 쉬운 지점: 둘 다 “근거 있는 답”을 만들지만, **사용자가 보는 답은 채팅 그래프 경로**다.
-
----
-
-## 7. 관련 코드 지도
+## 6. 관련 코드 지도
 
 | 역할 | 위치 |
 |------|------|
@@ -264,7 +249,7 @@ SSE: done { awaiting_research: true }
 
 ---
 
-## 8. 상태 머신 (job)
+## 7. 상태 머신 (job)
 
 ```text
 QUEUED/RUNNING

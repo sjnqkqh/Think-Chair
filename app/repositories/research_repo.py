@@ -13,7 +13,6 @@ from app.models.research import (
     ResearchSourceScope,
     ResearchSourceUrl,
     ResearchUsage,
-    ResponseComparisonRecord,
 )
 
 _SOURCE_NAMESPACE = uuid.UUID("e9a6eb1a-54d1-49bd-8bca-2a17d0394630")
@@ -245,33 +244,3 @@ def increment_research_search_count(
     usage.updated_at = datetime.datetime.utcnow()
     db.flush()
     return usage
-
-
-def save_response_comparison_record(
-    db: Session,
-    record: ResponseComparisonRecord,
-) -> ResponseComparisonRecord:
-    existing = (
-        db.query(ResponseComparisonRecord)
-        .filter(
-            ResponseComparisonRecord.research_job_id == record.research_job_id
-        )
-        .first()
-    )
-    if existing is not None:
-        return existing
-    db.add(record)
-    db.flush()
-    return record
-
-
-def find_comparison_record_for_job(
-    db: Session,
-    *,
-    research_job_id: uuid.UUID,
-) -> ResponseComparisonRecord | None:
-    return (
-        db.query(ResponseComparisonRecord)
-        .filter(ResponseComparisonRecord.research_job_id == research_job_id)
-        .first()
-    )
