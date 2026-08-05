@@ -87,6 +87,7 @@ async def collect_evidence_for_job(
 
     충분해지거나, 웹이 관련 URL을 더 늘리지 못하면 그 전에 멈춘다. job.status는 바꾸지 않는다.
     """
+    logger.info("research.evidence_collection.start", job_id=str(job.id))
     evidence = _retrieve(
         user_id=job.user_id,
         manuscript_id=job.manuscript_id,
@@ -94,12 +95,24 @@ async def collect_evidence_for_job(
         evidence_index=evidence_index,
         embed_query=embed_query,
     )
+    logger.info(
+        "research.evidence_collection.initial_retrieve",
+        job_id=str(job.id),
+        hit_count=len(evidence.items),
+        sufficient=evidence.sufficiency.sufficient,
+        reason_code=evidence.sufficiency.reason_code,
+    )
     if evidence.sufficiency.sufficient or web_research is None:
         return EvidenceCollectionResult(evidence=evidence, web_error=None)
 
     web_error: str | None = None
-    for _round in range(MAX_WEB_EXPAND_ROUNDS):
+    for round_index in range(MAX_WEB_EXPAND_ROUNDS):
         relevant_urls_before = _distinct_relevant_url_count(evidence)
+        logger.info(
+            "research.evidence_collection.web_expand.start",
+            job_id=str(job.id),
+            round=round_index + 1,
+        )
         try:
             web_error = await web_research(
                 db=db,
@@ -122,6 +135,15 @@ async def collect_evidence_for_job(
             query=query,
             evidence_index=evidence_index,
             embed_query=embed_query,
+        )
+        logger.info(
+            "research.evidence_collection.reretrieve",
+            job_id=str(job.id),
+            round=round_index + 1,
+            hit_count=len(evidence.items),
+            sufficient=evidence.sufficiency.sufficient,
+            reason_code=evidence.sufficiency.reason_code,
+            web_error=web_error,
         )
         if evidence.sufficiency.sufficient:
             break

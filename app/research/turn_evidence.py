@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 
+from app.logging import get_logger
 from app.research.contracts import EvidenceRequest
 from app.research.indexing import (
     create_research_embeddings,
@@ -11,6 +12,8 @@ from app.research.indexing import (
 )
 from app.research.prepared_evidence import format_evidence_system_text
 from app.research.retrieval import retrieve_evidence
+
+logger = get_logger(__name__)
 
 
 def load_evidence_text_for_turn(
@@ -26,6 +29,14 @@ def load_evidence_text_for_turn(
         return ""
     evidence = _retrieve_for_turn(
         user_id=user_id, manuscript_id=manuscript_id, query=query, limit=limit
+    )
+    top_scores = [round(item.score, 3) for item in evidence.items[:3]]
+    logger.info(
+        "research.turn_evidence_injected",
+        item_count=len(evidence.items),
+        sufficient=evidence.sufficiency.sufficient,
+        reason_code=evidence.sufficiency.reason_code,
+        top_scores=top_scores,
     )
     return format_evidence_system_text(evidence)
 
