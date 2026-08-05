@@ -19,9 +19,9 @@ from app.research.indexing import (
     index_research_sources,
 )
 from app.research.page_fetcher import fetch_page
+from app.research.research_agent import run_research_agent
 from app.research.research_eligibility import concept_allows_web_research
 from app.research.research_job_runner import run_research_job
-from app.research.web_research import expand_evidence_via_web_search
 from app.research.web_search import search_web
 from app.services.background_tasks import BackgroundTaskRegistry
 
@@ -107,9 +107,10 @@ async def execute_research_job(job_id: uuid.UUID, *, db_factory) -> None:
     embeddings = create_research_embeddings()
     evidence_index = create_research_evidence_index()
     storage = get_file_storage()
+    research_model = _make_research_agent_model()
 
     async def web_research(*, db, job, query, evidence_index):
-        return await expand_evidence_via_web_search(
+        return await run_research_agent(
             db=db,
             job=job,
             query=query,
@@ -120,6 +121,7 @@ async def execute_research_job(job_id: uuid.UUID, *, db_factory) -> None:
             fetch_page=fetch_page,
             index_research_sources=index_research_sources,
             admit_source=lambda _source: "public",
+            model=research_model,
         )
 
     await run_research_job(
@@ -191,20 +193,25 @@ def mark_job_cancelled(
     return job
 
 
+def _make_research_agent_model(model_name: str | None = None):
+    """웹 조사 서브에이전트용 채팅 모델 (툴 호출)."""
+    from langchain_openai import ChatOpenAI
+
+    return ChatOpenAI(
+        openai_api_key=settings.DEEPSEEK_API_KEY,
+        openai_api_base=settings.DEEPSEEK_API_BASE,
+        model_name=model_name or settings.DEEPSEEK_MODEL,
+        temperature=0,
+    )
+
+
 def _make_deepseek_invoker(model_name: str | None = None):
     """조사 job의 baseline/grounded·비교 판정용 채팅 LLM invoker.
 
     호출 목적은 evaluate_research_responses / compare_response_pair 쪽에서
     purpose 로그로 남긴다.
     """
-    from langchain_openai import ChatOpenAI
-
-    language_model = ChatOpenAI(
-        openai_api_key=settings.DEEPSEEK_API_KEY,
-        openai_api_base=settings.DEEPSEEK_API_BASE,
-        model_name=model_name or settings.DEEPSEEK_MODEL,
-        temperature=0,
-    )
+    language_model = _make_research_agent_model(model_name)
 
     def invoke(prompt: str) -> str:
         message = language_model.invoke(prompt)
