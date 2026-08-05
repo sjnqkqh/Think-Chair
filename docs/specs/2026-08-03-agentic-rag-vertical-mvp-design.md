@@ -1,8 +1,10 @@
 # Agentic RAG 세로 MVP 설계
 
 - 작성일: 2026-08-03
-- 상태: 설계 확정, 구현 계획 대기
+- 상태: 세로 MVP 구현이 브랜치에 모인 상태. 완료·남은 일·작업 텐션은 핸드오프 문서 기준.
 - 관련:
+  - `docs/plans/agentic-research-rag/09-agentic-rag-vertical-mvp.md`
+  - `docs/plans/agentic-research-rag/10-vertical-mvp-handoff.md`
   - `docs/plans/agentic-research-rag/README.md`
   - `docs/plans/agentic-research-rag/00-preimplementation-decisions.md` (D4, D5)
   - `docs/specs/2026-08-03-ai-response-evaluation-design.md`
@@ -22,9 +24,10 @@
 | 사용 방식 | 실제 채팅에 연결 |
 | 결과 전달 | 비동기 (D4). 현재 턴은 근거 없이 이어가고, 완료 시 `근거 준비됨`만 표시 |
 | 조사 범위 | 웹 조사 포함. 기존 인덱스 검색 후 부족하면 검색·수집·인덱싱 |
-| 승률 게이트 | 이번 완료 조건에서 제외. 비교 결과는 저장만 |
+| 승률 게이트 | **사용하지 않음.** 비교·점수는 관측용 저장만. 배포/PR을 숫자로 막지 않음 |
 | 쌍 평가 시점 | job 제품 완료 후 best-effort로 저장 (화면에는 답 자동 수정 없음). 대화 근거는 매 턴 인덱스 검색 |
 | 대화 근거 사용 | prepared JSON 소비 없음. 딥다이브·수업 자료 턴마다 Chroma에서 검색해 프롬프트에 주입 |
+| 정량 문제집 | **서비스 성장 관측**: 고정 일반론 → 제품 노드 응답 → Judge 절대 점수 → MD 시계열. 게이트 아님. → `11-rag-judge-corpus-plan.md` (pairwise “근거 유무 비교”와 구분) |
 
 ## 3. 범위
 
@@ -41,12 +44,15 @@
 
 ### 제외
 
-- 승률·Recall 등 숫자 게이트로 PR 중단
-- 평가 corpus 30~50 확장, 출처 품질 점수 정교화
-- detector 고정밀 튜닝·shadow 평가 대시보드
+- 승률·Recall 등 숫자로 PR/배포를 막는 게이트 (**계약에서 폐기**)
+- detector shadow 로깅·대시보드 (원했던 것은 Route 이후 **실제 RAG 응답**, shadow가 아님)
 - 현재 답변 자동 수정, 푸시, 자동 후속 메시지
 - 외부 작업 큐, PDF/JS 렌더링 수집
-- 출처 본문과 인용 문장의 내용 일치 검사(2단계)
+- 출처 본문과 인용 문장의 글자 단위 내용 일치 검사
+
+### 별도 추적 (제품 E2E와 분리)
+
+- 서비스 성장 관측용 Judge **정량 문제집 30~50** → `docs/plans/agentic-research-rag/11-rag-judge-corpus-plan.md`
 
 ## 4. 한 바퀴 흐름
 
@@ -136,15 +142,15 @@ app/models/                 # job 연계 비교 저장 모델
 5. 이후 사용자 턴에서 인덱스 검색으로 근거를 사용한다(일회성 소비 없음).
 6. private 자료 cross-user 결과 0, EvidenceContext 밖 citation 0.
 7. 기존 비조사 채팅·문서 생성 경로 회귀 없음.
-8. 승률 숫자 게이트는 요구하지 않는다.
+8. 승률 숫자 게이트는 **두지 않는다** (관측·문제집 측정과 무관하게 배포를 막지 않음).
 
-## 8. 의도적으로 나중
+## 8. 의도적으로 나중 / 별도 문서
 
-- corpus 30~50·실제 공개 자료 기반 게이트
-- detector 정확도 측정 및 고도화
-- 출처 내용 일치 검사
+- 서비스 성장 관측용 정량 문제집 30~50 → `11-rag-judge-corpus-plan.md`
+- 출처 내용 글자 일치 검사 (필수로 보지 않음)
 - 비교 결과 admin/화면
 - 외부 durable queue
+- 서버 재시작 시 미완료 job 표시 정리 (아래 핸드오프 참고)
 
 ## 9. 구현 시 주의
 
