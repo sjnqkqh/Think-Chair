@@ -22,6 +22,17 @@ FetchPage = Callable[..., Awaitable[Any]]
 IndexResearchSources = Callable[..., Awaitable[Any]]
 
 
+def _hit_summaries(results) -> list[dict]:
+    return [
+        {
+            "url": hit.url,
+            "title": hit.title,
+            "provider_rank": hit.provider_rank,
+        }
+        for hit in results
+    ]
+
+
 async def expand_evidence_via_web_search(
     *,
     db,
@@ -37,27 +48,55 @@ async def expand_evidence_via_web_search(
     max_fetches: int = 3,
 ) -> str | None:
     """웹 검색·수집·인덱싱. 성공하면 None, 실패하면 error_code를 반환한다."""
+    logger.info(
+        "research.web_search_requested",
+        job_id=str(job.id),
+        query=query,
+        max_results=max_fetches,
+        provider="brave",
+    )
     search_response = await search_web(SearchRequest(query=query, max_results=max_fetches))
     research_repo.increment_research_search_count(
         db,
         user_id=job.user_id,
         manuscript_id=job.manuscript_id,
     )
-    db.commit()
+    hit_results = _hit_summaries(search_response.results)
     if search_response.error_code or not search_response.results:
         error_code = search_response.error_code or "search_empty"
+        research_repo.record_research_web_search(
+            db,
+            job,
+            query=query,
+            max_results=max_fetches,
+            hit_results=hit_results,
+            error_code=error_code,
+        )
+        db.commit()
         logger.info(
             "research.web_search_empty",
             job_id=str(job.id),
+            query=query,
             error_code=error_code,
         )
         return error_code
 
+    research_repo.record_research_web_search(
+        db,
+        job,
+        query=query,
+        max_results=max_fetches,
+        hit_results=hit_results,
+        error_code=None,
+    )
+    db.commit()
     logger.info(
         "research.web_search_completed",
         job_id=str(job.id),
+        query=query,
         hit_count=len(search_response.results),
         max_fetches=max_fetches,
+        hit_urls=[hit["url"] for hit in hit_results],
     )
 
     fetched_sources: list[FetchedSource] = []

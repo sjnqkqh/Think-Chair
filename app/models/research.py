@@ -170,6 +170,30 @@ class ResearchJobSource(Base):
     manuscript_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("manuscripts.id"))
 
 
+class ResearchWebSearch(Base):
+    """조사 job이 Brave 등에 보낸 웹 검색 한 번과 반환 hit 요약."""
+
+    __tablename__ = "research_web_searches"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    research_job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("research_jobs.id"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    manuscript_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("manuscripts.id"), index=True
+    )
+    query: Mapped[str] = mapped_column(Text)
+    provider: Mapped[str] = mapped_column(String(32), default="brave")
+    max_results: Mapped[int] = mapped_column(Integer)
+    # [{"url","title","provider_rank"}, ...]
+    hit_results_json: Mapped[str] = mapped_column(Text, default="[]")
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=datetime.datetime.utcnow
+    )
+
+
 class ResearchUsage(Base):
     """원고별 조사 job·웹 검색 사용량. 상한·관측용 카운터만 둔다."""
 

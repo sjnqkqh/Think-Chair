@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 
 from sqlalchemy.exc import IntegrityError
@@ -147,12 +148,35 @@ def get_owned_research_job(
     )
 
 
-def research_job_status_payload(job: ResearchJob) -> dict:
+def research_job_status_payload(db: Session, job: ResearchJob) -> dict:
+    searches = research_repo.list_web_searches_for_research_job(db, job)
     return {
         "id": str(job.id),
         "status": job.status.value,
         "terminal_error": job.terminal_error,
         "evidence_ready": job.status in _EVIDENCE_READY_STATUSES,
+        "claim_or_query": job.claim_or_query,
+        "web_searches": [_web_search_payload(record) for record in searches],
+    }
+
+
+def _web_search_payload(record) -> dict:
+    try:
+        hits = json.loads(record.hit_results_json or "[]")
+    except json.JSONDecodeError:
+        hits = []
+    if not isinstance(hits, list):
+        hits = []
+    return {
+        "id": str(record.id),
+        "query": record.query,
+        "provider": record.provider,
+        "max_results": record.max_results,
+        "hits": hits,
+        "error_code": record.error_code,
+        "created_at": (
+            record.created_at.isoformat() if record.created_at is not None else None
+        ),
     }
 
 

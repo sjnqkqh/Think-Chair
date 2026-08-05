@@ -1,5 +1,6 @@
 import datetime
 import hashlib
+import json
 import uuid
 
 from sqlalchemy.orm import Session
@@ -13,6 +14,7 @@ from app.models.research import (
     ResearchSourceScope,
     ResearchSourceUrl,
     ResearchUsage,
+    ResearchWebSearch,
     ResponseComparisonRecord,
 )
 
@@ -132,6 +134,42 @@ def link_source_to_research_job(
                 manuscript_id=job.manuscript_id,
             )
         )
+
+
+def record_research_web_search(
+    db: Session,
+    job: ResearchJob,
+    *,
+    query: str,
+    max_results: int,
+    hit_results: list[dict],
+    error_code: str | None = None,
+    provider: str = "brave",
+) -> ResearchWebSearch:
+    """Brave 등에 보낸 검색어와 반환 hit 요약을 job에 연결해 저장한다."""
+    record = ResearchWebSearch(
+        research_job_id=job.id,
+        user_id=job.user_id,
+        manuscript_id=job.manuscript_id,
+        query=query,
+        provider=provider,
+        max_results=max_results,
+        hit_results_json=json.dumps(hit_results, ensure_ascii=False),
+        error_code=error_code,
+    )
+    db.add(record)
+    return record
+
+
+def list_web_searches_for_research_job(
+    db: Session, job: ResearchJob
+) -> list[ResearchWebSearch]:
+    return (
+        db.query(ResearchWebSearch)
+        .filter(ResearchWebSearch.research_job_id == job.id)
+        .order_by(ResearchWebSearch.created_at.asc())
+        .all()
+    )
 
 
 def find_research_job_by_message(

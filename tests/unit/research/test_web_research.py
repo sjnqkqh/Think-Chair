@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.models.manuscript import ConceptType, Manuscript, ManuscriptStatus
-from app.models.research import ResearchUsage
+from app.models.research import ResearchJob, ResearchJobStatus, ResearchUsage, ResearchWebSearch
 from app.models.user import User
 from app.research.contracts import (
     FetchResponse,
@@ -71,6 +71,16 @@ async def test_expand_evidence_via_web_search_indexes_fetched_hits(monkeypatch):
         "app.research.web_research.research_repo.increment_research_search_count",
         lambda *args, **kwargs: None,
     )
+    recorded = []
+
+    def _record(db, job, **kwargs):
+        recorded.append(kwargs)
+        return None
+
+    monkeypatch.setattr(
+        "app.research.web_research.research_repo.record_research_web_search",
+        _record,
+    )
 
     class _Db:
         def commit(self):
@@ -96,6 +106,10 @@ async def test_expand_evidence_via_web_search_indexes_fetched_hits(monkeypatch):
     request = index.await_args.args[0]
     assert isinstance(request, ResearchIndexRequest)
     assert request.sources[0].canonical_url == "https://docs.example/timeout"
+    assert len(recorded) == 1
+    assert recorded[0]["query"] == "timeout 기본값"
+    assert recorded[0]["hit_results"][0]["url"] == "https://docs.example/timeout"
+    assert recorded[0]["error_code"] is None
 
 
 @pytest.mark.asyncio
@@ -116,11 +130,15 @@ async def test_expand_evidence_increments_manuscript_search_count(tmp_path):
     db.commit()
 
     search = AsyncMock(return_value=SearchResponse(results=[]))
-    job = type(
-        "Job",
-        (),
-        {"id": uuid4(), "user_id": user.id, "manuscript_id": manuscript.id},
-    )()
+    job = ResearchJob(
+        id=uuid4(),
+        user_id=user.id,
+        manuscript_id=manuscript.id,
+        claim_or_query="일반론",
+        status=ResearchJobStatus.RUNNING,
+    )
+    db.add(job)
+    db.commit()
 
     error = await expand_evidence_via_web_search(
         db=db,
@@ -142,4 +160,12 @@ async def test_expand_evidence_increments_manuscript_search_count(tmp_path):
         .one()
     )
     assert usage.search_count == 1
+    searches = (
+        db.query(ResearchWebSearch)
+        .filter(ResearchWebSearch.research_job_id == job.id)
+        .all()
+    )
+    assert len(searches) == 1
+    assert searches[0].query == "일반론"
+    assert searches[0].error_code == "search_empty"
     db.close()
