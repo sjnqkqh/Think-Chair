@@ -107,6 +107,7 @@ async def execute_research_job(job_id: uuid.UUID, *, db_factory) -> None:
     embeddings = create_research_embeddings()
     evidence_index = create_research_evidence_index()
     storage = get_file_storage()
+    summarize_query = _make_deepseek_invoker()
 
     async def web_research(*, db, job, query, evidence_index):
         return await expand_evidence_via_web_search(
@@ -120,6 +121,7 @@ async def execute_research_job(job_id: uuid.UUID, *, db_factory) -> None:
             fetch_page=fetch_page,
             index_research_sources=index_research_sources,
             admit_source=lambda _source: "public",
+            summarize_query=summarize_query,
         )
 
     await run_research_job(
@@ -192,7 +194,7 @@ def mark_job_cancelled(
 
 
 def _make_deepseek_invoker(model_name: str | None = None):
-    """조사 job의 baseline/grounded·비교 판정은 채팅과 같이 DeepSeek를 쓴다."""
+    """조사 job의 검색어 요약·baseline/grounded·비교 판정에 DeepSeek를 쓴다."""
     from langchain_openai import ChatOpenAI
 
     language_model = ChatOpenAI(

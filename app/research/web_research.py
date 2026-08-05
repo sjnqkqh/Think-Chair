@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from app.evaluation.text_parsing import strip_code_fence
 from app.logging import get_logger
 from app.repositories import research_repo
 from app.research.contracts import (
@@ -20,6 +21,35 @@ AdmitSource = Callable[[FetchedSource], str | None]
 SearchWeb = Callable[..., Awaitable[Any]]
 FetchPage = Callable[..., Awaitable[Any]]
 IndexResearchSources = Callable[..., Awaitable[Any]]
+PromptInvoker = Callable[[str], str]
+
+_MAX_SEARCH_QUERY_CHARS = 400
+_MAX_SEARCH_QUERY_WORDS = 50
+
+
+def build_web_search_keyword_prompt(claim: str) -> str:
+    return (
+        "Convert the claim below into a short English web search query.\n"
+        "Use only the essential keywords (about 5-12 words).\n"
+        "Return only the query text on one line. No quotes, no explanation.\n\n"
+        f"Claim:\n{claim.strip()}"
+    )
+
+
+def summarize_claim_as_web_search_query(
+    claim: str, *, invoke: PromptInvoker
+) -> str:
+    """주장을 Brave 한도에 맞는 짧은 영어 검색 키워드로 요약한다."""
+    raw = invoke(build_web_search_keyword_prompt(claim))
+    text = strip_code_fence(raw).strip().strip('"').strip("'")
+    if text:
+        text = text.splitlines()[0].strip()
+    words = text.split()
+    if len(words) > _MAX_SEARCH_QUERY_WORDS:
+        text = " ".join(words[:_MAX_SEARCH_QUERY_WORDS])
+    if len(text) > _MAX_SEARCH_QUERY_CHARS:
+        text = text[:_MAX_SEARCH_QUERY_CHARS].rstrip()
+    return text
 
 
 async def expand_evidence_via_web_search(
@@ -34,10 +64,30 @@ async def expand_evidence_via_web_search(
     fetch_page: FetchPage,
     index_research_sources: IndexResearchSources,
     admit_source: AdmitSource,
+    summarize_query: PromptInvoker,
     max_fetches: int = 3,
 ) -> str | None:
     """웹 검색·수집·인덱싱. 성공하면 None, 실패하면 error_code를 반환한다."""
-    search_response = await search_web(SearchRequest(query=query, max_results=max_fetches))
+    search_query = summarize_claim_as_web_search_query(
+        query, invoke=summarize_query
+    )
+    if not search_query:
+        logger.info(
+            "research.web_search_query_empty",
+            job_id=str(job.id),
+            claim_chars=len(query),
+        )
+        return "search_query_empty"
+
+    logger.info(
+        "research.web_search_query_summarized",
+        job_id=str(job.id),
+        claim_chars=len(query),
+        search_query=search_query,
+    )
+    search_response = await search_web(
+        SearchRequest(query=search_query, max_results=max_fetches)
+    )
     research_repo.increment_research_search_count(
         db,
         user_id=job.user_id,
