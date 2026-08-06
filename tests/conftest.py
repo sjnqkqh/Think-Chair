@@ -2,6 +2,8 @@ import os
 
 os.environ["LANGCHAIN_TRACING_V2"] = "false"
 os.environ["LANGSMITH_TRACING"] = "false"
+# 단위/통합 테스트는 실 LLM 기동 검증을 하지 않는다.
+os.environ["LLM_STARTUP_VERIFY"] = "false"
 
 from collections import namedtuple
 from contextlib import contextmanager

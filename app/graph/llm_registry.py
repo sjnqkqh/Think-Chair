@@ -1,6 +1,8 @@
 import hashlib
 from typing import Any
+from urllib.parse import urljoin
 
+import httpx
 from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
@@ -13,6 +15,7 @@ logger = get_logger(__name__)
 _registry: dict[str, BaseChatModel] = {}
 
 SUPPORTED_PROVIDERS = frozenset({"deepseek", "openai"})
+_STARTUP_VERIFY_TIMEOUT_SECONDS = 20.0
 
 
 def register(name: str, llm: BaseChatModel) -> None:
@@ -35,6 +38,50 @@ def bootstrap(settings) -> None:
         ),
     )
     logger.info("llm_registry.bootstrapped", model=settings.DEEPSEEK_MODEL)
+
+
+def verify_configured_providers(settings) -> None:
+    """서버 기동 시 지원 provider 기본 모델이 실제로 호출 가능한지 검증한다.
+
+    키가 없거나 probe 호출이 실패하면 RuntimeError로 기동을 중단한다.
+    """
+    providers = (
+        (
+            "deepseek",
+            settings.DEEPSEEK_MODEL,
+            settings.DEEPSEEK_API_KEY,
+            settings.DEEPSEEK_API_BASE,
+        ),
+        (
+            "openai",
+            settings.OPENAI_MODEL,
+            settings.OPENAI_API_KEY,
+            settings.OPENAI_API_BASE,
+        ),
+    )
+    for provider, _model, api_key, api_base in providers:
+        if not (api_key or "").strip():
+            raise RuntimeError(
+                f"LLM provider {provider!r} API 키가 없다. "
+                "서버 기동 전 환경변수를 설정해라."
+            )
+        if not (api_base or "").strip():
+            raise RuntimeError(f"LLM provider {provider!r} API base가 없다.")
+
+    with httpx.Client(timeout=_STARTUP_VERIFY_TIMEOUT_SECONDS) as client:
+        for provider, model, api_key, api_base in providers:
+            _probe_chat_completion(
+                client,
+                provider=provider,
+                model=model,
+                api_key=api_key.strip(),
+                api_base=api_base.strip(),
+            )
+            logger.info(
+                "llm_registry.startup_verified",
+                provider=provider,
+                model=model,
+            )
 
 
 def resolve_model_key(
@@ -134,3 +181,49 @@ def _build_chat_model(
 def _selection_key(provider: str, model: str, effort: str) -> str:
     digest = hashlib.sha256(f"{provider}|{model}|{effort}".encode()).hexdigest()[:16]
     return f"llm:{provider}:{digest}"
+
+
+def _probe_chat_completion(
+    client: httpx.Client,
+    *,
+    provider: str,
+    model: str,
+    api_key: str,
+    api_base: str,
+) -> None:
+    url = urljoin(api_base.rstrip("/") + "/", "chat/completions")
+    body: dict[str, Any] = {
+        "model": model,
+        "messages": [{"role": "user", "content": "ping"}],
+        "stream": False,
+        "max_completion_tokens": 16,
+    }
+    if provider == "deepseek":
+        # 기동 검증은 CoT 없이 최소 호출만 한다.
+        body["thinking"] = {"type": "disabled"}
+        body["reasoning_effort"] = "low"
+        body["max_tokens"] = 16
+        body.pop("max_completion_tokens", None)
+    else:
+        body["reasoning_effort"] = "low"
+
+    try:
+        response = client.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json=body,
+        )
+    except httpx.HTTPError as exc:
+        raise RuntimeError(
+            f"LLM provider {provider!r} 기본 모델 {model!r} 호출 검증 실패: {exc}"
+        ) from exc
+
+    if response.status_code >= 400:
+        detail = response.text[:300]
+        raise RuntimeError(
+            f"LLM provider {provider!r} 기본 모델 {model!r} 호출 검증 실패 "
+            f"(HTTP {response.status_code}): {detail}"
+        )
