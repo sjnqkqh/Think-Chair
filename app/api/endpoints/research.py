@@ -33,9 +33,9 @@ class CreateResearchJobBody(BaseModel):
 class ContinueResearchJobBody(BaseModel):
     manuscript_id: uuid.UUID
     message_id: uuid.UUID
+    provider: str | None = None
     model: str | None = None
-    api_base: str | None = None
-    api_key: str | None = None
+    effort: str | None = None
 
 
 @router.post("/jobs", status_code=202)
@@ -128,9 +128,9 @@ async def continue_after_research(
         return {"error": "not_ready"}
 
     chat_service = request.app.state.chat_service
-    model = body.model or None
-    api_base = body.api_base or None
-    api_key = body.api_key or None
+    provider = (body.provider or "").strip() or None
+    model = (body.model or "").strip() or None
+    effort = (body.effort or "").strip() or None
 
     async def sse_events():
         try:
@@ -138,12 +138,21 @@ async def continue_after_research(
                 event_name,
                 payload,
             ) in chat_service.stream_grounded_reply_after_research(
-                manuscript, job, model, api_base=api_base, api_key=api_key
+                manuscript,
+                job,
+                provider=provider,
+                model=model,
+                effort=effort,
             ):
                 yield {
                     "event": event_name,
                     "data": json.dumps(payload, ensure_ascii=False),
                 }
+        except ValueError as exc:
+            yield {
+                "event": SseEvent.ERROR,
+                "data": json.dumps({"message": str(exc)}, ensure_ascii=False),
+            }
         except Exception:
             logger.exception("research.continue_stream_failed", job_id=str(job_id))
             yield {

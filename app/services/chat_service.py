@@ -67,14 +67,14 @@ class ChatService:
         database_session,
         manuscript: Manuscript,
         user_message: str,
-        model: str | None = None,
         *,
-        api_base: str | None = None,
-        api_key: str | None = None,
+        provider: str | None = None,
+        model: str | None = None,
+        effort: str | None = None,
     ) -> TurnStart:
         """사용자 메시지를 기록하고 router 노드까지 그래프를 실행해 action을 반환한다."""
         model_key = llm_registry.resolve_model_key(
-            model=model, api_base=api_base, api_key=api_key
+            provider=provider, model=model, effort=effort
         )
         user = database_session.get(User, manuscript.user_id)
         user_chat_message = self._save_chat_message(
@@ -150,10 +150,10 @@ class ChatService:
         self,
         manuscript_id: uuid.UUID,
         action: str | None,
-        model: str | None = None,
         *,
-        api_base: str | None = None,
-        api_key: str | None = None,
+        provider: str | None = None,
+        model: str | None = None,
+        effort: str | None = None,
         research_required: bool = False,
     ) -> AsyncIterator[tuple[str, dict]]:
         """action에 따라 (이벤트 이름, 페이로드) 쌍을 스트리밍한다.
@@ -163,7 +163,7 @@ class ChatService:
         """
         yield SseEvent.READY, {}
         model_key = llm_registry.resolve_model_key(
-            model=model, api_base=api_base, api_key=api_key
+            provider=provider, model=model, effort=effort
         )
 
         if is_document_generation(action):
@@ -182,10 +182,10 @@ class ChatService:
         self,
         manuscript: Manuscript,
         job: ResearchJob,
-        model: str | None = None,
         *,
-        api_base: str | None = None,
-        api_key: str | None = None,
+        provider: str | None = None,
+        model: str | None = None,
+        effort: str | None = None,
     ) -> AsyncIterator[tuple[str, dict]]:
         """조사가 끝난 뒤, 같은 사용자 메시지에 근거를 반영한 답변을 이어 스트리밍한다.
 
@@ -193,7 +193,7 @@ class ChatService:
         """
         yield SseEvent.READY, {}
         model_key = llm_registry.resolve_model_key(
-            model=model, api_base=api_base, api_key=api_key
+            provider=provider, model=model, effort=effort
         )
 
         query = (job.claim_or_query or "").strip()

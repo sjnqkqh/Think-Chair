@@ -4,18 +4,6 @@ from app.models.manuscript import DocumentEvaluation
 from app.services.evaluation_response_parser import EvaluationResult
 
 
-def list_document_evaluations(
-    db, manuscript_id: uuid.UUID
-) -> list[DocumentEvaluation]:
-    """원고의 문서 평가 목록을 최신순으로 반환한다."""
-    return (
-        db.query(DocumentEvaluation)
-        .filter(DocumentEvaluation.manuscript_id == manuscript_id)
-        .order_by(DocumentEvaluation.created_at.desc())
-        .all()
-    )
-
-
 def save_document_evaluation(
     db,
     manuscript_id: str,
