@@ -12,9 +12,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 class Settings(BaseSettings):
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_API_BASE: str = "https://api.deepseek.com"
-    DEEPSEEK_MODEL: str = "deepseek-chat"
+    DEEPSEEK_MODEL: str = "deepseek-v4-flash"
     BRAVE_SEARCH_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
+    OPENAI_API_BASE: str = "https://api.openai.com/v1"
+    OPENAI_MODEL: str = "gpt-5.6-luna"
+    # 서버 기동 시 deepseek/openai 기본 모델 호출 가능 여부를 검증한다.
+    LLM_STARTUP_VERIFY: bool = True
 
     # Service-growth absolute eval (product nodes + public index)
     SERVICE_GROWTH_JUDGE_MODEL: str = ""  # empty → DEEPSEEK_MODEL

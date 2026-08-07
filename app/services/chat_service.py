@@ -2,6 +2,7 @@ import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
+from app.graph import llm_registry
 from app.graph.chat_graph_runner import ChatGraphRunner
 from app.models.chat import ChatMessage
 from app.models.manuscript import Manuscript
@@ -66,9 +67,15 @@ class ChatService:
         database_session,
         manuscript: Manuscript,
         user_message: str,
-        model: str = "default",
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+        effort: str | None = None,
     ) -> TurnStart:
         """사용자 메시지를 기록하고 router 노드까지 그래프를 실행해 action을 반환한다."""
+        model_key = llm_registry.resolve_model_key(
+            provider=provider, model=model, effort=effort
+        )
         user = database_session.get(User, manuscript.user_id)
         user_chat_message = self._save_chat_message(
             database_session,
@@ -92,7 +99,7 @@ class ChatService:
             user_message=user_message,
             user_message_id=user_chat_message.id,
             request_db_session=database_session,
-            model=model,
+            model=model_key,
             evidence_text=evidence_text,
         )
         database_session.commit()
@@ -143,8 +150,10 @@ class ChatService:
         self,
         manuscript_id: uuid.UUID,
         action: str | None,
-        model: str = "default",
         *,
+        provider: str | None = None,
+        model: str | None = None,
+        effort: str | None = None,
         research_required: bool = False,
     ) -> AsyncIterator[tuple[str, dict]]:
         """action에 따라 (이벤트 이름, 페이로드) 쌍을 스트리밍한다.
@@ -153,16 +162,19 @@ class ChatService:
         조사 완료 후 답변은 stream_grounded_reply_after_research가 같은 턴에 이어 보낸다.
         """
         yield SseEvent.READY, {}
+        model_key = llm_registry.resolve_model_key(
+            provider=provider, model=model, effort=effort
+        )
 
         if is_document_generation(action):
-            self._start_document_generation(manuscript_id, model)
+            self._start_document_generation(manuscript_id, model_key)
             yield SseEvent.CHUNK, {"content": DOCUMENT_GENERATION_ACK}
             yield SseEvent.DONE, {"document_generation": True}
         elif research_required:
             yield SseEvent.DONE, {"awaiting_research": True}
         else:
             async for event_name, payload in self._stream_assistant_reply(
-                manuscript_id, action, model
+                manuscript_id, action, model_key
             ):
                 yield event_name, payload
 
@@ -170,13 +182,19 @@ class ChatService:
         self,
         manuscript: Manuscript,
         job: ResearchJob,
-        model: str = "default",
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+        effort: str | None = None,
     ) -> AsyncIterator[tuple[str, dict]]:
         """조사가 끝난 뒤, 같은 사용자 메시지에 근거를 반영한 답변을 이어 스트리밍한다.
 
         begin_turn을 다시 호출하지 않으므로 사용자 메시지를 중복 저장하지 않는다.
         """
         yield SseEvent.READY, {}
+        model_key = llm_registry.resolve_model_key(
+            provider=provider, model=model, effort=effort
+        )
 
         query = (job.claim_or_query or "").strip()
         if query:
@@ -191,11 +209,11 @@ class ChatService:
                 or None
             )
             await self.graph_runner.update_evidence_text(
-                manuscript.id, model, evidence_text
+                manuscript.id, model_key, evidence_text
             )
 
         async for event_name, payload in self._stream_assistant_reply(
-            manuscript.id, "say", model
+            manuscript.id, "say", model_key
         ):
             yield event_name, payload
 
