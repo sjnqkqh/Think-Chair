@@ -58,18 +58,21 @@ def chat_model_key_for_manuscript(
     settings = manuscript_settings.llm_settings_for_manuscript(
         database_session, manuscript_id
     )
+    effort = manuscript_settings.resolve_request_effort(
+        provider=settings.provider, effort=settings.effort
+    )
     if log_choice:
         logger.info(
             "chat.llm_selected",
             manuscript_id=str(manuscript_id),
             provider=settings.provider,
             model=settings.model,
-            effort=settings.effort,
+            effort=effort,
         )
     return llm_registry.chat_model_key_for(
         provider=settings.provider,
         model=settings.model,
-        effort=settings.effort,
+        effort=effort,
     )
 
 

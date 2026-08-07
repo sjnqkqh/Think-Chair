@@ -43,6 +43,38 @@ def test_chat_model_key_for_manuscript_uses_stored_settings(db_session, monkeypa
     }
 
 
+def test_chat_model_key_for_manuscript_clamps_stored_openai_max(
+    db_session, monkeypatch
+):
+    user = User(login_id="chat-llm-clamp", password_hash="x", nickname="n")
+    db_session.add(user)
+    db_session.commit()
+    manuscript = Manuscript(user_id=user.id, topic="t", concept=ConceptType.TIL)
+    db_session.add(manuscript)
+    db_session.commit()
+    settings = manuscript_settings.llm_settings_for_manuscript(
+        db_session, manuscript.id
+    )
+    settings.provider = "openai"
+    settings.model = "gpt-5.6-luna"
+    settings.effort = "max"
+    db_session.commit()
+    captured = {}
+
+    def fake_key(**kwargs):
+        captured.update(kwargs)
+        return "llm:openai:clamped"
+
+    monkeypatch.setattr(
+        chat_service_module.llm_registry, "chat_model_key_for", fake_key
+    )
+
+    key = chat_model_key_for_manuscript(db_session, manuscript.id)
+
+    assert key == "llm:openai:clamped"
+    assert captured["effort"] == "xhigh"
+
+
 def test_chat_model_key_for_manuscript_logs_choice_when_requested(
     db_session, monkeypatch, caplog
 ):

@@ -48,6 +48,25 @@ def test_put_llm_settings_rejects_unknown_effort(client):
     assert response.status_code == 400
 
 
+def test_put_llm_settings_rejects_openai_max_effort(client):
+    signup(client, login_id="llm-settings-openai-max")
+    create_response = client.post(
+        "/api/manuscripts", json={"topic": "설정 API", "concept": "TIL"}
+    )
+    manuscript_id = create_response.json()["id"]
+
+    response = client.put(
+        f"/api/manuscripts/{manuscript_id}/llm-settings",
+        json={
+            "provider": "openai",
+            "model": "gpt-5.6-luna",
+            "effort": "max",
+        },
+    )
+
+    assert response.status_code == 400
+
+
 def test_workspace_page_includes_llm_settings(client):
     signup(client, login_id="llm-settings-workspace")
     create_response = client.post(
@@ -61,3 +80,5 @@ def test_workspace_page_includes_llm_settings(client):
     assert "deepseek-v4-flash" in response.text
     assert "llm-settings-modal" in response.text
     assert "llm-settings-open" in response.text
+    assert "EFFORT_OPTIONS" in response.text
+    assert "refreshEffortOptions" in response.text

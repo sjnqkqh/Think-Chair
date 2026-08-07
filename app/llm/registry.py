@@ -8,6 +8,7 @@ from langchain_openai import ChatOpenAI
 
 from app.core.config import settings as default_settings
 from app.llm.call_log import ChatModelCallLogger
+from app.llm.manuscript_settings import resolve_request_effort
 from app.logging import get_logger
 
 logger = get_logger(__name__)
@@ -111,7 +112,10 @@ def chat_model_key_for(
         )
 
     resolved_model = model or _default_model(resolved_provider)
-    resolved_effort = effort or _default_effort(resolved_provider)
+    resolved_effort = resolve_request_effort(
+        provider=resolved_provider,
+        effort=effort or _default_effort(resolved_provider),
+    )
     api_key, api_base = _provider_credentials(resolved_provider)
 
     key = _chat_model_cache_key(resolved_provider, resolved_model, resolved_effort)
