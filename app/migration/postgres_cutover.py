@@ -44,9 +44,18 @@ class TableCopyStats:
 
 
 @dataclass
+class CheckpointCopyStats:
+    threads: int = 0
+    checkpoints: int = 0
+    writes: int = 0
+    skipped: bool = False
+
+
+@dataclass
 class MigrationReport:
     schema_ok: bool = False
     tables: list[TableCopyStats] = field(default_factory=list)
+    checkpoints: CheckpointCopyStats | None = None
     notes: list[str] = field(default_factory=list)
 
     @property
@@ -239,6 +248,162 @@ def list_indexed_source_ids(database_url: str) -> list[uuid.UUID]:
         engine.dispose()
 
 
+CHECKPOINTER_DATA_TABLES: tuple[str, ...] = (
+    "checkpoint_writes",
+    "checkpoint_blobs",
+    "checkpoints",
+)
+
+
+def truncate_checkpointer_tables(postgres_url: str) -> None:
+    """대화 그래프 데이터 테이블만 비운다 (migrations 메타는 유지)."""
+    from sqlalchemy import text
+
+    engine = build_engine(postgres_url)
+    try:
+        joined = ", ".join(CHECKPOINTER_DATA_TABLES)
+        with engine.begin() as conn:
+            conn.execute(text(f"TRUNCATE {joined} RESTART IDENTITY CASCADE"))
+    finally:
+        engine.dispose()
+
+
+async def _list_checkpoint_thread_ids(source) -> list[str]:
+    async with source.conn.execute(
+        "SELECT DISTINCT thread_id FROM checkpoints ORDER BY thread_id"
+    ) as cur:
+        rows = await cur.fetchall()
+    return [str(row[0]) for row in rows]
+
+
+def _existing_checkpoint_thread_ids(postgres_url: str) -> set[str]:
+    from sqlalchemy import text
+
+    engine = build_engine(postgres_url)
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text("SELECT DISTINCT thread_id FROM checkpoints")).all()
+            return {str(row[0]) for row in rows}
+    except Exception:
+        return set()
+    finally:
+        engine.dispose()
+
+
+async def _copy_checkpointer_async(
+    *,
+    sqlite_path: Path,
+    postgres_url: str,
+    dry_run: bool = False,
+    replace_target: bool = False,
+) -> CheckpointCopyStats:
+    """LangGraph SQLite 저장 → Postgres 저장 (스키마가 달라 API로 재기록)."""
+    from collections import defaultdict
+
+    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
+    from app.graph.checkpointer import make_checkpointer, normalize_checkpoint_conn_string
+
+    stats = CheckpointCopyStats()
+    async with AsyncSqliteSaver.from_conn_string(str(sqlite_path.resolve())) as source:
+        thread_ids = await _list_checkpoint_thread_ids(source)
+        stats.threads = len(thread_ids)
+
+        if dry_run:
+            async with source.conn.execute("SELECT COUNT(*) FROM checkpoints") as cur:
+                stats.checkpoints = int((await cur.fetchone())[0])
+            async with source.conn.execute("SELECT COUNT(*) FROM writes") as cur:
+                stats.writes = int((await cur.fetchone())[0])
+            return stats
+
+        if replace_target:
+            truncate_checkpointer_tables(postgres_url)
+        else:
+            overlap = sorted(
+                set(thread_ids) & _existing_checkpoint_thread_ids(postgres_url)
+            )
+            if overlap:
+                sample = ", ".join(overlap[:5])
+                more = f" 외 {len(overlap) - 5}개" if len(overlap) > 5 else ""
+                raise TargetNotEmptyError(
+                    "대상 Postgres에 같은 대화 스레드가 이미 있습니다. "
+                    f"({sample}{more}). "
+                    "비우고 다시 넣으려면 --replace 를 사용하세요."
+                )
+
+        async with make_checkpointer(
+            normalize_checkpoint_conn_string(postgres_url)
+        ) as target:
+            setup = getattr(target, "setup", None)
+            if setup is not None:
+                await setup()
+
+            for thread_id in thread_ids:
+                tuples = [
+                    item
+                    async for item in source.alist(
+                        {"configurable": {"thread_id": thread_id}}
+                    )
+                ]
+                # alist는 최신→과거. 부모를 먼저 넣으려면 과거→최신.
+                for item in reversed(tuples):
+                    cfg = item.config["configurable"]
+                    checkpoint_ns = cfg.get("checkpoint_ns", "")
+                    parent = item.parent_config or {
+                        "configurable": {
+                            "thread_id": thread_id,
+                            "checkpoint_ns": checkpoint_ns,
+                        }
+                    }
+                    new_versions = item.checkpoint.get("channel_versions") or {}
+                    await target.aput(
+                        parent, item.checkpoint, item.metadata, new_versions
+                    )
+                    stats.checkpoints += 1
+
+                    pending = item.pending_writes or []
+                    by_task: dict[str, list[tuple[str, object]]] = defaultdict(list)
+                    for task_id, channel, value in pending:
+                        by_task[str(task_id)].append((channel, value))
+                    write_config = {
+                        "configurable": {
+                            "thread_id": thread_id,
+                            "checkpoint_ns": checkpoint_ns,
+                            "checkpoint_id": item.checkpoint["id"],
+                        }
+                    }
+                    for task_id, pairs in by_task.items():
+                        await target.aput_writes(write_config, pairs, task_id)
+                        stats.writes += len(pairs)
+
+    return stats
+
+
+def copy_checkpointer_sqlite_to_postgres(
+    *,
+    sqlite_path: Path,
+    postgres_url: str,
+    dry_run: bool = False,
+    replace_target: bool = False,
+) -> CheckpointCopyStats:
+    """대화 이어가기 SQLite 파일 → Postgres 이전."""
+    import asyncio
+
+    if not sqlite_path.is_file():
+        raise FileNotFoundError(f"checkpoint SQLite not found: {sqlite_path}")
+    if is_sqlite_url(postgres_url):
+        raise ValueError("checkpointer target must be Postgres")
+
+    return asyncio.run(
+        _copy_checkpointer_async(
+            sqlite_path=sqlite_path,
+            postgres_url=postgres_url,
+            dry_run=dry_run,
+            replace_target=replace_target,
+        )
+    )
+
+
 def migrate_sqlite_file_to_postgres(
     *,
     sqlite_path: Path,
@@ -246,13 +411,16 @@ def migrate_sqlite_file_to_postgres(
     dry_run: bool = False,
     setup_schema: bool = True,
     replace_target: bool = False,
+    checkpoint_sqlite_path: Path | None = None,
+    skip_checkpoints: bool = False,
+    app_tables: bool = True,
 ) -> MigrationReport:
     """로컬 rag_history.db → Postgres 이전 진입점."""
-    if not sqlite_path.is_file():
+    if app_tables and not sqlite_path.is_file():
         raise FileNotFoundError(f"SQLite DB not found: {sqlite_path}")
 
     report = MigrationReport()
-    source_url = f"sqlite:///{sqlite_path.resolve()}"
+    source_url = f"sqlite:///{sqlite_path.resolve()}" if sqlite_path.is_file() else ""
 
     if setup_schema and not dry_run:
         ensure_postgres_schema(postgres_url)
@@ -267,20 +435,47 @@ def migrate_sqlite_file_to_postgres(
         report.schema_ok = True
         report.notes.append("schema setup skipped by flag")
 
-    if replace_target and not dry_run:
-        report.notes.append("대상 앱 테이블을 비운 뒤 복사한다 (--replace)")
+    if app_tables:
+        if replace_target and not dry_run:
+            report.notes.append("대상 앱 테이블을 비운 뒤 복사한다 (--replace)")
 
-    report.tables = copy_app_tables(
-        source_url=source_url,
-        target_url=postgres_url,
-        dry_run=dry_run,
-        replace_target=replace_target,
-    )
+        report.tables = copy_app_tables(
+            source_url=source_url,
+            target_url=postgres_url,
+            dry_run=dry_run,
+            replace_target=replace_target,
+        )
+    else:
+        report.notes.append("앱 테이블 복사를 건너뛴다 (--checkpoints-only)")
 
-    report.notes.append(
-        "대화 이어가기(checkpointer) SQLite 파일은 이전하지 않는다. "
-        "Postgres checkpointer는 빈 상태로 두고, 채팅 화면 이력은 앱 DB 행을 따른다."
-    )
+    if skip_checkpoints:
+        report.checkpoints = CheckpointCopyStats(skipped=True)
+        report.notes.append("대화 이어가기 이전을 건너뛴다 (--skip-checkpoints)")
+    elif checkpoint_sqlite_path is None:
+        report.checkpoints = CheckpointCopyStats(skipped=True)
+        report.notes.append(
+            "대화 이어가기 SQLite 경로가 없어 이전하지 않는다. "
+            "--checkpoint-sqlite 로 지정할 수 있다."
+        )
+    elif not checkpoint_sqlite_path.is_file():
+        report.checkpoints = CheckpointCopyStats(skipped=True)
+        report.notes.append(
+            f"대화 이어가기 SQLite 파일이 없어 건너뛴다: {checkpoint_sqlite_path}"
+        )
+    else:
+        if replace_target and not dry_run:
+            report.notes.append("대상 대화 그래프 저장을 비운 뒤 다시 넣는다 (--replace)")
+        report.checkpoints = copy_checkpointer_sqlite_to_postgres(
+            sqlite_path=checkpoint_sqlite_path,
+            postgres_url=postgres_url,
+            dry_run=dry_run,
+            replace_target=replace_target,
+        )
+        report.notes.append(
+            "대화 이어가기는 SQLite·Postgres 저장 형식이 달라 "
+            "LangGraph API로 읽어 Postgres에 다시 기록한다."
+        )
+
     report.notes.append(
         "근거 벡터(Chroma)는 덤프 이전하지 않는다. "
         "INDEXED research_sources는 원문 저장소를 기준으로 재인덱싱한다 "
@@ -300,6 +495,15 @@ def format_report(report: MigrationReport) -> str:
             f"  - {item.table}: source={item.source_count} "
             f"copied={item.copied} skipped_existing={item.skipped_existing}"
         )
+    if report.checkpoints is not None:
+        cp = report.checkpoints
+        if cp.skipped:
+            lines.append("checkpoints: skipped")
+        else:
+            lines.append(
+                f"checkpoints: threads={cp.threads} "
+                f"checkpoints={cp.checkpoints} writes={cp.writes}"
+            )
     if report.notes:
         lines.append("notes:")
         for note in report.notes:

@@ -1,7 +1,7 @@
 # SQLite → Postgres 이전
 
-기존 단일 노드 볼륨의 SQLite 앱 DB를 Compose Postgres로 옮긴다.
-근거 벡터(Chroma)와 대화 그래프용 SQLite 파일은 **통째로 복사하지 않는다**.
+기존 단일 노드 볼륨의 SQLite 앱 DB와 대화 이어가기 파일을 Compose Postgres로 옮긴다.
+근거 벡터(Chroma)는 **통째로 복사하지 않는다** (원문 기준 재인덱싱).
 
 ## 역할 구분
 
@@ -14,7 +14,7 @@
 
 ## 전제
 
-- 원본 `rag_history.db` 백업을 남겨 둔다
+- 원본 `rag_history.db`, `draftsmith_checkpoint.db` 백업을 남겨 둔다
 - 대상은 Compose `db` (또는 동등 URL)
 - 앱을 올리기 **전에** 스키마 스크립트를 한 번 돌린다
 
@@ -31,6 +31,7 @@ docker compose up -d db
 ```bash
 uv run python scripts/migrate_sqlite_to_postgres.py \
   --sqlite /path/to/rag_history.db \
+  --checkpoint-sqlite /path/to/draftsmith_checkpoint.db \
   --postgres-url postgresql+psycopg://thinkchair:thinkchair@localhost:5432/thinkchair \
   --dry-run
 ```
@@ -40,18 +41,23 @@ uv run python scripts/migrate_sqlite_to_postgres.py \
 ```bash
 uv run python scripts/migrate_sqlite_to_postgres.py \
   --sqlite /path/to/rag_history.db \
+  --checkpoint-sqlite /path/to/draftsmith_checkpoint.db \
   --postgres-url postgresql+psycopg://thinkchair:thinkchair@localhost:5432/thinkchair
 ```
 
-대상 Postgres에 이미 사용자/원고 등이 있으면 **중단**한다.  
+대상 Postgres에 이미 사용자/원고 또는 대화 그래프 데이터가 있으면 **중단**한다.  
 비우고 다시 넣으려면:
 
 ```bash
 uv run python scripts/migrate_sqlite_to_postgres.py \
   --sqlite /path/to/rag_history.db \
+  --checkpoint-sqlite /path/to/draftsmith_checkpoint.db \
   --postgres-url postgresql+psycopg://thinkchair:thinkchair@localhost:5432/thinkchair \
   --replace
 ```
+
+대화 이어가기만 생략하려면 `--skip-checkpoints`.  
+앱 DB는 이미 옮겼고 대화 이어가기만 할 때는 `--checkpoints-only`.
 
 4. 벡터 재인덱싱 대상 확인
 
@@ -63,10 +69,9 @@ uv run python scripts/migrate_sqlite_to_postgres.py --list-reindex-targets
 
 5. 대화 이어가기
 
-- 옛 대화 그래프 SQLite 파일은 이전하지 않는다
-- Postgres 쪽 그래프 저장은 비운 채로 둔다
+- SQLite와 Postgres의 그래프 저장 형식이 달라 **표 단위 복사가 아니라** LangGraph API로 읽어 다시 기록한다
 - 채팅 **화면 이력**은 앱 DB `chat_messages`를 따른다
 
 ## 롤백
 
-- Postgres 볼륨을 비우고, 보관한 `rag_history.db`로 3을 다시 실행한다
+- Postgres 볼륨을 비우고, 보관한 SQLite 파일로 3을 다시 실행한다

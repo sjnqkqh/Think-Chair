@@ -1,13 +1,15 @@
-"""SQLite 앱 DB를 Postgres로 옮긴다.
+"""SQLite 앱 DB·대화 이어가기를 Postgres로 옮긴다.
 
 예:
   uv run python scripts/migrate_sqlite_to_postgres.py \\
     --sqlite ./rag_history.db \\
+    --checkpoint-sqlite ./draftsmith_checkpoint.db \\
     --postgres-url postgresql+psycopg://thinkchair:thinkchair@localhost:5432/thinkchair
 
   # 대상에 이미 데이터가 있으면 비우고 다시 넣기
   uv run python scripts/migrate_sqlite_to_postgres.py \\
     --sqlite ./rag_history.db \\
+    --checkpoint-sqlite ./draftsmith_checkpoint.db \\
     --postgres-url postgresql+psycopg://thinkchair:thinkchair@localhost:5432/thinkchair \\
     --replace
 
@@ -36,7 +38,23 @@ def main(argv: list[str] | None = None) -> int:
         "--sqlite",
         type=Path,
         default=settings.DATA_ROOT / "rag_history.db",
-        help="소스 SQLite 파일 경로",
+        help="소스 앱 SQLite 파일 경로",
+    )
+    parser.add_argument(
+        "--checkpoint-sqlite",
+        type=Path,
+        default=settings.DATA_ROOT / "draftsmith_checkpoint.db",
+        help="대화 이어가기 SQLite 파일 경로",
+    )
+    parser.add_argument(
+        "--skip-checkpoints",
+        action="store_true",
+        help="대화 이어가기 이전 생략",
+    )
+    parser.add_argument(
+        "--checkpoints-only",
+        action="store_true",
+        help="앱 테이블은 건너뛰고 대화 이어가기만 이전",
     )
     parser.add_argument(
         "--postgres-url",
@@ -56,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--replace",
         action="store_true",
-        help="대상 앱 테이블을 비운 뒤 SQLite 내용으로 다시 채움",
+        help="대상 앱·대화 그래프 테이블을 비운 뒤 SQLite 내용으로 다시 채움",
     )
     parser.add_argument(
         "--list-reindex-targets",
@@ -76,6 +94,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
+    if args.checkpoints_only and args.skip_checkpoints:
+        print("--checkpoints-only 와 --skip-checkpoints 는 함께 쓸 수 없습니다.", file=sys.stderr)
+        return 2
+
     try:
         report = migrate_sqlite_file_to_postgres(
             sqlite_path=args.sqlite,
@@ -83,6 +105,11 @@ def main(argv: list[str] | None = None) -> int:
             dry_run=args.dry_run,
             setup_schema=not args.skip_schema,
             replace_target=args.replace,
+            checkpoint_sqlite_path=(
+                None if args.skip_checkpoints else args.checkpoint_sqlite
+            ),
+            skip_checkpoints=args.skip_checkpoints,
+            app_tables=not args.checkpoints_only,
         )
     except TargetNotEmptyError as exc:
         print(exc, file=sys.stderr)
