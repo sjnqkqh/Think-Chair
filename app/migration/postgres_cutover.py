@@ -112,15 +112,54 @@ def count_rows(engine: Engine, table_name: str) -> int:
         return int(conn.execute(select(func.count()).select_from(table)).scalar_one())
 
 
+class TargetNotEmptyError(RuntimeError):
+    """대상 DB에 이미 앱 데이터가 있어 복사를 중단한다."""
+
+
+def nonempty_app_tables(
+    engine: Engine, tables: Sequence[str] = APP_TABLE_ORDER
+) -> dict[str, int]:
+    found: dict[str, int] = {}
+    for table_name in tables:
+        try:
+            n = count_rows(engine, table_name)
+        except Exception:
+            continue
+        if n > 0:
+            found[table_name] = n
+    return found
+
+
+def truncate_app_tables(
+    engine: Engine, tables: Sequence[str] = APP_TABLE_ORDER
+) -> None:
+    """FK 역순으로 앱 테이블 데이터를 비운다."""
+    ordered = list(reversed(tuple(tables)))
+    with engine.begin() as conn:
+        if engine.dialect.name == "postgresql":
+            from sqlalchemy import text
+
+            joined = ", ".join(ordered)
+            conn.execute(text(f"TRUNCATE {joined} RESTART IDENTITY CASCADE"))
+            return
+        from sqlalchemy import text
+
+        for table_name in ordered:
+            conn.execute(text(f"DELETE FROM {table_name}"))
+
+
 def copy_app_tables(
     *,
     source_url: str,
     target_url: str,
     tables: Sequence[str] = APP_TABLE_ORDER,
     dry_run: bool = False,
-    skip_if_target_nonempty: bool = True,
+    replace_target: bool = False,
 ) -> list[TableCopyStats]:
-    """소스 DB 테이블 행을 타겟으로 복사한다. dry_run이면 소스 건수만 센다."""
+    """소스 DB 테이블 행을 타겟으로 복사한다. dry_run이면 소스 건수만 센다.
+
+    대상에 이미 행이 있으면 기본은 중단한다. replace_target=True면 비운 뒤 복사한다.
+    """
     source = create_engine(source_url)
     stats: list[TableCopyStats] = []
     target: Engine | None = None
@@ -128,6 +167,17 @@ def copy_app_tables(
         if not dry_run:
             target = build_engine(target_url)
             create_app_schema(target_url, target)
+            existing = nonempty_app_tables(target, tables)
+            if existing and not replace_target:
+                detail = ", ".join(f"{name}={n}" for name, n in existing.items())
+                raise TargetNotEmptyError(
+                    "대상 DB에 이미 데이터가 있습니다. "
+                    "잘못된 FK 복사를 막기 위해 중단했습니다. "
+                    f"({detail}). "
+                    "비우고 다시 넣으려면 --replace 를 사용하세요."
+                )
+            if existing and replace_target:
+                truncate_app_tables(target, tables)
 
         target_wants_uuid = target is not None and not is_sqlite_url(target_url)
 
@@ -150,26 +200,14 @@ def copy_app_tables(
                 continue
 
             assert target is not None
-            dst_meta = MetaData()
-            dst_table = Table(table_name, dst_meta, autoload_with=target)
-            existing = count_rows(target, table_name)
-            if skip_if_target_nonempty and existing > 0:
-                stats.append(
-                    TableCopyStats(
-                        table=table_name,
-                        source_count=source_count,
-                        copied=0,
-                        skipped_existing=existing,
-                    )
-                )
-                continue
-
             if not rows:
                 stats.append(
                     TableCopyStats(table=table_name, source_count=0, copied=0)
                 )
                 continue
 
+            dst_meta = MetaData()
+            dst_table = Table(table_name, dst_meta, autoload_with=target)
             with target.begin() as dst_conn:
                 dst_conn.execute(dst_table.insert(), rows)
             stats.append(
@@ -207,6 +245,7 @@ def migrate_sqlite_file_to_postgres(
     postgres_url: str,
     dry_run: bool = False,
     setup_schema: bool = True,
+    replace_target: bool = False,
 ) -> MigrationReport:
     """로컬 rag_history.db → Postgres 이전 진입점."""
     if not sqlite_path.is_file():
@@ -228,10 +267,14 @@ def migrate_sqlite_file_to_postgres(
         report.schema_ok = True
         report.notes.append("schema setup skipped by flag")
 
+    if replace_target and not dry_run:
+        report.notes.append("대상 앱 테이블을 비운 뒤 복사한다 (--replace)")
+
     report.tables = copy_app_tables(
         source_url=source_url,
         target_url=postgres_url,
         dry_run=dry_run,
+        replace_target=replace_target,
     )
 
     report.notes.append(

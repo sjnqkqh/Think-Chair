@@ -43,7 +43,15 @@ uv run python scripts/migrate_sqlite_to_postgres.py \
   --postgres-url postgresql+psycopg://thinkchair:thinkchair@localhost:5432/thinkchair
 ```
 
-이 단계에서 `vector` 확장, 앱 테이블, 근거 검색 테이블, 대화 그래프 저장 테이블을 만든다.
+대상 Postgres에 이미 사용자/원고 등이 있으면 **중단**한다.  
+비우고 다시 넣으려면:
+
+```bash
+uv run python scripts/migrate_sqlite_to_postgres.py \
+  --sqlite /path/to/rag_history.db \
+  --postgres-url postgresql+psycopg://thinkchair:thinkchair@localhost:5432/thinkchair \
+  --replace
+```
 
 4. 벡터 재인덱싱 대상 확인
 

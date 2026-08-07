@@ -3,11 +3,13 @@
 import uuid
 from datetime import datetime
 
+import pytest
 from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base, build_engine
 from app.migration.postgres_cutover import (
     APP_TABLE_ORDER,
+    TargetNotEmptyError,
     copy_app_tables,
     count_rows,
     format_report,
@@ -56,11 +58,14 @@ def test_copy_app_tables_sqlite_to_sqlite(tmp_path):
     assert count_rows(target, "users") == 1
     target.dispose()
 
-    # 두 번째 실행은 타겟이 비어 있지 않으면 건너뛴다
-    again = copy_app_tables(source_url=source_url, target_url=target_url)
+    with pytest.raises(TargetNotEmptyError):
+        copy_app_tables(source_url=source_url, target_url=target_url)
+
+    again = copy_app_tables(
+        source_url=source_url, target_url=target_url, replace_target=True
+    )
     users_again = next(item for item in again if item.table == "users")
-    assert users_again.copied == 0
-    assert users_again.skipped_existing == 1
+    assert users_again.copied == 1
     assert user_id  # seed 사용 확인
 
 
@@ -72,7 +77,6 @@ def test_dry_run_migrate_sqlite_file(tmp_path):
     _seed_user(source)
     source.dispose()
 
-    # dry-run은 Postgres URL이어도 스키마를 건드리지 않는다
     report = migrate_sqlite_file_to_postgres(
         sqlite_path=source_path,
         postgres_url="postgresql+psycopg://unused:unused@localhost:5432/unused",

@@ -5,8 +5,13 @@
     --sqlite ./rag_history.db \\
     --postgres-url postgresql+psycopg://thinkchair:thinkchair@localhost:5432/thinkchair
 
+  # 대상에 이미 데이터가 있으면 비우고 다시 넣기
+  uv run python scripts/migrate_sqlite_to_postgres.py \\
+    --sqlite ./rag_history.db \\
+    --postgres-url postgresql+psycopg://thinkchair:thinkchair@localhost:5432/thinkchair \\
+    --replace
+
   uv run python scripts/migrate_sqlite_to_postgres.py --sqlite ./rag_history.db --dry-run
-  uv run python scripts/migrate_sqlite_to_postgres.py --list-reindex-targets
 """
 
 from __future__ import annotations
@@ -18,6 +23,7 @@ from pathlib import Path
 
 from app.core.config import settings
 from app.migration.postgres_cutover import (
+    TargetNotEmptyError,
     format_report,
     list_indexed_source_ids,
     migrate_sqlite_file_to_postgres,
@@ -45,7 +51,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--skip-schema",
         action="store_true",
-        help="ensure_postgres_schema 생략 (테이블이 이미 있을 때)",
+        help="스키마 생성 생략 (테이블이 이미 있을 때)",
+    )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="대상 앱 테이블을 비운 뒤 SQLite 내용으로 다시 채움",
     )
     parser.add_argument(
         "--list-reindex-targets",
@@ -65,12 +76,18 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    report = migrate_sqlite_file_to_postgres(
-        sqlite_path=args.sqlite,
-        postgres_url=args.postgres_url,
-        dry_run=args.dry_run,
-        setup_schema=not args.skip_schema,
-    )
+    try:
+        report = migrate_sqlite_file_to_postgres(
+            sqlite_path=args.sqlite,
+            postgres_url=args.postgres_url,
+            dry_run=args.dry_run,
+            setup_schema=not args.skip_schema,
+            replace_target=args.replace,
+        )
+    except TargetNotEmptyError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+
     print(format_report(report))
     return 0
 
