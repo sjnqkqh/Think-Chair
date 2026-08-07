@@ -93,12 +93,9 @@
       <span>effort</span>
       <select
         id="llm-settings-effort"
+        data-initial="{{ llm.effort }}"
         class="w-full rounded-[8px] border border-[#c8c4be] px-3 py-2 text-sm bg-white"
-      >
-        {% for value in ["none", "low", "medium", "high", "xhigh", "max"] %}
-        <option value="{{ value }}" {% if llm.effort == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
-      </select>
+      ></select>
     </label>
     <p id="llm-settings-error" class="hidden text-sm text-red-600"></p>
     <button
@@ -139,6 +136,12 @@
     deepseek: 'deepseek-v4-flash',
     openai: 'gpt-5.6-luna',
   };
+  // OpenAI Chat Completions는 max를 거부한다. DeepSeek만 max를 남긴다.
+  const EFFORT_OPTIONS = {
+    deepseek: ['none', 'low', 'medium', 'high', 'xhigh', 'max'],
+    openai: ['none', 'low', 'medium', 'high', 'xhigh'],
+  };
+  const DEFAULT_EFFORT = 'high';
 
   function refreshModelOptions(preferredModel) {
     const providerSelect = document.getElementById('llm-settings-provider');
@@ -158,6 +161,24 @@
       .join('');
   }
 
+  function refreshEffortOptions(preferredEffort) {
+    const providerSelect = document.getElementById('llm-settings-provider');
+    const effortSelect = document.getElementById('llm-settings-effort');
+    if (!providerSelect || !effortSelect) return;
+    const provider = providerSelect.value;
+    const efforts = EFFORT_OPTIONS[provider] || EFFORT_OPTIONS.deepseek;
+    const selected =
+      preferredEffort && efforts.includes(preferredEffort)
+        ? preferredEffort
+        : DEFAULT_EFFORT;
+    effortSelect.innerHTML = efforts
+      .map(
+        (name) =>
+          `<option value="${name}" ${name === selected ? 'selected' : ''}>${name}</option>`
+      )
+      .join('');
+  }
+
   function setupLlmSettingsModal() {
     const modal = document.getElementById('llm-settings-modal');
     const openButton = document.getElementById('llm-settings-open');
@@ -170,9 +191,11 @@
     if (!modal || !openButton || !providerSelect || !modelSelect) return;
 
     refreshModelOptions(modelSelect.dataset.initial || '');
+    refreshEffortOptions(effortSelect?.dataset.initial || '');
 
     providerSelect.addEventListener('change', () => {
       refreshModelOptions(modelSelect.value);
+      refreshEffortOptions(effortSelect?.value);
     });
 
     function closeModal() {
@@ -212,6 +235,7 @@
         }
         const saved = await response.json();
         modelSelect.dataset.initial = saved.model;
+        if (effortSelect) effortSelect.dataset.initial = saved.effort;
         closeModal();
       } catch (error) {
         if (errorEl) {

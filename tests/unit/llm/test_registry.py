@@ -97,6 +97,21 @@ def test_chat_model_key_for_reuses_same_choice(monkeypatch):
     assert first == second
 
 
+def test_chat_model_key_for_clamps_openai_max_to_xhigh(monkeypatch):
+    monkeypatch.setattr(llm_registry.default_settings, "OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(
+        llm_registry.default_settings, "OPENAI_API_BASE", "https://api.openai.com/v1"
+    )
+    monkeypatch.setattr(llm_registry.default_settings, "OPENAI_MODEL", "gpt-5.6-luna")
+
+    key = llm_registry.chat_model_key_for(
+        provider="openai", model="gpt-5.6-luna", effort="max"
+    )
+    llm = llm_registry.get(key)
+
+    assert llm.reasoning_effort == "xhigh"
+
+
 def test_chat_model_key_for_model_alone_uses_default_provider(monkeypatch):
     monkeypatch.setattr(llm_registry.default_settings, "DEEPSEEK_API_KEY", "ds-key")
     monkeypatch.setattr(

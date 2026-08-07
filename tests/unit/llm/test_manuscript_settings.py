@@ -118,3 +118,48 @@ def test_save_llm_settings_for_manuscript_rejects_unknown_effort(db_session):
             model="deepseek-v4-flash",
             effort="ultra",
         )
+
+
+def test_save_llm_settings_rejects_openai_max_effort(db_session):
+    """OpenAI Chat Completions는 max를 거부한다. Luna 등 gpt-5.6-* 공통."""
+    user = _create_user(db_session, "llm_settings_openai_max")
+    manuscript = _create_manuscript(db_session, user)
+
+    with pytest.raises(ValueError, match="effort"):
+        settings_service.save_llm_settings_for_manuscript(
+            db_session,
+            manuscript.id,
+            provider="openai",
+            model="gpt-5.6-luna",
+            effort="max",
+        )
+
+
+def test_save_llm_settings_allows_deepseek_max_effort(db_session):
+    user = _create_user(db_session, "llm_settings_deepseek_max")
+    manuscript = _create_manuscript(db_session, user)
+
+    settings = settings_service.save_llm_settings_for_manuscript(
+        db_session,
+        manuscript.id,
+        provider="deepseek",
+        model="deepseek-v4-pro",
+        effort="max",
+    )
+
+    assert settings.effort == "max"
+
+
+def test_resolve_request_effort_clamps_openai_max_to_xhigh():
+    assert (
+        settings_service.resolve_request_effort(provider="openai", effort="max")
+        == "xhigh"
+    )
+    assert (
+        settings_service.resolve_request_effort(provider="openai", effort="high")
+        == "high"
+    )
+    assert (
+        settings_service.resolve_request_effort(provider="deepseek", effort="max")
+        == "max"
+    )

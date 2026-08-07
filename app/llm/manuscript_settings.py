@@ -14,8 +14,15 @@ ALLOWED_MODELS_BY_PROVIDER = {
     "deepseek": frozenset({"deepseek-v4-flash", "deepseek-v4-pro"}),
     "openai": frozenset({"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"}),
 }
-ALLOWED_EFFORTS = frozenset({"none", "low", "medium", "high", "xhigh", "max"})
+# Chat Completions 기준. OpenAI gpt-5.6-* 는 max를 거부하고 xhigh까지 허용한다.
+# (문서에 max가 있어도 Chat Completions에서는 400; DeepSeek만 max를 받는다.)
+ALLOWED_EFFORTS_BY_PROVIDER = {
+    "deepseek": frozenset({"none", "low", "medium", "high", "xhigh", "max"}),
+    "openai": frozenset({"none", "low", "medium", "high", "xhigh"}),
+}
+ALLOWED_EFFORTS = frozenset().union(*ALLOWED_EFFORTS_BY_PROVIDER.values())
 DEFAULT_EFFORT = "high"
+_OPENAI_MAX_FALLBACK_EFFORT = "xhigh"
 
 
 def llm_settings_for_manuscript(
@@ -72,10 +79,11 @@ def normalize_llm_choice(
         )
 
     resolved_effort = (effort or "").strip().lower()
-    if resolved_effort not in ALLOWED_EFFORTS:
+    allowed_efforts = ALLOWED_EFFORTS_BY_PROVIDER[resolved_provider]
+    if resolved_effort not in allowed_efforts:
         raise ValueError(
-            f"지원하지 않는 effort: {effort!r}. "
-            f"사용 가능: {', '.join(sorted(ALLOWED_EFFORTS))}"
+            f"지원하지 않는 effort: {effort!r} (provider={resolved_provider}). "
+            f"사용 가능: {', '.join(sorted(allowed_efforts))}"
         )
 
     resolved_model = (model or "").strip()
@@ -83,6 +91,18 @@ def normalize_llm_choice(
     if resolved_model not in allowed_models:
         resolved_model = DEFAULT_MODEL_BY_PROVIDER[resolved_provider]
     return resolved_provider, resolved_model, resolved_effort
+
+
+def resolve_request_effort(*, provider: str, effort: str) -> str:
+    """이미 저장된 설정이 provider에 맞지 않으면 호출 전에 안전한 effort로 내린다."""
+    resolved_provider = (provider or "").strip().lower()
+    resolved_effort = (effort or "").strip().lower()
+    allowed = ALLOWED_EFFORTS_BY_PROVIDER.get(resolved_provider)
+    if allowed is None or resolved_effort in allowed:
+        return resolved_effort
+    if resolved_provider == "openai" and resolved_effort == "max":
+        return _OPENAI_MAX_FALLBACK_EFFORT
+    return DEFAULT_EFFORT
 
 
 def llm_settings_fields(settings: ManuscriptLlmSettings) -> dict[str, str]:
