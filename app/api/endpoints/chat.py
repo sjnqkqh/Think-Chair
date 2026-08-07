@@ -1,7 +1,7 @@
 import json
 import uuid
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Form
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
@@ -16,27 +16,14 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = get_logger(__name__)
 
 
-def _optional_form(value: str | None) -> str | None:
-    if value is None:
-        return None
-    stripped = value.strip()
-    return stripped or None
-
-
 @router.post("/{manuscript_id}/message")
 async def send_message(
     request: Request,
     manuscript_id: uuid.UUID,
     content: str = Form(...),
-    provider: str | None = Form(None),
-    model: str | None = Form(None),
-    effort: str | None = Form(None),
     user: User = Depends(require_user),
     database_session: Session = Depends(get_database_session),
 ):
-    provider = _optional_form(provider)
-    model = _optional_form(model)
-    effort = _optional_form(effort)
     manuscript = get_manuscript(database_session, user, manuscript_id)
     chat_service = request.app.state.chat_service
     try:
@@ -44,9 +31,6 @@ async def send_message(
             database_session,
             manuscript,
             content,
-            provider=provider,
-            model=model,
-            effort=effort,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -68,9 +52,6 @@ async def send_message(
             async for event_name, payload in chat_service.stream_response(
                 manuscript_id,
                 turn.action,
-                provider=provider,
-                model=model,
-                effort=effort,
                 research_required=turn.research_required,
             ):
                 yield {

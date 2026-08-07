@@ -2,7 +2,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from app.logging import get_logger
-from app.graph.llm_registry import get as get_language_model
+from app.llm.registry import get as get_language_model
 from app.graph.prompts.phases.document_readiness import DOCUMENT_READINESS_CHECK
 from app.graph.state import GraphState
 from app.graph.transcript import render_transcript
@@ -55,12 +55,6 @@ async def is_conversation_sufficient(
 
     last_raw: str | None = None
     for attempt in range(1, MAX_GATE_ATTEMPTS + 1):
-        logger.info(
-            "llm.deepseek.request",
-            purpose="chat.router.document_readiness",
-            reason="문서화 요청 전 대화 맥락 충분성 판정",
-            attempt=attempt,
-        )
         response = await language_model.ainvoke(prompt)
         last_raw = (response.content or "").strip()
         decision = parse_sufficiency_response(last_raw)

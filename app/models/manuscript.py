@@ -59,6 +59,22 @@ class ManuscriptVersion(Base):
     )
 
 
+class ManuscriptLlmSettings(Base):
+    __tablename__ = "manuscript_llm_settings"
+
+    manuscript_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("manuscripts.id"), primary_key=True
+    )
+    provider: Mapped[str] = mapped_column(String(32))
+    model: Mapped[str] = mapped_column(String(64))
+    effort: Mapped[str] = mapped_column(String(16))
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime,
+        default=datetime.datetime.utcnow,
+        onupdate=datetime.datetime.utcnow,
+    )
+
+
 class DocumentEvaluation(Base):
     __tablename__ = "document_evaluations"
 

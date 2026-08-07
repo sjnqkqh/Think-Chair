@@ -4,7 +4,7 @@ import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from app.graph import llm_registry as language_model_registry
+from app.llm import registry as language_model_registry
 from app.graph.nodes.evaluate import evaluate_document_node
 from app.graph.nodes.generate_document_from_conversation import (
     generate_document_from_conversation_node,

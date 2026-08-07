@@ -26,7 +26,7 @@ from app.evaluation.service_growth_report import (
     summarize_service_growth_results,
     write_service_growth_report,
 )
-from app.graph.llm_registry import bootstrap as bootstrap_llms
+from app.llm.registry import bootstrap as bootstrap_llms
 
 DEFAULT_CASES = PROJECT_ROOT / "tests/evaluation/service_growth_cases.json"
 DEFAULT_OUTPUT = PROJECT_ROOT / "artifacts/service_growth_eval"

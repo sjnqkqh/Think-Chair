@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.database import Base, SessionLocal, engine
 from app.core.error_handlers import register_exception_handlers
 from app.core.storage import get_file_storage
-from app.graph import llm_registry
+from app.llm import registry as llm_registry
 from app.graph.builder import build_graph
 from app.graph.chat_graph_runner import ChatGraphRunner
 from app.graph.checkpointer import make_checkpointer

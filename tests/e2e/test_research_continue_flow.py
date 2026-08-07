@@ -12,7 +12,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
-from app.graph import llm_registry
+from app.llm import registry as llm_registry
 from app.main import app as fastapi_app
 from app.models.chat import ChatMessage
 from app.models.manuscript import Manuscript

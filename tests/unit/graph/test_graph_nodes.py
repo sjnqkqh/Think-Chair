@@ -4,7 +4,7 @@ import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from app.graph import llm_registry as language_model_registry
+from app.llm import registry as language_model_registry
 from app.graph.nodes.chinese_prevent import chinese_prevent_node
 from app.graph.nodes.converse import converse_node
 from app.graph.nodes.feedback import feedback_node

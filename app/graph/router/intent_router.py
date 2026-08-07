@@ -3,7 +3,7 @@ import uuid
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from app.graph.llm_registry import get as get_language_model
+from app.llm.registry import get as get_language_model
 from app.logging import get_logger
 from app.graph.prompts.classifier import CLASSIFIER
 from app.graph.router.sufficiency import is_conversation_sufficient
@@ -47,11 +47,6 @@ async def _classify_human_message(
 ) -> str:
     language_model = get_language_model(
         configuration["configurable"].get("model", "default")
-    )
-    logger.info(
-        "llm.deepseek.request",
-        purpose="chat.router.classify",
-        reason="사용자 메시지 UserAction 분류",
     )
     response = await language_model.ainvoke(
         [SystemMessage(content=CLASSIFIER.text), human_message]

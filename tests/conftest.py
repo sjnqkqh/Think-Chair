@@ -17,7 +17,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_database_session
-from app.graph import llm_registry
+from app.llm import registry as llm_registry
 from app.graph.builder import build_graph
 from app.graph.chat_graph_runner import ChatGraphRunner
 from app.graph.checkpointer import make_checkpointer
@@ -105,6 +105,12 @@ async def chat_app_state(fake_llm, db_session, monkeypatch):
     monkeypatch.setattr(
         "app.research.turn_evidence.load_evidence_text_for_turn",
         lambda **_kwargs: "",
+    )
+    # 원고 LLM 설정이 있어도 FakeListChatModel("default")만 쓰게 한다.
+    monkeypatch.setattr(
+        llm_registry,
+        "chat_model_key_for",
+        lambda **_kwargs: "default",
     )
     storage = MagicMock()
     async with make_checkpointer(":memory:") as checkpointer:

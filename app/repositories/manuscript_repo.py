@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.models.manuscript import Manuscript, ManuscriptVersion
+from app.models.manuscript import Manuscript, ManuscriptLlmSettings, ManuscriptVersion
 from app.models.user import User
 
 
@@ -14,6 +14,15 @@ def create(db: Session, user: User, topic: str, concept, audience_level: str | N
         audience_level=audience_level,
     )
     db.add(manuscript)
+    db.flush()
+    db.add(
+        ManuscriptLlmSettings(
+            manuscript_id=manuscript.id,
+            provider="deepseek",
+            model="deepseek-v4-flash",
+            effort="high",
+        )
+    )
     db.commit()
     db.refresh(manuscript)
     return manuscript

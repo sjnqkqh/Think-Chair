@@ -33,9 +33,6 @@ class CreateResearchJobBody(BaseModel):
 class ContinueResearchJobBody(BaseModel):
     manuscript_id: uuid.UUID
     message_id: uuid.UUID
-    provider: str | None = None
-    model: str | None = None
-    effort: str | None = None
 
 
 @router.post("/jobs", status_code=202)
@@ -128,9 +125,6 @@ async def continue_after_research(
         return {"error": "not_ready"}
 
     chat_service = request.app.state.chat_service
-    provider = (body.provider or "").strip() or None
-    model = (body.model or "").strip() or None
-    effort = (body.effort or "").strip() or None
 
     async def sse_events():
         try:
@@ -140,9 +134,6 @@ async def continue_after_research(
             ) in chat_service.stream_grounded_reply_after_research(
                 manuscript,
                 job,
-                provider=provider,
-                model=model,
-                effort=effort,
             ):
                 yield {
                     "event": event_name,

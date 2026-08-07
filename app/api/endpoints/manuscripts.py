@@ -1,7 +1,7 @@
 import uuid
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
@@ -9,7 +9,13 @@ from app.core.database import get_database_session
 from app.core.auth_deps import require_user
 from app.core.storage import get_file_storage
 from app.models.user import User
-from app.schemas.manuscript import ManuscriptCreateRequest, ManuscriptResponse
+from app.schemas.manuscript import (
+    ManuscriptCreateRequest,
+    ManuscriptLlmSettingsRequest,
+    ManuscriptLlmSettingsResponse,
+    ManuscriptResponse,
+)
+from app.llm import manuscript_settings
 from app.services.manuscript_service import (
     create_manuscript,
     delete_manuscript,
@@ -74,6 +80,32 @@ def get(
         concept=manuscript.concept,
         status=manuscript.status,
         audience_level=manuscript.audience_level,
+    )
+
+
+@router.put(
+    "/{manuscript_id}/llm-settings",
+    response_model=ManuscriptLlmSettingsResponse,
+)
+def put_llm_settings(
+    manuscript_id: uuid.UUID,
+    payload: ManuscriptLlmSettingsRequest,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_database_session),
+):
+    get_manuscript(db, user, manuscript_id)
+    try:
+        settings = manuscript_settings.save_llm_settings_for_manuscript(
+            db,
+            manuscript_id,
+            provider=payload.provider,
+            model=payload.model,
+            effort=payload.effort,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ManuscriptLlmSettingsResponse(
+        **manuscript_settings.llm_settings_fields(settings)
     )
 
 

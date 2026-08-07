@@ -30,50 +30,20 @@
   {% endfor %}
 </div>
 {% if active_manuscript %}
+{% set llm = llm_settings or {"provider": "deepseek", "model": "deepseek-v4-flash", "effort": "high"} %}
 <form
   id="chat-form"
   action="/api/chat/{{ active_manuscript.id }}/message"
   method="post"
   class="border-t border-[#e5e3df] p-5 flex flex-col gap-3 bg-white"
 >
-  <div class="flex flex-wrap gap-2 items-center text-sm text-[#5f5e5b]">
-    <label class="flex items-center gap-1.5">
-      <span>provider</span>
-      <select
-        name="provider"
-        class="rounded-[8px] border border-[#c8c4be] px-2 py-1.5 bg-white disabled:opacity-50"
-      >
-        <option value="">default</option>
-        <option value="deepseek">deepseek</option>
-        <option value="openai">openai</option>
-      </select>
-    </label>
-    <label class="flex items-center gap-1.5 min-w-[12rem] flex-1">
-      <span>model</span>
-      <input
-        type="text"
-        name="model"
-        placeholder="벤더 기본 모델"
-        class="w-full rounded-[8px] border border-[#c8c4be] px-2 py-1.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#d1d5db]"
-      />
-    </label>
-    <label class="flex items-center gap-1.5">
-      <span>effort</span>
-      <select
-        name="effort"
-        class="rounded-[8px] border border-[#c8c4be] px-2 py-1.5 bg-white disabled:opacity-50"
-      >
-        <option value="">default</option>
-        <option value="none">none</option>
-        <option value="low">low</option>
-        <option value="medium">medium</option>
-        <option value="high">high</option>
-        <option value="xhigh">xhigh</option>
-        <option value="max">max</option>
-      </select>
-    </label>
-  </div>
   <div class="flex gap-3 items-end">
+    <button
+      type="button"
+      id="llm-settings-open"
+      class="shrink-0 rounded-[8px] border border-[#c8c4be] bg-white px-3 py-3 text-sm text-[#37352f] hover:bg-[#f3f4f6] disabled:opacity-50"
+      aria-label="모델 설정"
+    >설정</button>
     <textarea
       name="content" placeholder="메시지 입력…" required rows="1"
       class="flex-1 rounded-[8px] border border-[#c8c4be] px-4 py-3 text-base resize-none overflow-y-auto max-h-52 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#d1d5db]"
@@ -84,6 +54,60 @@
     <button type="submit" class="rounded-[8px] bg-[#e5e7eb] text-[#1f1f1f] px-5 py-3 text-base disabled:opacity-50 hover:bg-[#d1d5db]">→</button>
   </div>
 </form>
+<div
+  id="llm-settings-modal"
+  class="fixed inset-0 z-40 hidden bg-black/30 flex items-center justify-center"
+>
+  <div
+    id="llm-settings-dialog"
+    class="relative bg-white rounded-[12px] p-6 w-[400px] space-y-3"
+    role="dialog"
+    aria-labelledby="llm-settings-title"
+  >
+    <button
+      type="button"
+      id="llm-settings-close"
+      aria-label="모달 닫기"
+      class="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-[6px] text-[#787671] hover:bg-[#F6F5F4] hover:text-[#1f1f1f]"
+    >X</button>
+    <p id="llm-settings-title" class="text-sm text-[#787671]">이 원고에서 사용할 모델을 선택하세요.</p>
+    <label class="block space-y-1 text-sm text-[#5f5e5b]">
+      <span>provider</span>
+      <select
+        id="llm-settings-provider"
+        class="w-full rounded-[8px] border border-[#c8c4be] px-3 py-2 text-sm bg-white"
+      >
+        <option value="deepseek" {% if llm.provider == "deepseek" %}selected{% endif %}>deepseek</option>
+        <option value="openai" {% if llm.provider == "openai" %}selected{% endif %}>openai</option>
+      </select>
+    </label>
+    <label class="block space-y-1 text-sm text-[#5f5e5b]">
+      <span>model</span>
+      <select
+        id="llm-settings-model"
+        data-initial="{{ llm.model }}"
+        class="w-full rounded-[8px] border border-[#c8c4be] px-3 py-2 text-sm bg-white"
+      ></select>
+    </label>
+    <label class="block space-y-1 text-sm text-[#5f5e5b]">
+      <span>effort</span>
+      <select
+        id="llm-settings-effort"
+        class="w-full rounded-[8px] border border-[#c8c4be] px-3 py-2 text-sm bg-white"
+      >
+        {% for value in ["none", "low", "medium", "high", "xhigh", "max"] %}
+        <option value="{{ value }}" {% if llm.effort == value %}selected{% endif %}>{{ value }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <p id="llm-settings-error" class="hidden text-sm text-red-600"></p>
+    <button
+      type="button"
+      id="llm-settings-save"
+      class="w-full bg-[#e5e7eb] text-[#1f1f1f] rounded-[8px] py-2.5 text-sm hover:bg-[#d1d5db]"
+    >저장</button>
+  </div>
+</div>
 <p id="research-status" class="hidden border-t border-[#e5e3df] px-5 py-2 text-sm text-[#5f5e5b] bg-[#f7f6f3]"></p>
 <script>
 (function () {
@@ -103,19 +127,104 @@
     form?.querySelectorAll('button, textarea, select, input').forEach((element) => {
       element.disabled = disabled;
     });
+    document.getElementById('llm-settings-open')?.toggleAttribute('disabled', disabled);
     spinner?.classList.toggle('hidden', !disabled);
   }
 
-  function selectedLlmFields() {
-    const provider = form?.querySelector('[name="provider"]')?.value?.trim() || '';
-    const model = form?.querySelector('[name="model"]')?.value?.trim() || '';
-    const effort = form?.querySelector('[name="effort"]')?.value?.trim() || '';
-    const fields = {};
-    if (provider) fields.provider = provider;
-    if (model) fields.model = model;
-    if (effort) fields.effort = effort;
-    return fields;
+  const MODEL_OPTIONS = {
+    deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+    openai: ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'],
+  };
+  const DEFAULT_MODEL = {
+    deepseek: 'deepseek-v4-flash',
+    openai: 'gpt-5.6-luna',
+  };
+
+  function refreshModelOptions(preferredModel) {
+    const providerSelect = document.getElementById('llm-settings-provider');
+    const modelSelect = document.getElementById('llm-settings-model');
+    if (!providerSelect || !modelSelect) return;
+    const provider = providerSelect.value;
+    const models = MODEL_OPTIONS[provider] || [];
+    const selected =
+      preferredModel && models.includes(preferredModel)
+        ? preferredModel
+        : (DEFAULT_MODEL[provider] || models[0] || '');
+    modelSelect.innerHTML = models
+      .map(
+        (name) =>
+          `<option value="${name}" ${name === selected ? 'selected' : ''}>${name}</option>`
+      )
+      .join('');
   }
+
+  function setupLlmSettingsModal() {
+    const modal = document.getElementById('llm-settings-modal');
+    const openButton = document.getElementById('llm-settings-open');
+    const closeButton = document.getElementById('llm-settings-close');
+    const saveButton = document.getElementById('llm-settings-save');
+    const providerSelect = document.getElementById('llm-settings-provider');
+    const modelSelect = document.getElementById('llm-settings-model');
+    const effortSelect = document.getElementById('llm-settings-effort');
+    const errorEl = document.getElementById('llm-settings-error');
+    if (!modal || !openButton || !providerSelect || !modelSelect) return;
+
+    refreshModelOptions(modelSelect.dataset.initial || '');
+
+    providerSelect.addEventListener('change', () => {
+      refreshModelOptions(modelSelect.value);
+    });
+
+    function closeModal() {
+      modal.classList.add('hidden');
+      errorEl?.classList.add('hidden');
+    }
+
+    openButton.addEventListener('click', () => {
+      modal.classList.remove('hidden');
+    });
+    closeButton?.addEventListener('click', closeModal);
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+        closeModal();
+      }
+    });
+
+    saveButton?.addEventListener('click', async () => {
+      errorEl?.classList.add('hidden');
+      saveButton.disabled = true;
+      try {
+        const response = await fetch(`/api/manuscripts/${manuscriptId}/llm-settings`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            provider: providerSelect.value,
+            model: modelSelect.value,
+            effort: effortSelect.value,
+          }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.detail || '설정 저장에 실패했습니다.');
+        }
+        const saved = await response.json();
+        modelSelect.dataset.initial = saved.model;
+        closeModal();
+      } catch (error) {
+        if (errorEl) {
+          errorEl.textContent = error.message || '설정 저장에 실패했습니다.';
+          errorEl.classList.remove('hidden');
+        }
+      } finally {
+        saveButton.disabled = false;
+      }
+    });
+  }
+
+  setupLlmSettingsModal();
 
   function appendHumanMessage(content) {
     const human = document.createElement('div');
@@ -222,7 +331,6 @@
       body: JSON.stringify({
         manuscript_id: manuscriptId,
         message_id: messageId,
-        ...selectedLlmFields(),
       }),
     });
     if (!response.ok || !response.body) {
@@ -304,7 +412,7 @@
   async function streamChat(content, aiBubble) {
     const response = await fetch(form.action, {
       method: 'POST',
-      body: new URLSearchParams({ content, ...selectedLlmFields() }),
+      body: new URLSearchParams({ content }),
       headers: { 'Accept': 'text/event-stream' },
     });
     if (!response.ok || !response.body) {
