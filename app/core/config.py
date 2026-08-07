@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     DATA_ROOT: Path = PROJECT_ROOT
     STORAGE_ROOT: Path = Path.home() / "storage"
     CHROMA_ROOT: Path = PROJECT_ROOT / "chroma_db"
+    # Compose 기본값과 동일. 테스트는 conftest에서 sqlite:// 로 덮어쓴다.
+    DATABASE_URL: str = (
+        "postgresql+psycopg://thinkchair:thinkchair@localhost:5432/thinkchair"
+    )
 
     # Local LangFeather observability (collector: 127.0.0.1:4319)
     LANGFEATHER_ENABLED: bool = False

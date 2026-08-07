@@ -29,8 +29,7 @@ services:
       - .env
     environment:
       # Keep manuscript files and (until later PRs) local chroma/checkpoint paths
-      # on the named volume. App DB URL points at the Compose Postgres service;
-      # SQLAlchemy still uses SQLite until PR 1b switches the runtime path.
+      # on the named volume. App metadata uses Compose Postgres via DATABASE_URL.
       DATA_ROOT: /data
       STORAGE_ROOT: /data/storage
       CHROMA_ROOT: /data/chroma_db

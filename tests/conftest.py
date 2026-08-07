@@ -4,6 +4,8 @@ os.environ["LANGCHAIN_TRACING_V2"] = "false"
 os.environ["LANGSMITH_TRACING"] = "false"
 # 단위/통합 테스트는 실 LLM 기동 검증을 하지 않는다.
 os.environ["LLM_STARTUP_VERIFY"] = "false"
+# 앱 모듈 import 전에 런타임 기본(Postgres)을 덮어, 테스트는 메모리 SQLite를 쓴다.
+os.environ["DATABASE_URL"] = "sqlite://"
 
 from collections import namedtuple
 from contextlib import contextmanager
@@ -16,7 +18,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.database import Base, get_database_session
+from app.core.database import get_database_session
 from app.llm import registry as llm_registry
 from app.graph.builder import build_graph
 from app.graph.chat_graph_runner import ChatGraphRunner
