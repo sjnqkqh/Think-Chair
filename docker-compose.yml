@@ -1,4 +1,23 @@
 services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: thinkchair
+      POSTGRES_PASSWORD: thinkchair
+      POSTGRES_DB: thinkchair
+    ports:
+      - "5432:5432"
+    volumes:
+      - think-chair-pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init-pgvector.sql:/docker-entrypoint-initdb.d/01-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thinkchair -d thinkchair"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
   think-chair:
     build:
       context: .
@@ -9,13 +28,20 @@ services:
     env_file:
       - .env
     environment:
-      # Keep all mutable SQLite and manuscript data in the named volume.
+      # Keep manuscript files and (until later PRs) local chroma/checkpoint paths
+      # on the named volume. App DB URL points at the Compose Postgres service;
+      # SQLAlchemy still uses SQLite until PR 1b switches the runtime path.
       DATA_ROOT: /data
       STORAGE_ROOT: /data/storage
       CHROMA_ROOT: /data/chroma_db
+      DATABASE_URL: postgresql+psycopg://thinkchair:thinkchair@db:5432/thinkchair
     volumes:
       - think-chair-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
   think-chair-data:
+  think-chair-pgdata:
