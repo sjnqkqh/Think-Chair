@@ -15,7 +15,7 @@ pytestmark = pytest.mark.unit
 
 def _index(tmp_path) -> ResearchEvidenceIndex:
     return ResearchEvidenceIndex(
-        tmp_path / "chroma_db",
+        f"sqlite:///{tmp_path / 'evidence.db'}",
         embedding_model="test-model",
         embedding_dimension=3,
         chunk_schema_version="test-schema",

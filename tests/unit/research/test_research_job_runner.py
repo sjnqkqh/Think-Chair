@@ -88,7 +88,7 @@ def _store_three_relevant_urls(evidence_index: ResearchEvidenceIndex) -> None:
 async def test_run_research_job_completes_when_evidence_sufficient(db_factory, tmp_path):
     job_id = _seed_job(db_factory())
     evidence_index = ResearchEvidenceIndex(
-        tmp_path / "chroma",
+        f"sqlite:///{tmp_path / 'evidence.db'}",
         embedding_model="test-model",
         embedding_dimension=3,
         chunk_schema_version="test-schema",
@@ -115,7 +115,7 @@ async def test_run_research_job_fails_when_web_research_yields_no_evidence(
 ):
     job_id = _seed_job(db_factory())
     evidence_index = ResearchEvidenceIndex(
-        tmp_path / "chroma-empty",
+        f"sqlite:///{tmp_path / 'evidence_empty.db'}",
         embedding_model="test-model",
         embedding_dimension=3,
         chunk_schema_version="test-schema",
@@ -143,7 +143,7 @@ async def test_run_research_job_fails_when_web_research_yields_no_evidence(
 async def test_run_research_job_keeps_cancelled_status_at_finish(db_factory, tmp_path):
     job_id = _seed_job(db_factory())
     evidence_index = ResearchEvidenceIndex(
-        tmp_path / "chroma-cancel",
+        f"sqlite:///{tmp_path / 'evidence_cancel.db'}",
         embedding_model="test-model",
         embedding_dimension=3,
         chunk_schema_version="test-schema",

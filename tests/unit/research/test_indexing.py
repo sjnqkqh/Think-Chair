@@ -115,7 +115,7 @@ async def _index_request(
         embeddings=embeddings or DeterministicFakeEmbedding(size=8),
         evidence_index=evidence_index
         or ResearchEvidenceIndex(
-            tmp_path / "chroma_db",
+            f"sqlite:///{tmp_path / 'evidence.db'}",
             embedding_model="test-model",
             embedding_dimension=8,
             chunk_schema_version="chunk-600-100-v1",
@@ -127,7 +127,7 @@ async def _index_request(
 def _count_indexed_chunks(
     evidence_index: ResearchEvidenceIndex, scope: str
 ) -> int:
-    return evidence_index.collections[scope].count()
+    return evidence_index.count_chunks(scope)
 
 
 async def test_reuses_public_source_and_adds_redirect_alias(db_session, tmp_path):
@@ -139,7 +139,7 @@ async def test_reuses_public_source_and_adds_redirect_alias(db_session, tmp_path
     first_job = _create_research_job(db_session, first_user, first_manuscript)
     second_job = _create_research_job(db_session, second_user, second_manuscript)
     evidence_index = ResearchEvidenceIndex(
-        tmp_path / "chroma_db",
+        f"sqlite:///{tmp_path / 'evidence.db'}",
         embedding_model="test-model",
         embedding_dimension=8,
         chunk_schema_version="chunk-600-100-v1",
@@ -181,9 +181,7 @@ async def test_reuses_public_source_and_adds_redirect_alias(db_session, tmp_path
     assert _count_indexed_chunks(evidence_index, "public") == original_count
     assert db_session.query(ResearchSource).count() == 1
     assert second.skipped_source_keys == ["source-key"]
-    metadata = evidence_index.collections["public"].get(
-        include=["metadatas"]
-    )["metadatas"]
+    metadata = evidence_index.list_metadatas("public")
     assert all(
         item["canonical_url"] == _make_fetched_source().canonical_url
         for item in metadata
@@ -196,7 +194,7 @@ async def test_indexes_source_when_requested_url_matches_canonical(db_session, t
     user, manuscript = _create_user_and_manuscript(db_session, "same-url")
     job = _create_research_job(db_session, user, manuscript)
     evidence_index = ResearchEvidenceIndex(
-        tmp_path / "chroma_db_same_url",
+        f"sqlite:///{tmp_path / 'evidence_same_url.db'}",
         embedding_model="test-model",
         embedding_dimension=8,
         chunk_schema_version="chunk-600-100-v1",
@@ -237,7 +235,7 @@ async def test_isolates_private_sources_by_owner_and_manuscript(db_session, tmp_
     first_job = _create_research_job(db_session, first_user, first_manuscript)
     second_job = _create_research_job(db_session, second_user, second_manuscript)
     evidence_index = ResearchEvidenceIndex(
-        tmp_path / "chroma_db",
+        f"sqlite:///{tmp_path / 'evidence.db'}",
         embedding_model="test-model",
         embedding_dimension=8,
         chunk_schema_version="chunk-600-100-v1",
@@ -314,7 +312,7 @@ async def test_cleans_failed_artifacts_and_retries_without_duplicates(
         sources=[_make_fetched_source()],
     )
     evidence_index = ResearchEvidenceIndex(
-        tmp_path / "chroma_db",
+        f"sqlite:///{tmp_path / 'evidence.db'}",
         embedding_model="test-model",
         embedding_dimension=8,
         chunk_schema_version="chunk-600-100-v1",
@@ -393,7 +391,7 @@ async def test_does_not_restore_excluded_source(db_session, tmp_path):
         sources=[_make_fetched_source()],
     )
     evidence_index = ResearchEvidenceIndex(
-        tmp_path / "chroma_db",
+        f"sqlite:///{tmp_path / 'evidence.db'}",
         embedding_model="test-model",
         embedding_dimension=8,
         chunk_schema_version="chunk-600-100-v1",
@@ -436,7 +434,7 @@ async def test_does_not_restore_excluded_source(db_session, tmp_path):
 def test_builds_the_selected_embeddings_and_evidence_index(tmp_path):
     """실제 색인 조립에서 합의한 OpenAI 모델·차원·Chroma 계약을 사용하도록 고정하는지 검증한다."""
     embeddings = create_research_embeddings("test-key")
-    evidence_index = create_research_evidence_index(tmp_path / "chroma_db")
+    evidence_index = create_research_evidence_index(f"sqlite:///{tmp_path / 'evidence.db'}")
 
     assert embeddings.model == "text-embedding-3-small"
     assert embeddings.dimensions == 1536
