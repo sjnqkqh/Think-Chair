@@ -7,7 +7,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings as default_settings
-from app.llm.chat_model_call_log import ChatModelCallLogger
+from app.llm.call_log import ChatModelCallLogger
 from app.logging import get_logger
 
 logger = get_logger(__name__)

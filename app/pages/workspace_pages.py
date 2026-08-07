@@ -8,7 +8,7 @@ from app.core.auth_deps import require_user
 from app.core.database import get_database_session
 from app.models.manuscript import ConceptType
 from app.models.user import User
-from app.services import manuscript_llm_settings_service
+from app.llm import manuscript_settings
 from app.services.chat_service import list_chat_messages
 from app.services.manuscript_service import (
     get_manuscript,
@@ -91,7 +91,7 @@ async def workspace_detail(
     manuscripts = get_manuscripts_list_by_user(db, user)
     active = get_manuscript(db, user, manuscript_id)
     messages = list_chat_messages(db, active.id)
-    llm_settings = manuscript_llm_settings_service.llm_settings_for_manuscript(
+    llm_settings = manuscript_settings.llm_settings_for_manuscript(
         db, active.id
     )
     return templates.TemplateResponse(
@@ -104,7 +104,7 @@ async def workspace_detail(
             "active_manuscript": active,
             "messages": messages,
             "versions": list_manuscript_versions(db, user, manuscript_id),
-            "llm_settings": manuscript_llm_settings_service.llm_settings_fields(
+            "llm_settings": manuscript_settings.llm_settings_fields(
                 llm_settings
             ),
         },

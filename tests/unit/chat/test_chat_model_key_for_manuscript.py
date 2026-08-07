@@ -2,7 +2,7 @@ import pytest
 
 from app.models.manuscript import ConceptType, Manuscript
 from app.models.user import User
-from app.services import manuscript_llm_settings_service
+from app.llm import manuscript_settings
 from app.services.chat_service import chat_model_key_for_manuscript
 import app.services.chat_service as chat_service_module
 
@@ -16,7 +16,7 @@ def test_chat_model_key_for_manuscript_uses_stored_settings(db_session, monkeypa
     manuscript = Manuscript(user_id=user.id, topic="t", concept=ConceptType.TIL)
     db_session.add(manuscript)
     db_session.commit()
-    manuscript_llm_settings_service.save_llm_settings_for_manuscript(
+    manuscript_settings.save_llm_settings_for_manuscript(
         db_session,
         manuscript.id,
         provider="openai",

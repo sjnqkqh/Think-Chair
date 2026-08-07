@@ -3,7 +3,7 @@ import uuid
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from app.graph.llm_registry import get as get_language_model
+from app.llm.registry import get as get_language_model
 from app.logging import get_logger
 from app.graph.prompts.classifier import CLASSIFIER
 from app.graph.router.sufficiency import is_conversation_sufficient

@@ -2,7 +2,7 @@ import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
-from app.graph import llm_registry
+from app.llm import registry as llm_registry
 from app.graph.chat_graph_runner import ChatGraphRunner
 from app.logging import get_logger
 from app.models.chat import ChatMessage
@@ -12,7 +12,7 @@ from app.models.user import User
 from app.repositories import chat_repo
 from app.research.evidence_need import detect_evidence_need
 from app.research.research_eligibility import concept_allows_web_research
-from app.services import manuscript_llm_settings_service
+from app.llm import manuscript_settings
 from app.services.background_tasks import BackgroundTaskRegistry
 from app.utils.sse import SseEvent
 
@@ -55,7 +55,7 @@ def chat_model_key_for_manuscript(
     log_choice: bool = False,
 ) -> str:
     """원고에 설정된 LLM으로 대화할 때 쓸 registry key를 반환한다."""
-    settings = manuscript_llm_settings_service.llm_settings_for_manuscript(
+    settings = manuscript_settings.llm_settings_for_manuscript(
         database_session, manuscript_id
     )
     if log_choice:

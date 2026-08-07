@@ -1,7 +1,7 @@
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from app.graph.llm_registry import get as get_language_model
+from app.llm.registry import get as get_language_model
 from app.graph.prompts import build_system_prompt
 from app.graph.prompts.phases.document_generation import (
     DOCUMENT_FINAL_GUARD,

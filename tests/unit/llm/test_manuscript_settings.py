@@ -2,7 +2,7 @@ import pytest
 
 from app.models.manuscript import ConceptType, Manuscript
 from app.models.user import User
-from app.services import manuscript_llm_settings_service as settings_service
+from app.llm import manuscript_settings as settings_service
 
 pytestmark = pytest.mark.unit
 

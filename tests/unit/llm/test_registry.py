@@ -1,6 +1,6 @@
 import pytest
 
-from app.graph import llm_registry
+from app.llm import registry as llm_registry
 
 pytestmark = pytest.mark.unit
 

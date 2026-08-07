@@ -2,7 +2,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from app.logging import get_logger
-from app.graph.llm_registry import get as get_language_model
+from app.llm.registry import get as get_language_model
 from app.graph.prompts.concepts import CONCEPT_TEMPLATES
 from app.graph.prompts.phases.evaluate import EVALUATE
 from app.graph.state import GraphState

@@ -15,7 +15,7 @@ from app.schemas.manuscript import (
     ManuscriptLlmSettingsResponse,
     ManuscriptResponse,
 )
-from app.services import manuscript_llm_settings_service
+from app.llm import manuscript_settings
 from app.services.manuscript_service import (
     create_manuscript,
     delete_manuscript,
@@ -95,7 +95,7 @@ def put_llm_settings(
 ):
     get_manuscript(db, user, manuscript_id)
     try:
-        settings = manuscript_llm_settings_service.save_llm_settings_for_manuscript(
+        settings = manuscript_settings.save_llm_settings_for_manuscript(
             db,
             manuscript_id,
             provider=payload.provider,
@@ -105,7 +105,7 @@ def put_llm_settings(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return ManuscriptLlmSettingsResponse(
-        **manuscript_llm_settings_service.llm_settings_fields(settings)
+        **manuscript_settings.llm_settings_fields(settings)
     )
 
 

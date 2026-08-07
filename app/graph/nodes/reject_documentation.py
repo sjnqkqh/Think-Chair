@@ -1,7 +1,7 @@
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from app.graph.llm_registry import get as get_language_model
+from app.llm.registry import get as get_language_model
 from app.graph.prompts.phases.document_readiness import INSUFFICIENT_CONTEXT_RESPONSE
 from app.graph.state import GraphState
 from app.graph.transcript import render_transcript
