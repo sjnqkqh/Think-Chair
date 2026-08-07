@@ -6,8 +6,21 @@ import math
 from typing import Any, Literal
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, String, Text, Column, MetaData, Table, create_engine, select, delete, text
+from sqlalchemy import (
+    JSON,
+    String,
+    Text,
+    Column,
+    MetaData,
+    Table,
+    create_engine,
+    select,
+    delete,
+    text,
+    inspect,
+)
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.orm import Session, sessionmaker
 
 EvidenceScope = Literal["public", "private"]
@@ -22,6 +35,73 @@ _CONTRACT_TABLE = "evidence_index_contracts"
 
 class EvidenceIndexContractMismatch(RuntimeError):
     pass
+
+
+class EvidenceSchemaMissing(RuntimeError):
+    """스키마 생성 스크립트를 아직 돌리지 않았을 때."""
+
+
+def ensure_evidence_schema_ddl(
+    database_url: str,
+    engine: Engine,
+    *,
+    embedding_model: str,
+    embedding_dimension: int,
+    chunk_schema_version: str,
+) -> None:
+    """근거 검색용 계약·청크 테이블과 기본 계약 행을 만든다 (이전/초기화 스크립트 전용)."""
+    use_sqlite = database_url.startswith("sqlite:")
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                f"""
+                CREATE TABLE IF NOT EXISTS {_CONTRACT_TABLE} (
+                    collection_name VARCHAR(128) PRIMARY KEY,
+                    embedding_model VARCHAR(255) NOT NULL,
+                    embedding_dimension INTEGER NOT NULL,
+                    chunk_schema_version VARCHAR(128) NOT NULL
+                )
+                """
+            )
+        )
+
+    metadata = MetaData()
+    embedding_type = JSON() if use_sqlite else Vector(embedding_dimension)
+    for collection_name in EVIDENCE_COLLECTION_NAMES.values():
+        table_name = f"evidence_chunks__{collection_name}"
+        table = Table(
+            table_name,
+            metadata,
+            Column("id", String(255), primary_key=True),
+            Column("document", Text, nullable=False),
+            Column("embedding", embedding_type, nullable=False),
+            Column("metadata_json", JSON, nullable=False),
+            extend_existing=True,
+        )
+        table.create(engine, checkfirst=True)
+        with engine.begin() as conn:
+            existing = conn.execute(
+                text(
+                    f"SELECT 1 FROM {_CONTRACT_TABLE} WHERE collection_name = :name"
+                ),
+                {"name": collection_name},
+            ).first()
+            if existing is None:
+                conn.execute(
+                    text(
+                        f"""
+                        INSERT INTO {_CONTRACT_TABLE}
+                        (collection_name, embedding_model, embedding_dimension, chunk_schema_version)
+                        VALUES (:name, :model, :dim, :schema)
+                        """
+                    ),
+                    {
+                        "name": collection_name,
+                        "model": embedding_model,
+                        "dim": embedding_dimension,
+                        "schema": chunk_schema_version,
+                    },
+                )
 
 
 def _is_sqlite(database_url: str) -> bool:
@@ -68,53 +148,34 @@ class ResearchEvidenceIndex:
         )
         self._metadata = MetaData()
         self._chunk_tables: dict[str, Table] = {}
-        self._ensure_extension()
-        self._ensure_contract_table()
         for scope, name in EVIDENCE_COLLECTION_NAMES.items():
             self._open_compatible_collection(name)
-
-    def _ensure_extension(self) -> None:
-        if self._sqlite:
-            return
-        with self.engine.begin() as conn:
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-
-    def _ensure_contract_table(self) -> None:
-        with self.engine.begin() as conn:
-            conn.execute(
-                text(
-                    f"""
-                    CREATE TABLE IF NOT EXISTS {_CONTRACT_TABLE} (
-                        collection_name VARCHAR(128) PRIMARY KEY,
-                        embedding_model VARCHAR(255) NOT NULL,
-                        embedding_dimension INTEGER NOT NULL,
-                        chunk_schema_version VARCHAR(128) NOT NULL
-                    )
-                    """
-                )
-            )
 
     def _chunk_table(self, collection_name: str) -> Table:
         if collection_name in self._chunk_tables:
             return self._chunk_tables[collection_name]
         table_name = f"evidence_chunks__{collection_name}"
-        embedding_type = (
-            JSON() if self._sqlite else Vector(self.embedding_dimension)
-        )
-        table = Table(
-            table_name,
-            self._metadata,
-            Column("id", String(255), primary_key=True),
-            Column("document", Text, nullable=False),
-            Column("embedding", embedding_type, nullable=False),
-            Column("metadata_json", JSON, nullable=False),
-            extend_existing=True,
-        )
-        table.create(self.engine, checkfirst=True)
+        if not inspect(self.engine).has_table(table_name):
+            raise EvidenceSchemaMissing(
+                f"{table_name} 이(가) 없습니다. "
+                "스키마 생성 스크립트(create_app_schema)를 먼저 실행하세요."
+            )
+        try:
+            table = Table(table_name, self._metadata, autoload_with=self.engine)
+        except NoSuchTableError as exc:
+            raise EvidenceSchemaMissing(
+                f"{table_name} 이(가) 없습니다. "
+                "스키마 생성 스크립트(create_app_schema)를 먼저 실행하세요."
+            ) from exc
         self._chunk_tables[collection_name] = table
         return table
 
     def _open_compatible_collection(self, name: str) -> None:
+        if not inspect(self.engine).has_table(_CONTRACT_TABLE):
+            raise EvidenceSchemaMissing(
+                f"{_CONTRACT_TABLE} 이(가) 없습니다. "
+                "스키마 생성 스크립트(create_app_schema)를 먼저 실행하세요."
+            )
         with self._session_factory() as session:
             row = session.execute(
                 text(
@@ -124,32 +185,19 @@ class ResearchEvidenceIndex:
                 {"name": name},
             ).mappings().first()
             if row is None:
-                session.execute(
-                    text(
-                        f"""
-                        INSERT INTO {_CONTRACT_TABLE}
-                        (collection_name, embedding_model, embedding_dimension, chunk_schema_version)
-                        VALUES (:name, :model, :dim, :schema)
-                        """
-                    ),
-                    {
-                        "name": name,
-                        "model": self.index_contract["embedding_model"],
-                        "dim": self.index_contract["embedding_dimension"],
-                        "schema": self.index_contract["chunk_schema_version"],
-                    },
+                raise EvidenceSchemaMissing(
+                    f"{name} 계약 행이 없습니다. "
+                    "스키마 생성 스크립트(create_app_schema)를 먼저 실행하세요."
                 )
-                session.commit()
-            else:
-                existing = {
-                    "embedding_model": row["embedding_model"],
-                    "embedding_dimension": int(row["embedding_dimension"]),
-                    "chunk_schema_version": row["chunk_schema_version"],
-                }
-                if existing != self.index_contract:
-                    raise EvidenceIndexContractMismatch(
-                        f"{name} uses a different embedding contract"
-                    )
+            existing = {
+                "embedding_model": row["embedding_model"],
+                "embedding_dimension": int(row["embedding_dimension"]),
+                "chunk_schema_version": row["chunk_schema_version"],
+            }
+            if existing != self.index_contract:
+                raise EvidenceIndexContractMismatch(
+                    f"{name} uses a different embedding contract"
+                )
         self._chunk_table(name)
 
     def _collection_name(self, scope: EvidenceScope) -> str:

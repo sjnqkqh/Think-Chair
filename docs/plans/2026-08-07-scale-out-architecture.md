@@ -125,7 +125,7 @@ main
 | 앱 ORM 테이블 | `rag_history.db`(SQLite) | Postgres | 사용자·원고·채팅·조사 job/출처 메타 등 |
 | 근거 벡터 | Chroma 디렉터리 | pgvector 테이블 | 덤프 이전이 어려우면 **저장된 원문 기준 재인덱싱** 절차로 대체 가능. 어느 쪽이든 문서화·검증 필수 |
 | 대화 이어가기 | `draftsmith_checkpoint.db` | Postgres checkpointer | 포맷 호환이 안 되면 **빈 checkpointer로 재시작**을 명시하되, 앱 메타·채팅 화면 이력과의 관계를 README/스크립트에 적는다 |
-| 스키마 | — | Postgres 테이블·확장 | 런타임 `ALTER` 금지. ORM `create_all` + checkpointer `setup` + 근거 테이블 생성을 **한 번에 재현하는 스크립트/문서**로 고정 |
+| 스키마 | — | Postgres 테이블·확장 | **이전/초기화 스크립트**가 처음 생성. 앱 기동은 스키마를 만들지 않음. 이후 구조 변경은 개발자 마이그레이션 |
 
 ---
 
@@ -234,9 +234,10 @@ main
 
 **할 일**
 
-1. **스키마 재현**
-   - 빈 Postgres에 앱 ORM 테이블·checkpointer 테이블·근거(pgvector) 테이블·`vector` 확장을 한 번에 만드는 절차/스크립트
-   - 앱 기동 시 숨은 `ALTER` 금지. 실패 시 로그로 원인을 알 수 있게
+1. **스키마 생성 (스크립트)**
+   - 이전/초기화 스크립트가 `vector` 확장, 앱 테이블, 근거 검색 테이블, 대화 그래프 저장 테이블을 만듦
+   - **앱 기동에서는 테이블을 만들지 않음**
+   - 이후 컬럼 추가 등은 개발자가 별도 마이그레이션으로 처리
 
 2. **앱 데이터 이전**
    - 기존 SQLite(`rag_history.db` 등) → Postgres로 행 복사
@@ -257,11 +258,11 @@ main
 
 **완료 조건**
 
-- [ ] 빈 Postgres에서 스키마 재현 스크립트/절차가 성공한다
+- [ ] 이전 스크립트로 스키마가 만들어진다 (앱 기동만으로는 테이블이 생기지 않는다)
 - [ ] 샘플 SQLite 앱 DB를 넣으면 Postgres에 동일 건수·핵심 행이 보인다
-- [ ] 벡터: 이전 또는 재인덱싱 후 `query_chunks`로 근거를 찾을 수 있다
-- [ ] checkpointer 이전 또는 “재시작” 정책이 문서에 명시되어 있다
-- [ ] 관련 테스트(스크립트 단위 또는 통합 스모크)와 `uv run ruff check app tests`
+- [ ] 벡터: 이전 또는 재인덱싱 후 근거 검색이 된다
+- [ ] 대화 그래프 상태 이전 또는 “비우고 시작” 정책이 문서에 있다
+- [ ] 관련 테스트와 `uv run ruff check app tests`
 
 **PR 제목:** `feat: SQLite/Chroma에서 Postgres/pgvector로 데이터 마이그레이션`
 

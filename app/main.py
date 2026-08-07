@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.endpoints import router as api_router
 from app.core.config import settings
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import SessionLocal
 from app.core.error_handlers import register_exception_handlers
 from app.core.storage import get_file_storage
 from app.llm import registry as llm_registry
@@ -26,8 +26,7 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
 )
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# 스키마 생성은 앱 기동이 아니라 이전/초기화 스크립트(create_app_schema)가 담당한다.
 
 llm_registry.bootstrap(settings)
 
@@ -35,15 +34,13 @@ llm_registry.bootstrap(settings)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # LangGraph 체크포인터는 앱 생명주기 동안 열려있어야 하므로 AsyncExitStack으로 관리한다.
+    # 체크포인트 테이블도 스키마 스크립트에서 미리 만든다 (기동 시 setup 호출 없음).
     async with AsyncExitStack() as stack:
         if settings.LLM_STARTUP_VERIFY:
             llm_registry.verify_configured_providers(settings)
         checkpointer = await stack.enter_async_context(
             make_checkpointer(settings.DATABASE_URL)
         )
-        setup = getattr(checkpointer, "setup", None)
-        if setup is not None:
-            await setup()
         graph = apply_langfeather(build_graph(checkpointer))
         app.state.graph = graph
         graph_runner = ChatGraphRunner(

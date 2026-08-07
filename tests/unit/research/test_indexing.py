@@ -19,9 +19,9 @@ from app.research.contracts import (
     ResearchIndexRequest,
 )
 from app.research.evidence_index import ResearchEvidenceIndex
+from tests.research_evidence_db import open_prepared_evidence_index
 from app.research.indexing import (
     create_research_embeddings,
-    create_research_evidence_index,
     index_research_sources,
 )
 from app.research.source_chunking import CHUNK_OVERLAP, CHUNK_SIZE
@@ -114,7 +114,7 @@ async def _index_request(
         storage=LocalFileStorage(tmp_path / "storage"),
         embeddings=embeddings or DeterministicFakeEmbedding(size=8),
         evidence_index=evidence_index
-        or ResearchEvidenceIndex(
+        or open_prepared_evidence_index(
             f"sqlite:///{tmp_path / 'evidence.db'}",
             embedding_model="test-model",
             embedding_dimension=8,
@@ -138,7 +138,7 @@ async def test_reuses_public_source_and_adds_redirect_alias(db_session, tmp_path
     )
     first_job = _create_research_job(db_session, first_user, first_manuscript)
     second_job = _create_research_job(db_session, second_user, second_manuscript)
-    evidence_index = ResearchEvidenceIndex(
+    evidence_index = open_prepared_evidence_index(
         f"sqlite:///{tmp_path / 'evidence.db'}",
         embedding_model="test-model",
         embedding_dimension=8,
@@ -193,7 +193,7 @@ async def test_indexes_source_when_requested_url_matches_canonical(db_session, t
     """요청 URL과 canonical URL이 같아도 URL alias UNIQUE 충돌 없이 인덱싱한다."""
     user, manuscript = _create_user_and_manuscript(db_session, "same-url")
     job = _create_research_job(db_session, user, manuscript)
-    evidence_index = ResearchEvidenceIndex(
+    evidence_index = open_prepared_evidence_index(
         f"sqlite:///{tmp_path / 'evidence_same_url.db'}",
         embedding_model="test-model",
         embedding_dimension=8,
@@ -234,7 +234,7 @@ async def test_isolates_private_sources_by_owner_and_manuscript(db_session, tmp_
     )
     first_job = _create_research_job(db_session, first_user, first_manuscript)
     second_job = _create_research_job(db_session, second_user, second_manuscript)
-    evidence_index = ResearchEvidenceIndex(
+    evidence_index = open_prepared_evidence_index(
         f"sqlite:///{tmp_path / 'evidence.db'}",
         embedding_model="test-model",
         embedding_dimension=8,
@@ -311,7 +311,7 @@ async def test_cleans_failed_artifacts_and_retries_without_duplicates(
         manuscript_id=manuscript.id,
         sources=[_make_fetched_source()],
     )
-    evidence_index = ResearchEvidenceIndex(
+    evidence_index = open_prepared_evidence_index(
         f"sqlite:///{tmp_path / 'evidence.db'}",
         embedding_model="test-model",
         embedding_dimension=8,
@@ -390,7 +390,7 @@ async def test_does_not_restore_excluded_source(db_session, tmp_path):
         manuscript_id=manuscript.id,
         sources=[_make_fetched_source()],
     )
-    evidence_index = ResearchEvidenceIndex(
+    evidence_index = open_prepared_evidence_index(
         f"sqlite:///{tmp_path / 'evidence.db'}",
         embedding_model="test-model",
         embedding_dimension=8,
@@ -434,7 +434,12 @@ async def test_does_not_restore_excluded_source(db_session, tmp_path):
 def test_builds_the_selected_embeddings_and_evidence_index(tmp_path):
     """실제 색인 조립에서 합의한 OpenAI 모델·차원·Chroma 계약을 사용하도록 고정하는지 검증한다."""
     embeddings = create_research_embeddings("test-key")
-    evidence_index = create_research_evidence_index(f"sqlite:///{tmp_path / 'evidence.db'}")
+    evidence_index = open_prepared_evidence_index(
+        f"sqlite:///{tmp_path / 'evidence.db'}",
+        embedding_model="text-embedding-3-small",
+        embedding_dimension=1536,
+        chunk_schema_version="chunk-600-100-v1",
+    )
 
     assert embeddings.model == "text-embedding-3-small"
     assert embeddings.dimensions == 1536

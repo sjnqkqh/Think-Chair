@@ -2,19 +2,19 @@ from uuid import uuid4
 
 import pytest
 
-from app.research.evidence_index import ResearchEvidenceIndex
+from app.research.contracts import EvidenceRequest
 from app.research.retrieval import (
     MIN_DISTINCT_RELEVANT_URLS,
     MIN_RELEVANCE_SCORE,
     retrieve_evidence,
 )
-from app.research.contracts import EvidenceRequest
+from tests.research_evidence_db import open_prepared_evidence_index
 
 pytestmark = pytest.mark.unit
 
 
-def _index(tmp_path) -> ResearchEvidenceIndex:
-    return ResearchEvidenceIndex(
+def _index(tmp_path):
+    return open_prepared_evidence_index(
         f"sqlite:///{tmp_path / 'evidence.db'}",
         embedding_model="test-model",
         embedding_dimension=3,

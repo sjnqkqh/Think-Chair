@@ -8,6 +8,7 @@ from app.models.manuscript import ConceptType, Manuscript, ManuscriptStatus
 from app.models.research import ResearchJob, ResearchJobStatus
 from app.models.user import User
 from app.research.evidence_index import ResearchEvidenceIndex
+from tests.research_evidence_db import open_prepared_evidence_index
 from app.research.research_job_runner import run_research_job
 from tests.db_setup import prepare_test_database
 
@@ -87,7 +88,7 @@ def _store_three_relevant_urls(evidence_index: ResearchEvidenceIndex) -> None:
 @pytest.mark.asyncio
 async def test_run_research_job_completes_when_evidence_sufficient(db_factory, tmp_path):
     job_id = _seed_job(db_factory())
-    evidence_index = ResearchEvidenceIndex(
+    evidence_index = open_prepared_evidence_index(
         f"sqlite:///{tmp_path / 'evidence.db'}",
         embedding_model="test-model",
         embedding_dimension=3,
@@ -114,7 +115,7 @@ async def test_run_research_job_fails_when_web_research_yields_no_evidence(
     db_factory, tmp_path
 ):
     job_id = _seed_job(db_factory())
-    evidence_index = ResearchEvidenceIndex(
+    evidence_index = open_prepared_evidence_index(
         f"sqlite:///{tmp_path / 'evidence_empty.db'}",
         embedding_model="test-model",
         embedding_dimension=3,
@@ -142,7 +143,7 @@ async def test_run_research_job_fails_when_web_research_yields_no_evidence(
 @pytest.mark.asyncio
 async def test_run_research_job_keeps_cancelled_status_at_finish(db_factory, tmp_path):
     job_id = _seed_job(db_factory())
-    evidence_index = ResearchEvidenceIndex(
+    evidence_index = open_prepared_evidence_index(
         f"sqlite:///{tmp_path / 'evidence_cancel.db'}",
         embedding_model="test-model",
         embedding_dimension=3,
