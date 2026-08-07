@@ -7,7 +7,7 @@
 
 ## 한 줄 요약
 
-공유 DB·벡터·대화 이어가기 저장을 Postgres/pgVector로 모으고, 조사·문서 생성 같은 긴 일은 웹과 별도 워커 프로세스(Celery + Redis)로 옮긴다. 원고 파일 저장소는 이번 범위 밖이다.
+공유 DB·벡터·대화 이어가기 저장을 Postgres/pgVector로 모으고, **기존 SQLite/Chroma 데이터 마이그레이션**을 포함하며, 조사·문서 생성 같은 긴 일은 웹과 별도 워커 프로세스(Celery + Redis)로 옮긴다. 원고 파일 저장소는 이번 범위 밖이다.
 
 리뷰는 **큰 묶음 브랜치가 아니라 작업 단위 PR**로 한다. 브랜치가 깊어져도 된다.
 
@@ -20,10 +20,11 @@
 | 앱 DB | SQLite 파일 | PostgreSQL |
 | 대화·그래프 이어가기 저장 | SQLite 파일 (`AsyncSqliteSaver`) | PostgreSQL용 checkpointer |
 | 벡터 검색 | 로컬 Chroma | PostgreSQL pgvector |
+| DB 마이그레이션 | 없음 (빈 DB `create_all`만) | 기존 SQLite·Chroma 데이터를 Postgres/pgvector로 옮기는 **재현 가능 절차·스크립트** |
 | 긴 일 실행 | 웹 프로세스 안 `asyncio.create_task` | 웹은 등록만, 워커가 실행 (Celery + Redis) |
 | 문서 생성 | ACK만 보내고 Task에 던짐 | 조사처럼 DB에 남는 작업 행 + 워커 실행 |
 | Compose | 앱 1개 + `/data` 볼륨 | Postgres, Redis, web, worker |
-| 문서·의존성 | SQLite/Chroma 전제 | 로컬 기동·환경변수·실행 방법 갱신 |
+| 문서·의존성 | SQLite/Chroma 전제 | 로컬 기동·환경변수·실행 방법·마이그레이션 실행법 갱신 |
 
 ### 하지 않는다 (다음 단계)
 
@@ -60,7 +61,8 @@ main
         │     ├─ .../1a-compose-postgres      ← PR 1a → 1-shared-db
         │     ├─ .../1b-app-db                ← PR 1b → 1-shared-db
         │     ├─ .../1c-checkpointer          ← PR 1c → 1-shared-db
-        │     └─ .../1d-pgvector              ← PR 1d → 1-shared-db
+        │     ├─ .../1d-pgvector              ← PR 1d → 1-shared-db
+        │     └─ .../1e-db-migration          ← PR 1e → 1-shared-db (데이터·스키마 이전)
         │           (1-shared-db → task 로 한 번 더 PR 가능)
         ├─ task/scale-out-2-workers           ← 단계 2 통합 (단계 1이 task에 들어간 뒤)
         │     ├─ .../2a-redis-celery-skeleton ← PR 2a → 2-workers
@@ -79,16 +81,17 @@ main
 ### 머지 순서 (잎 PR)
 
 ```text
-1a → 1b → 1c → 1d
+1a → 1b → 1c → 1d → 1e
               ↘
-               단계1 → task
+               단계1 → task   ※ 1e(마이그레이션) 없이 단계1 완료로 보지 않음
                         ↓
 2a → 2b → 2c → 2d → 단계2 → task
                               ↓
                          3a → 단계3 → task → main
 ```
 
-`1c`(checkpointer)와 `1d`(pgvector)는 둘 다 `1b`(앱 DB) 이후다. **서로 파일 충돌이 적으면 병행 개발 가능**, 머지는 `1c` 다음 `1d`(또는 그 반대)로 직렬화한다.
+`1c`(checkpointer)와 `1d`(pgvector)는 둘 다 `1b`(앱 DB) 이후다. **서로 파일 충돌이 적으면 병행 개발 가능**, 머지는 `1c` 다음 `1d`(또는 그 반대)로 직렬화한다.  
+`1e`는 **1b·1c·1d가 단계1 브랜치에 반영된 뒤**에만 연다.
 
 `2b`(문서 작업 행)는 Celery 없이도 가능하므로 `2a` 직후. `2c`·`2d`는 `2a`+해당 실행 경로 준비 후.
 
@@ -100,6 +103,7 @@ main
 | A2 | 1b 앱 DB | **1a 머지** |
 | A3 | 1c checkpointer | **1b 머지** |
 | A4 | 1d pgvector | **1b 머지** (1c와 병행 개발 가능) |
+| A5 | 1e DB 마이그레이션 | **1b·1c·1d가 단계1에 반영** |
 | B1 | 2a Redis·Celery 골격 | **단계1이 task에 머지** |
 | B2 | 2b 문서 작업 행 | **2a 머지** (또는 2a와 순차) |
 | B3 | 2c 조사 → Celery | **2a 머지**, 조사 실행 함수 유지 |
@@ -112,9 +116,16 @@ main
 - PR 본문에 아래 해당 절의 완료 조건을 체크리스트로 붙인다.
 - 리뷰어는 잎 PR만 따라가면 전체 진행을 볼 수 있다.
 
-### 데이터 이전
+### 데이터·스키마 마이그레이션 (필수)
 
-기본안: **개발·로컬은 새로 시작** (SQLite/Chroma 자동 이전 없음). 운영 이전이 필요하면 별도 이슈.
+코드만 Postgres를 가리키게 바꾸는 것으로 단계1을 끝내지 않는다. **기존 볼륨/로컬에 있던 데이터를 옮기는 절차**가 잎 PR `1e`로 반드시 들어간다.
+
+| 대상 | 소스 | 목표 | 비고 |
+|------|------|------|------|
+| 앱 ORM 테이블 | `rag_history.db`(SQLite) | Postgres | 사용자·원고·채팅·조사 job/출처 메타 등 |
+| 근거 벡터 | Chroma 디렉터리 | pgvector 테이블 | 덤프 이전이 어려우면 **저장된 원문 기준 재인덱싱** 절차로 대체 가능. 어느 쪽이든 문서화·검증 필수 |
+| 대화 이어가기 | `draftsmith_checkpoint.db` | Postgres checkpointer | 포맷 호환이 안 되면 **빈 checkpointer로 재시작**을 명시하되, 앱 메타·채팅 화면 이력과의 관계를 README/스크립트에 적는다 |
+| 스키마 | — | Postgres 테이블·확장 | 런타임 `ALTER` 금지. ORM `create_all` + checkpointer `setup` + 근거 테이블 생성을 **한 번에 재현하는 스크립트/문서**로 고정 |
 
 ---
 
@@ -216,10 +227,52 @@ main
 
 ---
 
+### PR 1e — DB 마이그레이션 (스키마·데이터)
+
+브랜치: `task/scale-out-1e-db-migration` → base `task/scale-out-1-shared-db`  
+선행: **1b·1c·1d가 단계1에 반영**
+
+**할 일**
+
+1. **스키마 재현**
+   - 빈 Postgres에 앱 ORM 테이블·checkpointer 테이블·근거(pgvector) 테이블·`vector` 확장을 한 번에 만드는 절차/스크립트
+   - 앱 기동 시 숨은 `ALTER` 금지. 실패 시 로그로 원인을 알 수 있게
+
+2. **앱 데이터 이전**
+   - 기존 SQLite(`rag_history.db` 등) → Postgres로 행 복사
+   - FK 순서·UUID·Enum 값 보존
+   - dry-run(건수 비교)과 실제 적용을 구분
+
+3. **근거 벡터**
+   - Chroma → pgvector 직접 이전이 가능하면 스크립트
+   - 아니면 저장된 조사 원문·메타로 **재인덱싱**하는 공식 절차
+   - 어느 쪽이든 “이전 후 검색이 된다”를 검증 방법에 포함
+
+4. **대화 이어가기**
+   - checkpointer SQLite → Postgres 이전이 가능하면 포함
+   - 불가 시 빈 Postgres checkpointer로 두고, 채팅 화면 이력(DB)과 그래프 재개 상태의 차이를 문서에 명시
+
+5. **실행 문서**
+   - 명령·환경변수·백업(원본 SQLite/Chroma 보존)·롤백(원본으로 되돌리기)을 README 조각 또는 `docs/`에 적음 (최종 README 정리는 3a와 중복돼도 1e에 최소 실행법 필요)
+
+**완료 조건**
+
+- [ ] 빈 Postgres에서 스키마 재현 스크립트/절차가 성공한다
+- [ ] 샘플 SQLite 앱 DB를 넣으면 Postgres에 동일 건수·핵심 행이 보인다
+- [ ] 벡터: 이전 또는 재인덱싱 후 `query_chunks`로 근거를 찾을 수 있다
+- [ ] checkpointer 이전 또는 “재시작” 정책이 문서에 명시되어 있다
+- [ ] 관련 테스트(스크립트 단위 또는 통합 스모크)와 `uv run ruff check app tests`
+
+**PR 제목:** `feat: SQLite/Chroma에서 Postgres/pgvector로 데이터 마이그레이션`
+
+**이 PR만 보면 되는 이유:** 1a~1d는 런타임이 새 저장소를 **쓰게** 하고, 1e는 기존 데이터를 **옮긴다**. 구조 전환과 데이터 전환을 리뷰 단위로 분리한다.
+
+---
+
 ### 단계 1 → Task
 
 `task/scale-out-1-shared-db` → `task/scale-out-architecture`  
-1a~1d가 모두 들어간 뒤. 통합 스모크만 확인하고 Task로 올린다.
+**1a~1e가 모두 들어간 뒤.** 코드 전환만으로 단계1 완료로 치지 않는다.
 
 ---
 
@@ -367,6 +420,7 @@ main
 | 1b | 앱 DB → Postgres | 단계1 | 1a |
 | 1c | checkpointer → Postgres | 단계1 | 1b |
 | 1d | Chroma → pgvector | 단계1 | 1b |
+| 1e | SQLite/Chroma → Postgres 마이그레이션 | 단계1 | 1b~1d |
 | 2a | Redis·Celery·worker Compose | 단계2 | 단계1→task |
 | 2b | 문서 생성 DB 작업 행 | 단계2 | 2a |
 | 2c | 조사 → Celery | 단계2 | 2a |
@@ -380,9 +434,12 @@ flowchart TB
     p1b[1b 앱 DB]
     p1c[1c checkpointer]
     p1d[1d pgvector]
+    p1e[1e DB 마이그레이션]
     p1a --> p1b
     p1b --> p1c
     p1b --> p1d
+    p1c --> p1e
+    p1d --> p1e
   end
   subgraph s2[단계2]
     p2a[2a Redis Celery 골격]
@@ -402,6 +459,7 @@ flowchart TB
 ## 검증 (Task → main 전)
 
 - [ ] `docker compose up`으로 Postgres·Redis·web·worker가 기동한다
+- [ ] 마이그레이션 후 기존 사용자·원고·채팅 메타가 Postgres에 있다
 - [ ] 웹 재시작 사이에 로그인·원고·채팅 메타가 공유된다
 - [ ] 조사 job 생성 후 웹 재시작해도 워커가 끝낼 수 있다
 - [ ] 문서 생성 작업이 DB 상태로 남고 워커가 실행한다
