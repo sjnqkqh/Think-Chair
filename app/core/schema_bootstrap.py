@@ -1,6 +1,6 @@
-"""앱 기동·컷오버가 공유하는 스키마 DDL.
+"""이전/초기화 스크립트용 스키마 생성.
 
-CREATE / IF NOT EXISTS 만 수행한다. 기존 테이블에 대한 ALTER 패치는 하지 않는다.
+앱 기동에서는 호출하지 않는다. 테이블 구조 변경(ALTER)도 여기서 하지 않는다.
 """
 
 from __future__ import annotations
@@ -13,16 +13,34 @@ from app.core.database import Base, is_sqlite_url
 from app.research.evidence_index import ensure_evidence_schema_ddl
 
 
-def apply_runtime_ddl(database_url: str, engine: Engine) -> None:
-    """런타임에 필요한 DDL을 실행한다.
+def create_app_schema(
+    database_url: str,
+    engine: Engine,
+    *,
+    embedding_model: str = "text-embedding-3-small",
+    embedding_dimension: int = 1536,
+    chunk_schema_version: str | None = None,
+) -> None:
+    """PostgreSQL/SQLite에 앱·근거 검색용 테이블을 만든다.
 
     - Postgres: ``vector`` 확장
-    - 앱 ORM 테이블 (``create_all``)
-    - 근거 인덱스 계약·청크 테이블용 최소 DDL (확장·계약 테이블)
+    - 앱 ORM 테이블
+    - 근거 계약·청크 테이블과 기본 계약 행
     """
+    if chunk_schema_version is None:
+        from app.research.source_chunking import CHUNK_SCHEMA_VERSION
+
+        chunk_schema_version = CHUNK_SCHEMA_VERSION
+
     if not is_sqlite_url(database_url):
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
     Base.metadata.create_all(bind=engine)
-    ensure_evidence_schema_ddl(database_url, engine)
+    ensure_evidence_schema_ddl(
+        database_url,
+        engine,
+        embedding_model=embedding_model,
+        embedding_dimension=embedding_dimension,
+        chunk_schema_version=chunk_schema_version,
+    )

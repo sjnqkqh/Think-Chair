@@ -1,25 +1,32 @@
-"""런타임 스키마 DDL 단위 테스트."""
+"""스키마 생성(이전/초기화 스크립트용) 단위 테스트."""
 
 from sqlalchemy import inspect, text
 
 from app.core.database import build_engine
-from app.core.schema_bootstrap import apply_runtime_ddl
+from app.core.schema_bootstrap import create_app_schema
 
 
-def test_apply_runtime_ddl_creates_orm_and_evidence_contract(tmp_path):
+def test_create_app_schema_makes_orm_and_evidence_tables(tmp_path):
     url = f"sqlite:///{tmp_path / 'boot.db'}"
     engine = build_engine(url)
-    apply_runtime_ddl(url, engine)
+    create_app_schema(
+        url,
+        engine,
+        embedding_model="test-model",
+        embedding_dimension=3,
+        chunk_schema_version="test-schema",
+    )
 
     inspector = inspect(engine)
     assert "users" in inspector.get_table_names()
     assert "manuscripts" in inspector.get_table_names()
+    assert "evidence_chunks__research_public_v1" in inspector.get_table_names()
     with engine.connect() as conn:
         row = conn.execute(
             text(
-                "SELECT name FROM sqlite_master "
-                "WHERE type='table' AND name='evidence_index_contracts'"
+                "SELECT embedding_model FROM evidence_index_contracts "
+                "WHERE collection_name = 'research_public_v1'"
             )
         ).scalar_one()
-    assert row == "evidence_index_contracts"
+    assert row == "test-model"
     engine.dispose()

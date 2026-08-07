@@ -1,26 +1,22 @@
-# SQLite → Postgres 컷오버
+# SQLite → Postgres 이전
 
 기존 단일 노드 볼륨의 SQLite 앱 DB를 Compose Postgres로 옮긴다.
-근거 벡터(Chroma)와 LangGraph checkpointer SQLite는 **덤프 이전하지 않는다**.
+근거 벡터(Chroma)와 대화 그래프용 SQLite 파일은 **통째로 복사하지 않는다**.
+
+## 역할 구분
+
+| 일 | 담당 |
+|----|------|
+| 테이블·확장 **처음 만들기** | 이전/초기화 **파이썬 스크립트** (`create_app_schema` 등) |
+| 이미 있는 DB의 **구조 변경** | 개발자가 별도 SQL/마이그레이션으로 |
+| 서버 기동 | 이미 있는 테이블만 사용. 스키마를 만들지 않음 |
+| SQLite → Postgres **행 복사** | 같은 이전 스크립트, 한 번 |
 
 ## 전제
 
-- 단계1 코드(앱 DB·checkpointer·pgvector 런타임)가 이미 반영된 환경
 - 원본 `rag_history.db` 백업을 남겨 둔다
-- 대상 Postgres는 Compose `db` 서비스 (또는 동등 URL)
-
-## 런타임 DDL (이 컷오버의 정책)
-
-앱 기동 시 다음 DDL을 **런타임에서 실행**한다 (`app/core/schema_bootstrap.py`).
-
-- Postgres: `CREATE EXTENSION IF NOT EXISTS vector`
-- 앱 ORM: `Base.metadata.create_all`
-- 근거 인덱스: `evidence_index_contracts` 테이블 `CREATE TABLE IF NOT EXISTS`
-- lifespan: LangGraph checkpointer `setup()` (체크포인트 테이블 CREATE)
-
-컷오버 스크립트 `ensure_postgres_schema`도 **같은 `apply_runtime_ddl`** 을 호출한 뒤 checkpointer `setup`을 돌린다.
-
-컬럼 추가·타입 변경용 `ALTER TABLE` 패치는 하지 않는다.
+- 대상은 Compose `db` (또는 동등 URL)
+- 앱을 올리기 **전에** 스키마 스크립트를 한 번 돌린다
 
 ## 절차
 
@@ -39,7 +35,7 @@ uv run python scripts/migrate_sqlite_to_postgres.py \
   --dry-run
 ```
 
-3. 스키마 DDL + 데이터 복사
+3. 스키마 생성 + 데이터 복사
 
 ```bash
 uv run python scripts/migrate_sqlite_to_postgres.py \
@@ -47,7 +43,7 @@ uv run python scripts/migrate_sqlite_to_postgres.py \
   --postgres-url postgresql+psycopg://thinkchair:thinkchair@localhost:5432/thinkchair
 ```
 
-이후 웹을 올리면 기동 시 동일 DDL이 다시 적용된다(IF NOT EXISTS라 멱등).
+이 단계에서 `vector` 확장, 앱 테이블, 근거 검색 테이블, 대화 그래프 저장 테이블을 만든다.
 
 4. 벡터 재인덱싱 대상 확인
 
@@ -55,17 +51,14 @@ uv run python scripts/migrate_sqlite_to_postgres.py \
 uv run python scripts/migrate_sqlite_to_postgres.py --list-reindex-targets
 ```
 
-`INDEXED`인 `research_sources`는 원문(`storage_key`)을 기준으로 pgvector에 다시 넣어야 한다.
-Chroma 디렉터리 덤프 이전은 제공하지 않는다.
+`INDEXED`인 조사 원문은 저장된 파일을 기준으로 벡터를 다시 넣어야 한다.
 
 5. 대화 이어가기
 
-- `draftsmith_checkpoint.db`는 이전하지 않는다
-- Postgres checkpointer는 스키마만 만들고 비운다
-- 채팅 **화면 이력**은 앱 DB `chat_messages` 행을 따른다
-- 그래프 중간 상태 재개는 새 대화부터 유효하다
+- 옛 대화 그래프 SQLite 파일은 이전하지 않는다
+- Postgres 쪽 그래프 저장은 비운 채로 둔다
+- 채팅 **화면 이력**은 앱 DB `chat_messages`를 따른다
 
 ## 롤백
 
-- 앱 `DATABASE_URL`을 다시 SQLite로 돌리지 않는 것이 기본이다 (단계1 이후 런타임은 Postgres)
-- 데이터가 깨졌으면 Postgres 볼륨을 비우고, 보관한 `rag_history.db`로 3을 다시 실행한다
+- Postgres 볼륨을 비우고, 보관한 `rag_history.db`로 3을 다시 실행한다

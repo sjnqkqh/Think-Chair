@@ -1,8 +1,7 @@
 """SQLite 앱 DB → Postgres 스키마·데이터 이전.
 
-이 컷오버에서는 앱 런타임도 동일 DDL을 실행한다
-(``apply_runtime_ddl`` + checkpointer ``setup``).
-컬럼 패치용 ``ALTER TABLE`` 은 하지 않는다.
+스키마 생성은 ``create_app_schema`` + 대화 그래프 저장 테이블 준비로만 한다.
+앱 기동에서는 테이블을 만들지 않는다. 컬럼 패치용 ALTER도 하지 않는다.
 """
 
 from __future__ import annotations
@@ -17,7 +16,7 @@ from sqlalchemy.engine import Engine
 
 import app.models  # noqa: F401 — Base.metadata 등록
 from app.core.database import build_engine, is_sqlite_url
-from app.core.schema_bootstrap import apply_runtime_ddl
+from app.core.schema_bootstrap import create_app_schema
 
 # FK를 깨지 않는 복사 순서
 APP_TABLE_ORDER: tuple[str, ...] = (
@@ -56,13 +55,13 @@ class MigrationReport:
 
 
 def ensure_postgres_schema(database_url: str) -> None:
-    """앱 런타임과 같은 DDL을 Postgres에 적용한 뒤 checkpointer 테이블을 만든다."""
+    """이전 스크립트용: 앱·근거 테이블과 대화 그래프 저장 테이블을 만든다."""
     if is_sqlite_url(database_url):
         raise ValueError("ensure_postgres_schema requires a Postgres DATABASE_URL")
 
     engine = build_engine(database_url)
     try:
-        apply_runtime_ddl(database_url, engine)
+        create_app_schema(database_url, engine)
     finally:
         engine.dispose()
 
@@ -128,7 +127,7 @@ def copy_app_tables(
     try:
         if not dry_run:
             target = build_engine(target_url)
-            apply_runtime_ddl(target_url, target)
+            create_app_schema(target_url, target)
 
         target_wants_uuid = target is not None and not is_sqlite_url(target_url)
 
@@ -220,8 +219,8 @@ def migrate_sqlite_file_to_postgres(
         ensure_postgres_schema(postgres_url)
         report.schema_ok = True
         report.notes.append(
-            "스키마 DDL은 앱 런타임(apply_runtime_ddl + checkpointer setup)과 "
-            "동일한 경로로 적용한다."
+            "스키마는 이전 스크립트의 create_app_schema + 대화 그래프 저장 테이블 준비로 만든다. "
+            "앱 기동에서는 테이블을 만들지 않는다."
         )
     elif dry_run:
         report.notes.append("dry-run: schema setup skipped")

@@ -2,6 +2,8 @@
 
 import pytest
 
+from app.core.database import build_engine
+from app.core.schema_bootstrap import create_app_schema
 from app.research.evidence_index import (
     EvidenceIndexContractMismatch,
     ResearchEvidenceIndex,
@@ -12,9 +14,22 @@ def _url(tmp_path, name: str = "evidence.db") -> str:
     return f"sqlite:///{tmp_path / name}"
 
 
+def _prepare(url: str, *, model="test-model", dim=3, schema="test-schema") -> None:
+    engine = build_engine(url)
+    create_app_schema(
+        url,
+        engine,
+        embedding_model=model,
+        embedding_dimension=dim,
+        chunk_schema_version=schema,
+    )
+    engine.dispose()
+
+
 def test_persists_vectors_and_reopens_compatible_collections(tmp_path):
     """같은 설정으로 인덱스를 다시 열어도 저장한 공개 벡터와 출처 정보가 유지되는지 검증한다."""
     url = _url(tmp_path)
+    _prepare(url)
     evidence_index = ResearchEvidenceIndex(
         url,
         embedding_model="test-model",
@@ -50,6 +65,7 @@ def test_persists_vectors_and_reopens_compatible_collections(tmp_path):
 def test_rejects_collection_with_different_embedding_contract(tmp_path):
     """기존 컬렉션의 모델·차원·청킹 규칙이 다르면 벡터를 섞지 않고 거부하는지 검증한다."""
     url = _url(tmp_path)
+    _prepare(url)
     ResearchEvidenceIndex(
         url,
         embedding_model="test-model",

@@ -350,13 +350,25 @@ async def live_research_env(
     )
 
     monkeypatch.setattr(settings, "DATA_ROOT", tmp_path)
-    monkeypatch.setattr(
-        settings,
-        "DATABASE_URL",
-        f"sqlite:///{tmp_path / 'evidence.db'}",
-    )
+    evidence_url = f"sqlite:///{tmp_path / 'evidence.db'}"
+    monkeypatch.setattr(settings, "DATABASE_URL", evidence_url)
     monkeypatch.setattr(settings, "STORAGE_ROOT", tmp_path / "storage")
     storage_module.get_file_storage.cache_clear()
+
+    from app.core.database import build_engine
+    from app.core.schema_bootstrap import create_app_schema
+    from app.research.indexing import EMBEDDING_DIMENSION, EMBEDDING_MODEL
+    from app.research.source_chunking import CHUNK_SCHEMA_VERSION
+
+    evidence_engine = build_engine(evidence_url)
+    create_app_schema(
+        evidence_url,
+        evidence_engine,
+        embedding_model=EMBEDDING_MODEL,
+        embedding_dimension=EMBEDDING_DIMENSION,
+        chunk_schema_version=CHUNK_SCHEMA_VERSION,
+    )
+    evidence_engine.dispose()
 
     monkeypatch.setattr(database_module, "SessionLocal", test_session_factory)
     monkeypatch.setattr(main_module, "SessionLocal", test_session_factory)
