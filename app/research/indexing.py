@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from pathlib import Path
 
 from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
@@ -41,10 +40,10 @@ def create_research_embeddings(api_key: str | None = None) -> OpenAIEmbeddings:
 
 
 def create_research_evidence_index(
-    path: Path | None = None,
+    database_url: str | None = None,
 ) -> ResearchEvidenceIndex:
     return ResearchEvidenceIndex(
-        path or settings.CHROMA_ROOT,
+        database_url or settings.DATABASE_URL,
         embedding_model=EMBEDDING_MODEL,
         embedding_dimension=EMBEDDING_DIMENSION,
         chunk_schema_version=CHUNK_SCHEMA_VERSION,

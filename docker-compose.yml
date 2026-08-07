@@ -28,11 +28,10 @@ services:
     env_file:
       - .env
     environment:
-      # Keep manuscript files and (until later PRs) local chroma/checkpoint paths
-      # on the named volume. App metadata uses Compose Postgres via DATABASE_URL.
+      # Keep manuscript files on the named volume. App metadata and evidence
+      # vectors use Compose Postgres via DATABASE_URL.
       DATA_ROOT: /data
       STORAGE_ROOT: /data/storage
-      CHROMA_ROOT: /data/chroma_db
       DATABASE_URL: postgresql+psycopg://thinkchair:thinkchair@db:5432/thinkchair
     volumes:
       - think-chair-data:/data

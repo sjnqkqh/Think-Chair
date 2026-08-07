@@ -309,12 +309,12 @@ async def _run_research_conversation_case(
             evidence_index = create_research_evidence_index()
             total_chunks = 0
             for source in indexed:
-                stored = evidence_index.collections["public"].get(
-                    where={"source_id": str(source.id)},
-                    include=[],
+                total_chunks += sum(
+                    1
+                    for metadata in evidence_index.list_metadatas("public")
+                    if metadata.get("source_id") == str(source.id)
                 )
-                total_chunks += len(stored.get("ids") or [])
-            assert total_chunks >= 1, f"[{case.case_id}] Chroma에 청크가 하나도 없다"
+            assert total_chunks >= 1, f"[{case.case_id}] 벡터 인덱스에 청크가 하나도 없다"
         finally:
             db.close()
     finally:
@@ -327,7 +327,7 @@ async def live_research_env(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[LiveResearchEnv]:
-    """실 API만 쓰고 DB·Chroma·스토리지·체크포인트는 tmp로 격리한다."""
+    """실 API만 쓰고 DB·벡터 인덱스·스토리지·체크포인트는 tmp로 격리한다."""
     import app.core.database as database_module
     import app.main as main_module
 
@@ -350,7 +350,11 @@ async def live_research_env(
     )
 
     monkeypatch.setattr(settings, "DATA_ROOT", tmp_path)
-    monkeypatch.setattr(settings, "CHROMA_ROOT", tmp_path / "chroma")
+    monkeypatch.setattr(
+        settings,
+        "DATABASE_URL",
+        f"sqlite:///{tmp_path / 'evidence.db'}",
+    )
     monkeypatch.setattr(settings, "STORAGE_ROOT", tmp_path / "storage")
     storage_module.get_file_storage.cache_clear()
 
