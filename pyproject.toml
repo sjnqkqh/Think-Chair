@@ -27,6 +27,7 @@ dependencies = [
     "tiktoken>=0.12.0",
     "langfeather[langchain]>=0.3.2",
     "psycopg[binary]>=3.2",
+    "langgraph-checkpoint-postgres>=2.0.0",
 ]
 
 [project.scripts]

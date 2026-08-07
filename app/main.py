@@ -38,10 +38,12 @@ async def lifespan(app: FastAPI):
     async with AsyncExitStack() as stack:
         if settings.LLM_STARTUP_VERIFY:
             llm_registry.verify_configured_providers(settings)
-        checkpoint_path = str(settings.DATA_ROOT / "draftsmith_checkpoint.db")
         checkpointer = await stack.enter_async_context(
-            make_checkpointer(checkpoint_path)
+            make_checkpointer(settings.DATABASE_URL)
         )
+        setup = getattr(checkpointer, "setup", None)
+        if setup is not None:
+            await setup()
         graph = apply_langfeather(build_graph(checkpointer))
         app.state.graph = graph
         graph_runner = ChatGraphRunner(
