@@ -48,11 +48,6 @@ async def _classify_human_message(
     language_model = get_language_model(
         configuration["configurable"].get("model", "default")
     )
-    logger.info(
-        "llm.deepseek.request",
-        purpose="chat.router.classify",
-        reason="사용자 메시지 UserAction 분류",
-    )
     response = await language_model.ainvoke(
         [SystemMessage(content=CLASSIFIER.text), human_message]
     )

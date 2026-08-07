@@ -23,3 +23,15 @@ class ManuscriptResponse(BaseModel):
     concept: ConceptType
     status: ManuscriptStatus
     audience_level: str | None = None
+
+
+class ManuscriptLlmSettingsRequest(BaseModel):
+    provider: str = Field(..., min_length=1, max_length=32)
+    model: str = Field(..., min_length=1, max_length=64)
+    effort: str = Field(..., min_length=1, max_length=16)
+
+
+class ManuscriptLlmSettingsResponse(BaseModel):
+    provider: str
+    model: str
+    effort: str

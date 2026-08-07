@@ -17,6 +17,16 @@ from app.utils.sse import SseEvent
 pytestmark = pytest.mark.unit
 
 
+@pytest.fixture(autouse=True)
+def _stub_chat_model_key_for_manuscript(monkeypatch):
+    """스트림/턴 단위 테스트는 DB 설정 조회 없이 registry key만 고정한다."""
+    monkeypatch.setattr(
+        chat_service_module,
+        "chat_model_key_for_manuscript",
+        lambda *_args, **_kwargs: "default",
+    )
+
+
 class FakeGraphRunner:
     def __init__(self, tokens=()):
         self._tokens = tokens

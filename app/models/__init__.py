@@ -3,6 +3,7 @@ from app.models.manuscript import (
     ConceptType,
     DocumentEvaluation,
     Manuscript,
+    ManuscriptLlmSettings,
     ManuscriptStatus,
     ManuscriptVersion,
 )
@@ -23,6 +24,7 @@ __all__ = [
     "ConceptType",
     "DocumentEvaluation",
     "Manuscript",
+    "ManuscriptLlmSettings",
     "ManuscriptStatus",
     "ManuscriptVersion",
     "RoutingDecision",

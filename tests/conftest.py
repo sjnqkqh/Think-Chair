@@ -106,6 +106,12 @@ async def chat_app_state(fake_llm, db_session, monkeypatch):
         "app.research.turn_evidence.load_evidence_text_for_turn",
         lambda **_kwargs: "",
     )
+    # 원고 LLM 설정이 있어도 FakeListChatModel("default")만 쓰게 한다.
+    monkeypatch.setattr(
+        llm_registry,
+        "chat_model_key_for",
+        lambda **_kwargs: "default",
+    )
     storage = MagicMock()
     async with make_checkpointer(":memory:") as checkpointer:
         graph = build_graph(checkpointer)

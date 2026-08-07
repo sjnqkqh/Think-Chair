@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from app.graph import llm_registry
 from app.graph.chat_graph_runner import ChatGraphRunner
+from app.logging import get_logger
 from app.models.chat import ChatMessage
 from app.models.manuscript import Manuscript
 from app.models.research import ResearchJob
@@ -11,8 +12,11 @@ from app.models.user import User
 from app.repositories import chat_repo
 from app.research.evidence_need import detect_evidence_need
 from app.research.research_eligibility import concept_allows_web_research
+from app.services import manuscript_llm_settings_service
 from app.services.background_tasks import BackgroundTaskRegistry
 from app.utils.sse import SseEvent
+
+logger = get_logger(__name__)
 
 DOCUMENT_GENERATION_ACTIONS = {"outline", "generate_document"}
 DOCUMENT_GENERATION_ACK = (
@@ -44,6 +48,31 @@ def list_chat_messages(database_session, manuscript_id: uuid.UUID) -> list[ChatM
     return chat_repo.list_messages(database_session, manuscript_id)
 
 
+def chat_model_key_for_manuscript(
+    database_session,
+    manuscript_id: uuid.UUID,
+    *,
+    log_choice: bool = False,
+) -> str:
+    """원고에 설정된 LLM으로 대화할 때 쓸 registry key를 반환한다."""
+    settings = manuscript_llm_settings_service.llm_settings_for_manuscript(
+        database_session, manuscript_id
+    )
+    if log_choice:
+        logger.info(
+            "chat.llm_selected",
+            manuscript_id=str(manuscript_id),
+            provider=settings.provider,
+            model=settings.model,
+            effort=settings.effort,
+        )
+    return llm_registry.chat_model_key_for(
+        provider=settings.provider,
+        model=settings.model,
+        effort=settings.effort,
+    )
+
+
 class ChatService:
     """채팅 턴 처리와 응답 스트리밍 정책을 담당한다.
 
@@ -67,14 +96,10 @@ class ChatService:
         database_session,
         manuscript: Manuscript,
         user_message: str,
-        *,
-        provider: str | None = None,
-        model: str | None = None,
-        effort: str | None = None,
     ) -> TurnStart:
         """사용자 메시지를 기록하고 router 노드까지 그래프를 실행해 action을 반환한다."""
-        model_key = llm_registry.resolve_model_key(
-            provider=provider, model=model, effort=effort
+        model_key = chat_model_key_for_manuscript(
+            database_session, manuscript.id, log_choice=True
         )
         user = database_session.get(User, manuscript.user_id)
         user_chat_message = self._save_chat_message(
@@ -151,9 +176,6 @@ class ChatService:
         manuscript_id: uuid.UUID,
         action: str | None,
         *,
-        provider: str | None = None,
-        model: str | None = None,
-        effort: str | None = None,
         research_required: bool = False,
     ) -> AsyncIterator[tuple[str, dict]]:
         """action에 따라 (이벤트 이름, 페이로드) 쌍을 스트리밍한다.
@@ -162,9 +184,8 @@ class ChatService:
         조사 완료 후 답변은 stream_grounded_reply_after_research가 같은 턴에 이어 보낸다.
         """
         yield SseEvent.READY, {}
-        model_key = llm_registry.resolve_model_key(
-            provider=provider, model=model, effort=effort
-        )
+        with self.db_factory() as database_session:
+            model_key = chat_model_key_for_manuscript(database_session, manuscript_id)
 
         if is_document_generation(action):
             self._start_document_generation(manuscript_id, model_key)
@@ -182,19 +203,14 @@ class ChatService:
         self,
         manuscript: Manuscript,
         job: ResearchJob,
-        *,
-        provider: str | None = None,
-        model: str | None = None,
-        effort: str | None = None,
     ) -> AsyncIterator[tuple[str, dict]]:
         """조사가 끝난 뒤, 같은 사용자 메시지에 근거를 반영한 답변을 이어 스트리밍한다.
 
         begin_turn을 다시 호출하지 않으므로 사용자 메시지를 중복 저장하지 않는다.
         """
         yield SseEvent.READY, {}
-        model_key = llm_registry.resolve_model_key(
-            provider=provider, model=model, effort=effort
-        )
+        with self.db_factory() as database_session:
+            model_key = chat_model_key_for_manuscript(database_session, manuscript.id)
 
         query = (job.claim_or_query or "").strip()
         if query:
