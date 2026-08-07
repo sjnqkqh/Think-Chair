@@ -125,7 +125,7 @@ main
 | 앱 ORM 테이블 | `rag_history.db`(SQLite) | Postgres | 사용자·원고·채팅·조사 job/출처 메타 등 |
 | 근거 벡터 | Chroma 디렉터리 | pgvector 테이블 | 덤프 이전이 어려우면 **저장된 원문 기준 재인덱싱** 절차로 대체 가능. 어느 쪽이든 문서화·검증 필수 |
 | 대화 이어가기 | `draftsmith_checkpoint.db` | Postgres checkpointer | 포맷 호환이 안 되면 **빈 checkpointer로 재시작**을 명시하되, 앱 메타·채팅 화면 이력과의 관계를 README/스크립트에 적는다 |
-| 스키마 | — | Postgres 테이블·확장 | 런타임 `ALTER` 금지. ORM `create_all` + checkpointer `setup` + 근거 테이블 생성을 **한 번에 재현하는 스크립트/문서**로 고정 |
+| 스키마 | — | Postgres 테이블·확장 | **앱 런타임 DDL 포함** (`CREATE EXTENSION` / `create_all` / 근거 계약 테이블 / checkpointer `setup`). 컬럼 패치용 `ALTER`만 금지 |
 
 ---
 
@@ -234,9 +234,11 @@ main
 
 **할 일**
 
-1. **스키마 재현**
-   - 빈 Postgres에 앱 ORM 테이블·checkpointer 테이블·근거(pgvector) 테이블·`vector` 확장을 한 번에 만드는 절차/스크립트
-   - 앱 기동 시 숨은 `ALTER` 금지. 실패 시 로그로 원인을 알 수 있게
+1. **스키마 DDL (런타임 포함)**
+   - 앱 기동 시 `apply_runtime_ddl`: `vector` 확장, ORM `create_all`, 근거 계약 테이블
+   - lifespan에서 checkpointer `setup`
+   - 컷오버 스크립트도 **같은 DDL 경로**를 호출한 뒤 데이터 복사
+   - 컬럼 추가용 `ALTER TABLE` 패치는 하지 않음
 
 2. **앱 데이터 이전**
    - 기존 SQLite(`rag_history.db` 등) → Postgres로 행 복사
@@ -257,7 +259,8 @@ main
 
 **완료 조건**
 
-- [ ] 빈 Postgres에서 스키마 재현 스크립트/절차가 성공한다
+- [ ] 앱 기동 시 런타임 DDL이 적용된다 (`apply_runtime_ddl` + checkpointer `setup`)
+- [ ] 컷오버 스크립트가 동일 DDL 경로로 스키마를 만든 뒤 데이터를 복사한다
 - [ ] 샘플 SQLite 앱 DB를 넣으면 Postgres에 동일 건수·핵심 행이 보인다
 - [ ] 벡터: 이전 또는 재인덱싱 후 `query_chunks`로 근거를 찾을 수 있다
 - [ ] checkpointer 이전 또는 “재시작” 정책이 문서에 명시되어 있다

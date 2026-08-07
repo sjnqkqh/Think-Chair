@@ -20,6 +20,27 @@ EVIDENCE_COLLECTION_NAMES: dict[EvidenceScope, str] = {
 _CONTRACT_TABLE = "evidence_index_contracts"
 
 
+def ensure_evidence_schema_ddl(database_url: str, engine: Engine) -> None:
+    """앱 기동·컷오버에서 근거 인덱스용 최소 DDL (계약 테이블).
+
+    청크 테이블은 임베딩 차원에 따라 달라 첫 인덱스 오픈 때 만든다.
+    """
+    del database_url  # 계약 테이블 DDL은 방언 공통
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                f"""
+                CREATE TABLE IF NOT EXISTS {_CONTRACT_TABLE} (
+                    collection_name VARCHAR(128) PRIMARY KEY,
+                    embedding_model VARCHAR(255) NOT NULL,
+                    embedding_dimension INTEGER NOT NULL,
+                    chunk_schema_version VARCHAR(128) NOT NULL
+                )
+                """
+            )
+        )
+
+
 class EvidenceIndexContractMismatch(RuntimeError):
     pass
 
@@ -80,19 +101,7 @@ class ResearchEvidenceIndex:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
     def _ensure_contract_table(self) -> None:
-        with self.engine.begin() as conn:
-            conn.execute(
-                text(
-                    f"""
-                    CREATE TABLE IF NOT EXISTS {_CONTRACT_TABLE} (
-                        collection_name VARCHAR(128) PRIMARY KEY,
-                        embedding_model VARCHAR(255) NOT NULL,
-                        embedding_dimension INTEGER NOT NULL,
-                        chunk_schema_version VARCHAR(128) NOT NULL
-                    )
-                    """
-                )
-            )
+        ensure_evidence_schema_ddl(self.database_url, self.engine)
 
     def _chunk_table(self, collection_name: str) -> Table:
         if collection_name in self._chunk_tables:

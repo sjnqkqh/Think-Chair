@@ -8,8 +8,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.endpoints import router as api_router
 from app.core.config import settings
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import SessionLocal, engine
 from app.core.error_handlers import register_exception_handlers
+from app.core.schema_bootstrap import apply_runtime_ddl
 from app.core.storage import get_file_storage
 from app.llm import registry as llm_registry
 from app.graph.builder import build_graph
@@ -26,8 +27,8 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
 )
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# 런타임 DDL: vector 확장·ORM 테이블·근거 계약 테이블 (ALTER 패치 없음)
+apply_runtime_ddl(settings.DATABASE_URL, engine)
 
 llm_registry.bootstrap(settings)
 

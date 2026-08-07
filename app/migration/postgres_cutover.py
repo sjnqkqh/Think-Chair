@@ -1,7 +1,8 @@
 """SQLite 앱 DB → Postgres 스키마·데이터 이전.
 
-런타임 ALTER는 하지 않는다. 스키마는 ORM create_all + checkpointer setup +
-vector 확장으로만 재현한다.
+이 컷오버에서는 앱 런타임도 동일 DDL을 실행한다
+(``apply_runtime_ddl`` + checkpointer ``setup``).
+컬럼 패치용 ``ALTER TABLE`` 은 하지 않는다.
 """
 
 from __future__ import annotations
@@ -11,11 +12,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from sqlalchemy import MetaData, Table, create_engine, func, select, text
+from sqlalchemy import MetaData, Table, create_engine, func, select
 from sqlalchemy.engine import Engine
 
 import app.models  # noqa: F401 — Base.metadata 등록
-from app.core.database import Base, build_engine, is_sqlite_url
+from app.core.database import build_engine, is_sqlite_url
+from app.core.schema_bootstrap import apply_runtime_ddl
 
 # FK를 깨지 않는 복사 순서
 APP_TABLE_ORDER: tuple[str, ...] = (
@@ -54,15 +56,13 @@ class MigrationReport:
 
 
 def ensure_postgres_schema(database_url: str) -> None:
-    """빈(또는 기존) Postgres에 앱 테이블·vector 확장·checkpointer 테이블을 만든다."""
+    """앱 런타임과 같은 DDL을 Postgres에 적용한 뒤 checkpointer 테이블을 만든다."""
     if is_sqlite_url(database_url):
         raise ValueError("ensure_postgres_schema requires a Postgres DATABASE_URL")
 
     engine = build_engine(database_url)
     try:
-        with engine.begin() as conn:
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        Base.metadata.create_all(bind=engine)
+        apply_runtime_ddl(database_url, engine)
     finally:
         engine.dispose()
 
@@ -128,10 +128,7 @@ def copy_app_tables(
     try:
         if not dry_run:
             target = build_engine(target_url)
-            if not is_sqlite_url(target_url):
-                with target.begin() as conn:
-                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            Base.metadata.create_all(bind=target)
+            apply_runtime_ddl(target_url, target)
 
         target_wants_uuid = target is not None and not is_sqlite_url(target_url)
 
@@ -222,7 +219,10 @@ def migrate_sqlite_file_to_postgres(
     if setup_schema and not dry_run:
         ensure_postgres_schema(postgres_url)
         report.schema_ok = True
-        report.notes.append("Postgres schema ensured (ORM + vector + checkpointer)")
+        report.notes.append(
+            "스키마 DDL은 앱 런타임(apply_runtime_ddl + checkpointer setup)과 "
+            "동일한 경로로 적용한다."
+        )
     elif dry_run:
         report.notes.append("dry-run: schema setup skipped")
     else:

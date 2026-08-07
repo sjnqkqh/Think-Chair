@@ -9,6 +9,19 @@
 - 원본 `rag_history.db` 백업을 남겨 둔다
 - 대상 Postgres는 Compose `db` 서비스 (또는 동등 URL)
 
+## 런타임 DDL (이 컷오버의 정책)
+
+앱 기동 시 다음 DDL을 **런타임에서 실행**한다 (`app/core/schema_bootstrap.py`).
+
+- Postgres: `CREATE EXTENSION IF NOT EXISTS vector`
+- 앱 ORM: `Base.metadata.create_all`
+- 근거 인덱스: `evidence_index_contracts` 테이블 `CREATE TABLE IF NOT EXISTS`
+- lifespan: LangGraph checkpointer `setup()` (체크포인트 테이블 CREATE)
+
+컷오버 스크립트 `ensure_postgres_schema`도 **같은 `apply_runtime_ddl`** 을 호출한 뒤 checkpointer `setup`을 돌린다.
+
+컬럼 추가·타입 변경용 `ALTER TABLE` 패치는 하지 않는다.
+
 ## 절차
 
 1. Postgres 기동
@@ -26,13 +39,15 @@ uv run python scripts/migrate_sqlite_to_postgres.py \
   --dry-run
 ```
 
-3. 스키마 재현 + 데이터 복사
+3. 스키마 DDL + 데이터 복사
 
 ```bash
 uv run python scripts/migrate_sqlite_to_postgres.py \
   --sqlite /path/to/rag_history.db \
   --postgres-url postgresql+psycopg://thinkchair:thinkchair@localhost:5432/thinkchair
 ```
+
+이후 웹을 올리면 기동 시 동일 DDL이 다시 적용된다(IF NOT EXISTS라 멱등).
 
 4. 벡터 재인덱싱 대상 확인
 
@@ -54,8 +69,3 @@ Chroma 디렉터리 덤프 이전은 제공하지 않는다.
 
 - 앱 `DATABASE_URL`을 다시 SQLite로 돌리지 않는 것이 기본이다 (단계1 이후 런타임은 Postgres)
 - 데이터가 깨졌으면 Postgres 볼륨을 비우고, 보관한 `rag_history.db`로 3을 다시 실행한다
-
-## 런타임 ALTER
-
-앱 기동 코드에서 `ALTER TABLE`로 스키마를 고치지 않는다.
-스키마는 이 스크립트의 `ensure_postgres_schema`(ORM `create_all` + `vector` + checkpointer `setup`)로만 재현한다.
